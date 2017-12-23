@@ -40,8 +40,7 @@ struct Mesh {
 
   void init() {
     vao.init();
-    vbo.init();
-    ebo.init();
+    vbo.init(); ebo.init();
     vao.bind();
     vbo.bind();
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW); GLERROR
@@ -57,7 +56,7 @@ struct Mesh {
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tg));
     vao.enable(ebo);
     glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tg2));
-    decltype(ebo)::unbind();
+    /* decltype(ebo)::unbind(); */
     decltype(vao)::unbind();
   }
 
@@ -70,7 +69,7 @@ struct Mesh {
       normalNr = 1,
       heightNr = 1;
     for(unsigned i = 0; i < textures.size(); ++i) {
-      glActiveTexture(GL_TEXTURE0 + i); GLERROR
+      gl::Texture::set_active(i);
       std::string number;
       std::string name = textures[i].type;
       if(name == "texture_diffuse") {
@@ -92,6 +91,8 @@ struct Mesh {
   }
 
   void clear() {
+    vbo.clear();
+    ebo.clear();
     vao.clear();
   }
 };

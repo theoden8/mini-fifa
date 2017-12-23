@@ -41,6 +41,7 @@ protected:
   /* al::Audio audio; */
   Camera cam;
   std::tuple<Background, Pitch, Ball, Player> layers;
+  /* std::tuple<Background, Player> layers; */
 
   void start() {
     init_glfw();
@@ -125,6 +126,7 @@ public:
     while(!glfwWindowShouldClose(window)) {
       display();
       std::get<2>(layers).Keyboard(window);
+      std::get<3>(layers).Keyboard(window);
       cam.Keyboard(window);
       /* keyboard(); */
       glfwGetCursorPos(window, &m_x, &m_y);

@@ -31,9 +31,9 @@ struct Ball {
     attrVertices("vpos"),
     attrTexcoords("vtex")
   {
-    transform.SetScale(.02, .02, .02);
+    transform.SetScale(.01, .01, .01);
     transform.SetPosition(0, 0, 0);
-    transform.SetRotation(0, 1, 0, 0.f);
+    transform.SetRotation(1, 0, 0, 180.f);
   }
 
   glm::vec3 point_on_sphere(float dyx, float dzx) {
@@ -122,11 +122,13 @@ struct Ball {
     }
   }
 
+// gameplay
   glm::vec3 posit{0, 0, 0};
   glm::vec3 speed{0, 0, 0};
   float mass = 1.0f;
   glm::vec3 gravity{0, 0, -.0007};
-  void update_state() {
+
+  void idle() {
     float air_resistance = 0.9;
     float collision_resistance = 0.8;
     posit += speed * air_resistance;
@@ -155,8 +157,9 @@ struct Ball {
   glm::vec3 &position() { return posit; }
   glm::vec3 &velocity() { return speed; }
 
+// graphics again
   void display(Camera &cam) {
-    update_state();
+    idle();
     program.use();
 
     if(transform.has_changed || cam.has_changed) {

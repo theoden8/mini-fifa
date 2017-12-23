@@ -44,7 +44,9 @@ struct Model {
   void processNode(aiNode *node, const aiScene *scene) {
     for(unsigned i = 0; i < node->mNumMeshes; ++i) {
       aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
-      meshes.push_back(processMesh(mesh, scene));
+      auto m = processMesh(mesh, scene);
+      m.init();
+      meshes.push_back(m);
     }
     for(unsigned i = 0; i < node->mNumChildren; ++i) {
       processNode(node->mChildren[i], scene);
