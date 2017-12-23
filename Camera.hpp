@@ -8,7 +8,7 @@
 struct Camera {
   /* glm::mat4 perspective; */
   /* glm::mat4 lookat; */
-  /* glm::mat4 projection; */
+  glm::mat4 projection;
   bool has_changed = true;
 
   Camera() {
@@ -27,7 +27,7 @@ struct Camera {
   glm::vec3 cameraUp;
   glm::mat4 view;
   glm::mat4 zoom;
-  float fov = 20.;
+  float fov = 60.;
   /* glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f); */
   /* glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f); */
   void Keyboard(GLFWwindow *w) {
@@ -66,15 +66,15 @@ struct Camera {
     /*   target, */
     /*   glm::vec3(0, 1, 0) */
     /* ); */
-    /* if(new_width > new_height) { */
-    /*   projection = glm::ortho(-new_width/new_height, new_width/new_height, -1.0f, 1.0f, 1.0f, -1.0f); */
-    /* } else if(new_width <= new_height) { */
-    /*   projection = glm::ortho(-1.0f, 1.0f, -new_height/new_width, new_height/new_width, 1.0f, -1.0f); */
-    /* } */
+    if(new_width > new_height) {
+      projection = glm::ortho(-new_width/new_height, new_width/new_height, -1.0f, 1.0f, 1.0f, -1.0f);
+    } else if(new_width <= new_height) {
+      projection = glm::ortho(-1.0f, 1.0f, -new_height/new_width, new_height/new_width, 1.0f, -1.0f);
+    }
   }
 
   decltype(auto) get_matrix() {
-    return zoom * view;
+    return zoom * view * projection;
   }
 
   void clear() {

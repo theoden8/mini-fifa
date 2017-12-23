@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Camera.hpp"
 #include "Shader.hpp"
 #include "ShaderProgram.hpp"
 #include "ShaderAttrib.hpp"
@@ -36,7 +37,7 @@ struct Background {
     program.init(vao, {"attrTriangle"});
   }
 
-  void display() {
+  void display(Camera &cam) {
     program.use();
 
     vao.bind();

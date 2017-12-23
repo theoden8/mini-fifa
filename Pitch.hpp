@@ -12,7 +12,6 @@
 #include "Texture.hpp"
 
 struct Pitch {
-  Camera cam;
   Transformation transform;
   glm::mat4 matrix;
 
@@ -37,7 +36,6 @@ struct Pitch {
   }
 
   void init() {
-    cam.init();
     attrTriangle.init();
     attrTriangle.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
       -1,-1,0, 1,-1,0, 1,1,0,
@@ -56,11 +54,7 @@ struct Pitch {
     uTransform.set_id(program.id());
   }
 
-  void Resize(float new_width, float new_height) {
-    cam.WindowResize(new_width, new_height);
-  }
-
-  void Keyboard(GLFWwindow *w) {
+  /* void Keyboard(GLFWwindow *w) { */
     /* if(glfwGetKey(w, GLFW_KEY_UP)) { */
     /*   transform.MovePosition(0, -.05, 0); */
     /* } else if(glfwGetKey(w, GLFW_KEY_DOWN)) { */
@@ -90,10 +84,9 @@ struct Pitch {
     /*   transform.SetPosition(0, 0, .1); */
     /*   transform.SetRotation(0, 1, 0, 0); */
     /* } */
-    cam.Keyboard(w);
-  }
+  /* } */
 
-  void display() {
+  void display(Camera &cam) {
     program.use();
 
     if(transform.has_changed || cam.has_changed) {
@@ -116,7 +109,6 @@ struct Pitch {
   }
 
   void clear() {
-    cam.clear();
     grassTx.clear();
     attrTriangle.clear();
     vao.clear();

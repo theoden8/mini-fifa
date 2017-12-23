@@ -15,8 +15,11 @@
 #include "Logger.hpp"
 #include "Debug.hpp"
 
+#include "Camera.hpp"
 #include "Background.hpp"
 #include "Pitch.hpp"
+#include "Ball.hpp"
+#include "Player.hpp"
 
 namespace glfw {
 void error_callback(int error, const char* description);
@@ -36,7 +39,8 @@ protected:
   size_t width_, height_;
 
   /* al::Audio audio; */
-  std::tuple<Background, Pitch> layers;
+  Camera cam;
+  std::tuple<Background, Pitch, Ball, Player> layers;
 
   void start() {
     init_glfw();
@@ -61,7 +65,7 @@ protected:
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL
 
-    window = glfwCreateWindow(width(), height(), "noname", NULL, NULL);
+    window = glfwCreateWindow(width(), height(), "pitch", NULL, NULL);
     ASSERT(window != NULL);
     window_reference[window] = this;
     glfwMakeContextCurrent(window); GLERROR
@@ -109,6 +113,7 @@ public:
   void init() {
     start();
     Logger::Info("INIT\n");
+    cam.init();
     Tuple::for_each(layers, [&](auto &lyr) mutable {
       Logger::Info("INIT LAYER\n");
       lyr.init();
@@ -119,7 +124,8 @@ public:
     /* audio.Play(); */
     while(!glfwWindowShouldClose(window)) {
       display();
-      std::get<1>(layers).Keyboard(window);
+      std::get<2>(layers).Keyboard(window);
+      cam.Keyboard(window);
       /* keyboard(); */
       glfwGetCursorPos(window, &m_x, &m_y);
       mouse(m_x, m_y);
@@ -140,7 +146,7 @@ public:
     glFrontFace(GL_CCW); GLERROR
 
     Tuple::for_each(layers, [&](auto &lyr) mutable {
-      lyr.display();
+      lyr.display(cam);
     });
 
     glfwPollEvents(); GLERROR
@@ -148,7 +154,7 @@ public:
   }
   void resize(float new_width, float new_height) {
     width_ = new_width, height_ = new_height;
-    std::get<1>(layers).Resize(new_width, new_height);
+    cam.WindowResize(new_width, new_height);
     /* current_screen->Resize(); */
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
@@ -172,6 +178,7 @@ public:
     Tuple::for_each(layers, [&](auto &lyr) {
       lyr.clear();
     });
+    cam.clear();
     glfwTerminate(); GLERROR
   }
 };

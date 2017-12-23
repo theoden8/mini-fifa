@@ -17,32 +17,27 @@ class ShaderProgram {
   GLuint program = 0;
   std::tuple<ShaderTs...> shaders;
 
-  template <typename... Ts> void unroll(...){}
-
-// each
-  template <size_t I> int init_each() { std::get<I>(shaders).init(); }
-  template <size_t I> int attach_each() { glAttachShader(program, std::get<I>(shaders).id()); GLERROR }
-  template <size_t I> int clear_each() { std::get<I>(shaders).clear(); }
-// iter
-  template <size_t... Is> void init_iter(std::index_sequence<Is...>) { unroll(init_each<Is>()...); }
-  template <size_t... Is> void attach_iter(std::index_sequence<Is...>) { unroll(attach_each<Is>()...); }
-  template <size_t... Is> void clear_iter(std::index_sequence<Is...>) { unroll(clear_each<Is>()...); }
-//
-
+public:
   void compile_program() {
-    init_iter(std::make_index_sequence<sizeof...(ShaderTs)>());
+    Tuple::for_each(shaders, [&](auto &s) mutable {
+      s.init();
+    });
     program = glCreateProgram(); GLERROR
     ASSERT(program != 0);
-    attach_iter(std::make_index_sequence<sizeof...(ShaderTs)>());
+    Tuple::for_each(shaders, [&](auto &s) mutable {
+      glAttachShader(program, s.id()); GLERROR
+    });
     glLinkProgram(program); GLERROR
-    clear_iter(std::make_index_sequence<sizeof...(ShaderTs)>());
+    Tuple::for_each(shaders, [&](auto &s) mutable {
+      s.clear();
+    });
   }
   void bind_attrib(const std::vector <std::string> &locations) {
     for(size_t i = 0; i < locations.size(); ++i) {
       glBindAttribLocation(program, i, locations[i].c_str()); GLERROR
     }
   }
-public:
+
   template <typename... STRINGs>
   ShaderProgram(STRINGs... shader_filenames):
     shaders(shader_filenames...)
@@ -67,14 +62,11 @@ public:
     glUseProgram(0); GLERROR
     last_used_program = 0;
   }
-  // clear_each
-  template <size_t I> int detach_each() { glDetachShader(program, std::get<I>(shaders).id()); GLERROR }
-  template <size_t... Is> void detach_iter(std::index_sequence<Is...>) { unroll(detach_each<Is>()...); }
+
   void clear() {
-    detach_iter(std::make_index_sequence<sizeof...(ShaderTs)>());
-    /* Tuple::for_each(shaders, [&](const auto &s) { */
-    /*   glDetachShader(program, s.id()); GLERROR */
-    /* }); */
+    Tuple::for_each(shaders, [&](const auto &s) {
+      glDetachShader(program, s.id()); GLERROR
+    });
     glDeleteProgram(program); GLERROR
   }
 

@@ -1,5 +1,5 @@
 #include "Window.hpp"
-#include "Pitch.hpp"
+#include "Model.hpp"
 
 int main() {
   gl::Window w;

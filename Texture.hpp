@@ -23,9 +23,11 @@ struct Texture {
     uSampler(uniform_name.c_str())
   {}
 
-private:
   static img::Image *make_image(File &file) {
-    ASSERT(file.exists());
+    if(!file.exists()) {
+      Logger::Info("file '%s' not found", file.name().c_str());
+      ASSERT(file.exists());
+    }
     if(file.is_ext(".png")) {
       return new img::PNGImage(file.name().c_str());
     /* } else if(file.is_ext(".jpg") || file.is_ext(".jpeg")) { */
@@ -40,7 +42,6 @@ private:
     return nullptr;
   }
 
-public:
   void init_white_square() {
     uint32_t *image = new uint32_t[100*100];
     for(int i = 0; i < 100*100; ++i) {
@@ -74,8 +75,8 @@ public:
     glTexImage2D(GL_TEXTURE_2D, 0, image->format, image->width, image->height, 0, image->format, GL_UNSIGNED_BYTE, image->data); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); GLERROR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); GLERROR
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); GLERROR
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); GLERROR
     glGenerateMipmap(GL_TEXTURE_2D); GLERROR
     Texture::unbind();
     /* Logger::Info("create texture '%s': %ld\n", filename.c_str(), clock()-c); */
