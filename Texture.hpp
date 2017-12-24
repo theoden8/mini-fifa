@@ -11,6 +11,7 @@
 #include "File.hpp"
 #include "Image.hpp"
 #include "PNGImage.hpp"
+#include "JPEGImage.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 
@@ -30,8 +31,8 @@ struct Texture {
     }
     if(file.is_ext(".png")) {
       return new img::PNGImage(file.name().c_str());
-    /* } else if(file.is_ext(".jpg") || file.is_ext(".jpeg")) { */
-    /*   return new img::JPEGImage(file.name().c_str()); */
+    } else if(file.is_ext(".jpg") || file.is_ext(".jpeg")) {
+      return new img::JPEGImage(file.name().c_str());
     /* } else if(file.is_ext(".tiff")) { */
     /*   return new img::TIFFImage(file.name().c_str()); */
     /* } else if(file.is_ext(".bmp")) { */

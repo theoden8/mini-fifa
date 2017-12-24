@@ -21,13 +21,13 @@ struct Pitch {
   > program;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC3> attrTriangle;
+  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
   gl::Texture grassTx;
 
   Pitch():
     program({"pitch.vert", "pitch.frag"}),
     uTransform("transform"),
-    attrTriangle("triangle"),
+    attrVertex("vertex"),
     grassTx("grass")
   {
     transform.SetScale(2, 1, 1);
@@ -36,18 +36,18 @@ struct Pitch {
   }
 
   void init() {
-    attrTriangle.init();
-    attrTriangle.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
-      1,1,0, -1,1,0, -1,-1,0,
-      -1,-1,0, 1,-1,0, 1,1,0,
+    attrVertex.init();
+    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+      1,1, -1,1, -1,-1,
+      -1,-1, 1,-1, 1,1,
     });
 
     vao.init();
     vao.bind();
-    vao.enable(attrTriangle);
-    vao.set_access(attrTriangle, 0, 0);
+    vao.enable(attrVertex);
+    vao.set_access(attrVertex, 0, 0);
     gl::VertexArray::unbind();
-    program.init(vao, {"attrTriangle"});
+    program.init(vao, {"attrVertex"});
     grassTx.init("assets/grass.png");
 
     grassTx.uSampler.set_id(program.id());
@@ -110,7 +110,7 @@ struct Pitch {
 
   void clear() {
     grassTx.clear();
-    attrTriangle.clear();
+    attrVertex.clear();
     vao.clear();
     program.clear();
   }

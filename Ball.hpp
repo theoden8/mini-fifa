@@ -134,7 +134,7 @@ struct Ball {
     current_time = std::isnan(curtime) ? glfwGetTime() : curtime;
     double timediff = current_time - prev_time;
     float air_resistance = 0.9;
-    float collision_resistance = 0.8;
+    float collision_resistance = 0.85;
     posit += speed * air_resistance;
     if(posit.z < 0) {
       posit.z = -posit.z;
@@ -154,12 +154,21 @@ struct Ball {
         speed.y,
         0
       );
+      norm /= glm::length(norm);
+      float angle = atan2(norm.x, norm.y);
+      angle += 90;
+      norm = glm::vec3(
+        std::cos(angle),
+        std::sin(angle),
+        0
+      );
       transform.Rotate(norm.x, norm.y, norm.z, glm::length(speed) * 100);
     }
   }
 
   glm::vec3 &position() { return posit; }
   glm::vec3 &velocity() { return speed; }
+  double height() const { return posit.z; }
 
 // graphics again
   void display(Camera &cam) {

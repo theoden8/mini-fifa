@@ -1,4 +1,4 @@
-#version 400
+#version 330 core
 
 in vec2 pos_xy;
 out vec4 frag_color;

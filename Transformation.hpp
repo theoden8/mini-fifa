@@ -3,7 +3,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
+// is affine
 struct Transformation {
   glm::mat4 translation;
   glm::mat4 rotation;
@@ -30,6 +32,10 @@ struct Transformation {
 
   decltype(auto) get_matrix() {
     return translation * rotation * scaling;
+  }
+
+  decltype(auto) inverse() {
+    return glm::affineInverse(get_matrix());
   }
 
   void SetPosition(float x, float y, float z) {
