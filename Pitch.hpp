@@ -38,8 +38,8 @@ struct Pitch {
   void init() {
     attrTriangle.init();
     attrTriangle.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
-      -1,-1,0, 1,-1,0, 1,1,0,
       1,1,0, -1,1,0, -1,-1,0,
+      -1,-1,0, 1,-1,0, 1,1,0,
     });
 
     vao.init();

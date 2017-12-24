@@ -1,22 +1,48 @@
 #pragma once
 
-#include "incgraphics.h"
-#include "Transformation.hpp"
+#include <cstdio>
+#include <cmath>
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
+
+#include "incgraphics.h"
+#include "Window.hpp"
+#include "Transformation.hpp"
+
+namespace gl {
+struct Window;
+}
 
 struct Camera {
   /* glm::mat4 perspective; */
   /* glm::mat4 lookat; */
-  glm::mat4 projection;
+  /* glm::mat4 projection; */
   bool has_changed = true;
 
-  Camera() {
+  Camera()
+  {
     /* perspective = glm::perspective(glm::radians(45.0f), 1.33f, 0.1f, 10.0f); */
   }
     /* WindowResize(w, h); */
 
   void init() {
+    update();
+  }
+
+  void update(float ratio=1.33f) {
+    /* cameraPos = cameraTarget + glm::vec3(0, std::cos(glm::radians(angle)), std::sin(glm::radians(angle))); */
+    cameraPos = cameraTarget + glm::vec3(0, std::cos(glm::radians(angle)), std::sin(glm::radians(angle)));
+    cameraDirection = glm::normalize(cameraPos - cameraTarget);
+    cameraRight = glm::normalize(glm::cross(up, cameraDirection));
+    cameraUp = glm::cross(cameraDirection, cameraRight);
+    view = glm::lookAt(
+      cameraPos,
+      cameraTarget,
+      up
+    );
+    zoom = glm::perspective(glm::radians(fov), ratio, 0.1f, 100.0f);
+    /* lookat = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp); */
   }
 
   glm::vec3 cameraPos;
@@ -27,36 +53,45 @@ struct Camera {
   glm::vec3 cameraUp;
   glm::mat4 view;
   glm::mat4 zoom;
-  float fov = 60.;
+  float fov = 75.;
+  float angle = 60.f;
   /* glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f); */
   /* glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f); */
-  void Keyboard(GLFWwindow *w) {
+  float cameraSpeed = 0.05f; // adjust accordingly
+  void keyboard(GLFWwindow *w, float ratio) {
     /* static float accel = 1.01; */
-    float cameraSpeed = 0.05f; // adjust accordingly
-    if (glfwGetKey(w, GLFW_KEY_W) == GLFW_PRESS) {
+    if (glfwGetKey(w, GLFW_KEY_UP) == GLFW_PRESS) {
       cameraTarget.y -= cameraSpeed; // * cameraFront;
-    } else if (glfwGetKey(w, GLFW_KEY_S) == GLFW_PRESS) {
+    } else if (glfwGetKey(w, GLFW_KEY_DOWN) == GLFW_PRESS) {
       cameraTarget.y += cameraSpeed; // * cameraFront;
-    } else if (glfwGetKey(w, GLFW_KEY_A) == GLFW_PRESS) {
+    } else if (glfwGetKey(w, GLFW_KEY_LEFT) == GLFW_PRESS) {
       cameraTarget.x += cameraSpeed; // glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-    } else if (glfwGetKey(w, GLFW_KEY_D) == GLFW_PRESS) {
+    } else if (glfwGetKey(w, GLFW_KEY_RIGHT) == GLFW_PRESS) {
       cameraTarget.x -= cameraSpeed; // glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
     } else if (glfwGetKey(w, GLFW_KEY_MINUS) == GLFW_PRESS) {
-      fov = std::fmin<double>(fov + 1, 60);
+      fov = std::fmin<double>(fov + 1, 1200);
     } else if (glfwGetKey(w, GLFW_KEY_EQUAL) == GLFW_PRESS) {
       fov = std::fmax<double>(fov - 1, 1);
+    } else if (glfwGetKey(w, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS) {
+      angle = std::fmin<double>(angle + 1, 89);
+    } else if (glfwGetKey(w, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS) {
+      angle = std::fmax<double>(angle - 1, 10);
     }
-    cameraPos = cameraTarget + glm::vec3(0, 1, 1.5);
-    cameraDirection = glm::normalize(cameraPos - cameraTarget);
-    cameraRight = glm::normalize(glm::cross(up, cameraDirection));
-    cameraUp = glm::cross(cameraDirection, cameraRight);
-    view = glm::lookAt(
-      cameraPos,
-      cameraTarget,
-      up
-    );
-    zoom = glm::perspective(glm::radians(fov), 1.33f, 0.1f, 100.0f);
-    /* lookat = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp); */
+    update(ratio);
+  }
+
+  void mouse(double x, double y) {
+    double border = .05;
+    if(x < border) {
+      cameraTarget.x += cameraSpeed;
+    } else if(x > 1.-border) {
+      cameraTarget.x -= cameraSpeed;
+    }
+    if(y < border) {
+      cameraTarget.y -= cameraSpeed;
+    } else if(y > 1.-border) {
+      cameraTarget.y += cameraSpeed;
+    }
   }
 
   void WindowResize(float new_width, float new_height) {
@@ -66,15 +101,15 @@ struct Camera {
     /*   target, */
     /*   glm::vec3(0, 1, 0) */
     /* ); */
-    if(new_width > new_height) {
-      projection = glm::ortho(-new_width/new_height, new_width/new_height, -1.0f, 1.0f, 1.0f, -1.0f);
-    } else if(new_width <= new_height) {
-      projection = glm::ortho(-1.0f, 1.0f, -new_height/new_width, new_height/new_width, 1.0f, -1.0f);
-    }
+    /* if(new_width > new_height) { */
+    /*   projection = glm::ortho(-new_width/new_height, new_width/new_height, -1.0f, 1.0f, 1.0f, -1.0f); */
+    /* } else if(new_width <= new_height) { */
+    /*   projection = glm::ortho(-1.0f, 1.0f, -new_height/new_width, new_height/new_width, 1.0f, -1.0f); */
+    /* } */
   }
 
   decltype(auto) get_matrix() {
-    return zoom * view * projection;
+    return zoom * view;
   }
 
   void clear() {

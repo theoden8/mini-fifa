@@ -113,13 +113,13 @@ struct Ball {
   }
 
   void Keyboard(GLFWwindow *w) {
-    if(glfwGetKey(w, GLFW_KEY_X)) {
-      posit = glm::vec3(0, 0, .4);
-    } else if(glfwGetKey(w, GLFW_KEY_Z)) {
-      speed += glm::vec3(.001, 0, 0);
-    } else if(glfwGetKey(w, GLFW_KEY_C)) {
-      speed += glm::vec3(-.005, 0, .003);
-    }
+    /* if(glfwGetKey(w, GLFW_KEY_X)) { */
+    /*   posit = glm::vec3(0, 0, .4); */
+    /* } else if(glfwGetKey(w, GLFW_KEY_Z)) { */
+    /*   speed += glm::vec3(.001, 0, 0); */
+    /* } else if(glfwGetKey(w, GLFW_KEY_C)) { */
+    /*   speed += glm::vec3(-.005, 0, .003); */
+    /* } */
   }
 
 // gameplay
@@ -127,8 +127,12 @@ struct Ball {
   glm::vec3 speed{0, 0, 0};
   float mass = 1.0f;
   glm::vec3 gravity{0, 0, -.0007};
+  double current_time = 0.;
 
-  void idle() {
+  void idle(double curtime = NAN) {
+    double prev_time = current_time;
+    current_time = std::isnan(curtime) ? glfwGetTime() : curtime;
+    double timediff = current_time - prev_time;
     float air_resistance = 0.9;
     float collision_resistance = 0.8;
     posit += speed * air_resistance;
@@ -159,7 +163,6 @@ struct Ball {
 
 // graphics again
   void display(Camera &cam) {
-    idle();
     program.use();
 
     if(transform.has_changed || cam.has_changed) {

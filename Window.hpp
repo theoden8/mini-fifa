@@ -17,9 +17,7 @@
 
 #include "Camera.hpp"
 #include "Background.hpp"
-#include "Pitch.hpp"
-#include "Ball.hpp"
-#include "Player.hpp"
+#include "Soccer.hpp"
 
 namespace glfw {
 void error_callback(int error, const char* description);
@@ -40,7 +38,7 @@ protected:
 
   /* al::Audio audio; */
   Camera cam;
-  std::tuple<Background, Pitch, Ball, Player> layers;
+  std::tuple<Background, Soccer> layers;
   /* std::tuple<Background, Player> layers; */
 
   void start() {
@@ -56,7 +54,7 @@ protected:
     ASSERT(rc == 1);
 
     vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    ASSERT(vidmode != NULL);
+    ASSERT(vidmode != nullptr);
     width_ = vidmode->width;
     height_ = vidmode->height;
 
@@ -66,8 +64,9 @@ protected:
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL
 
-    window = glfwCreateWindow(width(), height(), "pitch", NULL, NULL);
-    ASSERT(window != NULL);
+    #define MONITOR nullptr
+    window = glfwCreateWindow(width(), height(), "pitch", MONITOR, nullptr);
+    ASSERT(window != nullptr);
     window_reference[window] = this;
     glfwMakeContextCurrent(window); GLERROR
     glfwSetKeyCallback(window, glfw::keypress_callback); GLERROR
@@ -86,9 +85,9 @@ protected:
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
     /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
   }
-  const GLFWvidmode *vidmode = NULL;
+  const GLFWvidmode *vidmode = nullptr;
 public:
-  GLFWwindow *window = NULL;
+  GLFWwindow *window = nullptr;
   Window():
     width_(0), height_(0)
   {}
@@ -125,12 +124,13 @@ public:
     /* audio.Play(); */
     while(!glfwWindowShouldClose(window)) {
       display();
-      std::get<2>(layers).Keyboard(window);
-      std::get<3>(layers).Keyboard(window);
-      cam.Keyboard(window);
+      std::get<1>(layers).Keyboard(window);
+      cam.keyboard(window, double(width())/height());
       /* keyboard(); */
       glfwGetCursorPos(window, &m_x, &m_y);
-      mouse(m_x, m_y);
+      m_x /= width(), m_y /= height();
+      cam.mouse(m_x, m_y);
+      std::get<1>(layers).mouse(m_x, m_y, cam);
     }
     /* audio.Stop(); */
   }
@@ -144,8 +144,8 @@ public:
     /* glStencilMask(0xFF); GLERROR */
 
     glEnable(GL_CULL_FACE); GLERROR
-    glCullFace(GL_BACK); GLERROR
-    glFrontFace(GL_CCW); GLERROR
+    glCullFace(GL_FRONT); GLERROR
+    glFrontFace(GL_CW); GLERROR
 
     Tuple::for_each(layers, [&](auto &lyr) mutable {
       lyr.display(cam);
@@ -169,8 +169,6 @@ public:
     if(action == GLFW_RELEASE) {
       /* current_screen->KeyRelease(key, scancode, mods); */
     }
-  }
-  void mouse(double x, double y) {
   }
   void mouse_click(double x, double y, int button, int action, int mods) {
   }
