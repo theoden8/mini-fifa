@@ -11,6 +11,22 @@
 #include "ShaderAttrib.hpp"
 #include "Texture.hpp"
 
+struct Region {
+  glm::vec2 xs, ys;
+  Region(glm::vec2 xs, glm::vec2 ys):
+    xs(xs), ys(ys)
+  {
+    if(xs.x>xs.y)xs=glm::vec2(xs.y,xs.x);
+    if(ys.x>ys.y)ys=glm::vec2(ys.y,ys.x);
+  }
+
+  bool contains(float x, float y) const {
+    return
+      xs.x <= x && x <= xs.y
+      && ys.x <= y && y <= ys.y;
+  }
+};
+
 struct Pitch {
   Transformation transform;
   glm::mat4 matrix;
@@ -54,7 +70,21 @@ struct Pitch {
     uTransform.set_id(program.id());
   }
 
-  /* void Keyboard(GLFWwindow *w) { */
+  Region playable_area() {
+    return Region(glm::vec2(-1.80, 1.80), glm::vec2(-.95, .95));
+  }
+
+  Region left_half() {
+    auto playable = playable_area();
+    return Region(glm::vec2(playable.xs.x, 0), glm::vec2(playable.ys.x, playable.ys.y));
+  }
+
+  Region right_half() {
+    auto playable = playable_area();
+    return Region(glm::vec2(0, playable.xs.y), glm::vec2(playable.ys.x, playable.ys.y));
+  }
+
+  /* void keyboard(GLFWwindow *w) { */
     /* if(glfwGetKey(w, GLFW_KEY_UP)) { */
     /*   transform.MovePosition(0, -.05, 0); */
     /* } else if(glfwGetKey(w, GLFW_KEY_DOWN)) { */

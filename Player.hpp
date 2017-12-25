@@ -6,6 +6,9 @@
 #include "Model.hpp"
 #include "Shadow.hpp"
 
+#include "Timer.hpp"
+#include "Unit.hpp"
+
 struct Player {
 // opengl stuff
   glm::mat4 matrix;
@@ -20,20 +23,18 @@ struct Player {
   > program;
   Shadow shadow;
 
-  bool team;
-  glm::vec2 initial_position;
-  Player(bool team, std::pair<float, float> pos={0, 0}):
-    team(team),
-    initial_position(pos.first, pos.second),
+  Unit::loc_t initial_position;
+  Player(int id, bool team, std::pair<float, float> pos={0, 0}):
+    team(team), playerId(id),
+    initial_position(pos.first, pos.second, 0),
     uTransform("transform"),
     playerModel("assets/nanosuit/nanosuit.obj"),
-    program({"player.vert", "player.frag"})
+    program({"player.vert", "player.frag"}),
+    unit(Unit::loc_t(initial_position), 4*M_PI)
   {
-    dest = glm::vec2(pos.first, pos.second);
-    cur_pos = glm::vec3(pos.first, pos.second, 0);
     transform.SetScale(.01);
     transform.Scale(1, .75, 1);
-    transform.SetPosition(cur_pos.x, cur_pos.y, 0);
+    transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
     extra_rotate =
       glm::rotate(glm::radians(90.f), glm::vec3(0, 0, 1))
       * glm::rotate(glm::radians(90.f), glm::vec3(1, 0, 0));
@@ -46,27 +47,26 @@ struct Player {
     playerModel.init();
     uTransform.set_id(program.id());
     shadow.init();
+    set_timer();
   }
 
-  void Keyboard(GLFWwindow *w) {
+  void keyboard(int key) {
     double step = .3;
-    if(glfwGetKey(w, GLFW_KEY_A)) {
-      dest = glm::vec2(cur_pos.x + step, cur_pos.y);
-    } else if(glfwGetKey(w, GLFW_KEY_D)) {
-      dest = glm::vec2(cur_pos.x - step, cur_pos.y);
-    } else if(glfwGetKey(w, GLFW_KEY_W)) {
-      dest = glm::vec2(cur_pos.x, cur_pos.y - step);
-    } else if(glfwGetKey(w, GLFW_KEY_S)) {
-      dest = glm::vec2(cur_pos.x, cur_pos.y + step);
-    } else if(glfwGetKey(w, GLFW_KEY_H)) {
-      dest = cur_pos;
-    } else if(glfwGetKey(w, GLFW_KEY_V)) {
-      jump();
+    if(key == GLFW_KEY_A) {
+      unit.move(Unit::loc_t(unit.pos.x + step, unit.pos.y, unit.pos.z));
+    } else if(key == GLFW_KEY_D) {
+      unit.move(Unit::loc_t(unit.pos.x - step, unit.pos.y, unit.pos.z));
+    } else if(key == GLFW_KEY_W) {
+      unit.move(Unit::loc_t(unit.pos.x, unit.pos.y - step, unit.pos.z));
+    } else if(key == GLFW_KEY_S) {
+      unit.move(Unit::loc_t(unit.pos.x, unit.pos.y + step, unit.pos.z));
+    } else if(key == GLFW_KEY_H) {
+      unit.stop();
     }
   }
 
   void display(Camera &cam) {
-    shadow.transform.SetPosition(cur_pos.x, cur_pos.y, 0.001);
+    shadow.transform.SetPosition(unit.pos.x, unit.pos.y, .001);
     shadow.display(cam);
 
     program.use();
@@ -89,187 +89,167 @@ struct Player {
   }
 
 // gameplay
-  double current_time = 0.;
-  double running_speed = 0.002;
-  double possession_running_speed = running_speed * .75;
-  double possession_range = .05;
-  double possession_cooldown = 1.1;
-  double possession_offset = .03;
-  glm::vec2 dest = glm::vec2(0, 0);
-  glm::vec3 cur_pos = glm::vec3(0, 0, 0);
-  double facing = 0.;
-  double facing_dest = 0.;
-  double facing_speed = 4*M_PI;
+  Unit unit;
+  Timer timer;
+  bool team;
+  int playerId;
+  static constexpr int
+    TIME_LOST_BALL = 0,
+    TIME_GOT_BALL = 1,
+    TIME_OF_LAST_JUMP = 2,
+    TIME_OF_LAST_SLIDE = 3,
+    TIME_OF_LAST_PASS = 4;
+  const float running_speed = 0.1;
   bool has_ball = false;
-  double time_got_ball = 0.;
-  double time_lost_ball = 0.;
-  double time_last_jump = 0.;
-  double jump_cooldown = 3.;
-  double max_jump_height = .07;
-  double jump_duration = 1.75;
-  double time_last_pass = 0.;
-  double pass_cooldown = 2.;
-  double time_last_slide = 0.;
-  double slide_cooldown = 1.5;
-  double sliding_speed = 2 * running_speed;
+  const Timer::time_t possession_cooldown = 1.1;
+  const float possession_range = .05;
+  const float possession_offset = .03;
+  const float possession_running_speed = running_speed * .75;
+  const Timer::time_t jump_cooldown = 3.;
+  const float max_jump_height = .07;
+  const Timer::time_t jump_duration = 1.75;
+  const Timer::time_t pass_cooldown = 2.;
+  const Timer::time_t slide_duration = .5;
+  const Timer::time_t slide_slowdown_duration = .5;
+  const float slide_speed = 2 * running_speed;
+  const float slide_slowdown_speed = .5 * running_speed;
+  const float slide_cooldown = slide_duration + slide_slowdown_duration;
 
-  void set_pos(float x, float y) {
-    cur_pos.x = x, cur_pos.y = y;
+  void set_timer() {
+    timer.set_event(TIME_GOT_BALL);
+    timer.set_timeout(TIME_LOST_BALL, possession_cooldown);
+    timer.set_timeout(TIME_OF_LAST_JUMP, jump_cooldown);
+    timer.set_timeout(TIME_OF_LAST_SLIDE, slide_cooldown);
+    timer.set_timeout(TIME_OF_LAST_PASS, pass_cooldown);
+    /* timer.dump_times(); */
   }
 
-  void set_dest(float x, float y) {
-    dest = glm::vec2(x, y);
+  int id() const {
+    return playerId;
   }
 
-  double height() const { return cur_pos.z; }
-  glm::vec3 &position() { return cur_pos; }
-  glm::vec3 speed() const {
-    auto dir = direction();
-    glm::vec3 dir3(dir.x, dir.y, 0);
-    if(is_sliding()) return float(sliding_speed) * dir3;
-    if(is_running()) return float(running_speed) * dir3;
-    return glm::vec3(0, 0, 0);
+  Unit::vec_t velocity() const {
+    return unit.velocity();
   }
 
-  void get_ball(double curtime=NAN) {
+  void timestamp_got_ball() {
     has_ball = true;
-    time_got_ball = std::isnan(curtime) ? glfwGetTime() : curtime;
+    timer.set_event(TIME_GOT_BALL);
   }
 
-  void lose_ball(double curtime = NAN) {
+  void timestamp_lost_ball() {
     has_ball = false;
-    time_lost_ball = std::isnan(curtime) ? glfwGetTime() : curtime;
+    timer.set_event(TIME_LOST_BALL);
   }
 
-  glm::vec2 direction() const {
-    return glm::vec2(
-      std::cos(facing),
-      std::sin(facing)
-    );
+  Unit::loc_t possession_point() const {
+    return unit.point_offset(possession_offset);
   }
 
-  glm::vec3 possession_point() const {
-    glm::vec2 dir = direction();
-    return glm::vec3(
-      cur_pos.x + dir.x * possession_offset,
-      cur_pos.y + dir.y * possession_offset,
-      cur_pos.z
-    );
-  }
-
-  double tackle_value(const glm::vec3 &ball_position) const {
-    if(current_time - time_lost_ball < possession_cooldown)return NAN;
-    if(!has_ball && height()-.002 > ball_position.z)return NAN;
-    double range = glm::length(ball_position - possession_point());
+  float get_control_potential(const Ball &ball) const {
+    if(
+      !timer.timed_out(TIME_LOST_BALL)
+      || unit.height() - .01 > ball.unit.height()
+    )
+    {
+      printf("control: elapsed %f, return NAN\n", timer.elapsed(TIME_LOST_BALL));
+      return NAN;
+    }
+    float range = Unit::length(ball.unit.pos - possession_point());
+    printf("potential %f vs %f\n", range, possession_range);
     if(range > possession_range) return NAN;
     return range;
   }
 
-  void idle(double curtime=NAN) {
-    current_time = std::isnan(curtime) ? glfwGetTime() : curtime;
+  void idle(double curtime) {
+    printf("\nplayer idle:\n");
+    timer.set_time(curtime);
+    update_speed();
+    unit.idle(timer.current_time);
+    transform.rotation = extra_rotate;
+    transform.Rotate(0, 0, 1, unit.facing / M_PI * 180.f);
     set_jump_height();
-    perform_slide();
-    face();
-    run();
-    transform.SetPosition(cur_pos.x, cur_pos.y, cur_pos.z);
+    transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
+    printf("rotate to %f\n", unit.facing);
   }
 
-  void kick_the_ball(Ball &ball, glm::vec3 direction, float angle) {
-    ball.velocity() = glm::rotate(direction, angle, glm::vec3(0, 0, 1));;
-    lose_ball(current_time);
+  void update_speed() {
+    if(is_sliding_fast()) {
+      unit.moving_speed = slide_speed;
+    } else if(is_sliding_slowndown()) {
+      unit.moving_speed = slide_slowdown_speed;
+    } else if(has_ball) {
+      unit.moving_speed = possession_running_speed;
+    } else {
+      unit.moving_speed = running_speed;
+    }
+  }
+
+  void kick_the_ball(Ball &ball, Unit::vec_t direction, float angle) {
+    ball.velocity() = glm::rotate(direction, angle, Unit::vec_t(0, 0, 1));;
+    timestamp_lost_ball();
+  }
+
+  bool can_jump() const {
+    return timer.timed_out(TIME_OF_LAST_JUMP);
   }
 
   bool is_jumping() const {
-    return current_time - time_last_jump < jump_duration;
+    return timer.elapsed(TIME_OF_LAST_JUMP) < jump_duration;
+  }
+
+  bool is_going_up() const {
+    return timer.elapsed(TIME_OF_LAST_JUMP) < jump_duration / 2;
+  }
+
+  bool is_landing() const {
+    return is_jumping() && !is_going_up();
   }
 
   void jump() {
-    if(current_time - time_last_jump < jump_cooldown) {
-      return;
-    }
-    time_last_jump = current_time;
+    if(!can_jump())return;
+    timer.set_event(TIME_OF_LAST_JUMP);
   }
 
   void set_jump_height() {
-    double diff = current_time - time_last_jump;
-    double duration = jump_duration;
-    if(diff < duration) {
-      if(diff < duration/2) {
-        cur_pos.z = max_jump_height * std::sin((diff / duration * 2) * M_PI/2);
-      } else {
-        cur_pos.z = max_jump_height * std::sin((2. - (diff / duration * 2)) * M_PI/2);
-      }
+    double diff = timer.elapsed(TIME_OF_LAST_JUMP);
+    if(is_going_up()) {
+      unit.height() = max_jump_height * std::sin((diff / jump_duration * 2) * M_PI/2);
+    } else if(is_landing()) {
+      unit.height() = max_jump_height * std::sin((2. - (diff / jump_duration * 2)) * M_PI/2);
+    } else {
+      unit.height() = 0;
     }
   }
 
-  bool try_pass(double curtime) {
-    if(curtime - time_last_pass < pass_cooldown)return false;
-    time_last_pass = curtime;
-    return true;
+  bool can_pass() const {
+    return timer.timed_out(TIME_OF_LAST_PASS);
+  }
+
+  void timestamp_passed() {
+    if(!can_pass())return;
+    timer.set_event(TIME_OF_LAST_PASS);
+  }
+
+  bool can_slide() {
+    return !is_jumping() && timer.timed_out(TIME_OF_LAST_SLIDE);
   }
 
   bool is_sliding() const {
-    return current_time - time_last_slide < slide_cooldown;
+    return timer.elapsed(TIME_OF_LAST_SLIDE) < slide_cooldown;
   }
 
-  double last_slide_frame = -slide_cooldown;
-  void slide() {
-    if(!is_sliding() && !is_jumping()) {
-      time_last_slide = current_time;
-      last_slide_frame = time_last_slide;
-    }
+  bool is_sliding_fast() const {
+    return timer.elapsed(TIME_OF_LAST_SLIDE) < slide_duration;
   }
 
-  void perform_slide() {
-    if(!is_sliding())return;
-    double cur_slide_frame = current_time;
-    double timediff = cur_slide_frame - last_slide_frame;
-    glm::vec2 dir = direction();
-    cur_pos.x += dir.x * sliding_speed;
-    cur_pos.y += dir.y * sliding_speed;
+  bool is_sliding_slowndown() const {
+    return is_sliding() && !is_sliding_fast();
   }
 
-  bool is_running() const {
-    glm::vec2 pos_xy(cur_pos.x, cur_pos.y);
-    return glm::length(dest - pos_xy) > .001;
-  }
-
-  double last_facing_frame = 0.;
-  void face() {
-    if(facing < -M_PI)facing += 2*M_PI;
-    if(facing > M_PI)facing -= 2*M_PI;
-    double face_diff = std::abs(facing - facing_dest);
-    while(face_diff > 2*M_PI)face_diff -= 2*M_PI;
-    double timediff = current_time - last_facing_frame;
-    double delta = facing_speed * timediff;
-    last_facing_frame = current_time;
-    if(face_diff < std::abs(delta)) {
-      facing = facing_dest;
-      return;
-    }
-    if(face_diff < M_PI) {
-      if(facing > facing_dest)facing -= delta;
-      else facing += delta;
-    } else {
-      if(facing > facing_dest)facing += delta;
-      else facing -= delta;
-    }
-  }
-
-  void run() {
-    if(!is_running()) {
-      return;
-    }
-    glm::vec2 pos_xy(cur_pos.x, cur_pos.y);
-    auto dir = dest - pos_xy;
-    dir *= running_speed / glm::length(dir);
-    if(is_sliding()) {
-      dest = cur_pos;
-    } else {
-      cur_pos += glm::vec3(dir.x, dir.y, 0);
-      facing_dest = atan2(dir.y, dir.x);
-      transform.rotation = extra_rotate;
-      transform.Rotate(0, 0, 1, facing * (180. / M_PI));
-    }
+  void timestamp_slide() {
+    ASSERT(!has_ball);
+    if(!can_slide())return;
+    timer.set_event(TIME_OF_LAST_SLIDE);
   }
 };

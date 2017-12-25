@@ -3,41 +3,36 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/rotate_vector.hpp>
 
+#include "Transformation.hpp"
 #include "Camera.hpp"
 #include "Ball.hpp"
 #include "Player.hpp"
 #include "Pitch.hpp"
 #include "Post.hpp"
-#include "Transformation.hpp"
 
-#include "invert_4x4_mat.hpp"
+#include "Timer.hpp"
+
+struct Team;
 
 struct Soccer {
+  std::vector<Player> players;
   Pitch pitch;
   Post post_red, post_blue;
   Ball ball;
-  std::vector<Player> players;
-
-  static constexpr bool RED_TEAM = false;
-  static constexpr bool BLUE_TEAM = true;
-
-  size_t team1_size;
-  size_t team2_size;
-
-  double loose_ball_period = .16;
-  glm::vec2 cursor;
 
   Soccer(size_t team1=2, size_t team2=1):
-    players(), post_red(RED_TEAM), post_blue(BLUE_TEAM),
+    players(), post_red(Team::RED_TEAM), post_blue(Team::BLUE_TEAM),
+    team1(*this, Team::RED_TEAM), team2(*this, Team::BLUE_TEAM),
     team1_size(team1), team2_size(team2)
   {
     for(int i = 0; i < team1 + team2; ++i) {
-      bool t = get_team(i);
-      if(t == RED_TEAM) {
-        players.push_back(Player(RED_TEAM, {.1f, .0f}));
+      bool t = get_team(i).id();
+      if(t == Team::RED_TEAM) {
+        players.push_back(Player(i, Team::RED_TEAM, {.1f, .0f}));
       } else {
-        players.push_back(Player(BLUE_TEAM, {-.1f, .0f}));
+        players.push_back(Player(i, Team::BLUE_TEAM, {-.1f, .0f}));
       }
+      players.back().unit.face(glm::vec3(0, 0, 0));
     }
   }
 
@@ -49,17 +44,27 @@ struct Soccer {
     for(auto &p: players) {
       p.init();
     }
+    set_timer();
   }
 
-  void Keyboard(GLFWwindow *w) {
-    ball.Keyboard(w);
-    players[0].Keyboard(w);
-    if(glfwGetKey(w, GLFW_KEY_Z)) {
-      z_perform();
+  void set_timer() {
+  }
+
+  void keyboard(int key) {
+    ball.keyboard(key);
+    players[0].keyboard(key);
+    if(key == GLFW_KEY_Z) {
+      z_perform(ball.owner());
+    } else if(key == GLFW_KEY_X) {
+      x_perform(0, players[0].unit.facing);
+    } else if(key == GLFW_KEY_C) {
+      c_perform(0, players[0].unit.facing);
+    } else if(key == GLFW_KEY_V) {
+      v_perform(0);
     }
   }
 
-  void mouse(float m_x, float m_y, Camera &cam) {
+  void mouse(float m_x, float m_y, float m_z, float width, float height, Camera &cam) {
     // pitch:
     // pos = ([-2, 2], [-1, 1], 0, 1)
     // displayed = MVP * pos
@@ -71,151 +76,32 @@ struct Soccer {
     // MVP^-1 = model^-1 * cam^-1
     //
     // inverse of an affine transformation is exactly what we need
-    double s_x = m_x * 2 - 1, s_y = 2 * m_y - 1;
-    glm::vec4 lhs = glm::vec4(s_x, s_y, 0, 1);
+    double s_x = 2 * m_x - 1, s_y = 2 * m_y - 1, s_z = m_z;
 
-    glm::mat4 model_inverse = pitch.transform.inverse();
+    glm::vec3 mvec(s_x, s_y, s_z);
+    glm::mat4 model_mat = pitch.transform.get_matrix();
     glm::mat4 cam_mat = cam.get_matrix();
-    glm::mat4 cam_inverse;
-    float inverted[16];
-    invert_4x4(glm::value_ptr(cam_mat), glm::value_ptr(cam_inverse));
-
-    glm::mat4 transformat = cam_mat * pitch.transform.get_matrix();
-    glm::mat4 inverse_transform = model_inverse * cam_inverse;
-    auto rand_dc = [](){ return float(rand() % 2000 - 1000) / 1000; };
-    glm::vec4 v(rand_dc(), rand_dc(), 0, 1); auto w = v * transformat; auto u = w * inverse_transform;
-    printf("[%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f]\n",
-      v.x, v.y, v.z, v.w,
-      w.x, w.y, w.z, w.w,
-      u.x, u.y, u.z, u.w
+    glm::mat4 inverse = glm::inverse(cam_mat * model_mat);
+    glm::vec4 viewport(0, 0, width, height);
+    glGetFloatv(GL_VIEWPORT, glm::value_ptr(viewport)); GLERROR
+    glm::vec3 unproject = glm::unProject(
+      mvec,
+      pitch.transform.get_matrix(),
+      cam.get_matrix(),
+      viewport
     );
-    glm::vec4 pos = inverse_transform * lhs;
-    printf("[%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f]\n\n", s_x, s_y, 0., 1., pos.x, pos.y, pos.z, pos.w);
-    cursor = glm::vec2(pos.x, pos.y);
-    /* ball.position() = glm::vec3(pos.x, pos.y - 1, ball.position().z); */
+    /* glm::vec4 v(rand_dc(), rand_dc(), 0, 1); auto w = inverse * v * model_mat * cam_mat; */
+    /* printf("[%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f]\n", */
+    /*   v.x, v.y, v.z, v.w, */
+    /*   w.x, w.y, w.z, w.w */
+    /* ); */
+    /* glm::vec4 pos = inverse * lhs; */
+    /* printf("[%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f]\n\n", s_x, s_y, 0., 1., pos.x, pos.y, pos.z, pos.w); */
+    cursor = glm::vec2(unproject.x, unproject.y);
+    /* ball.position() = glm::vec3(unproject.x*2, unproject.y, ball.unit.height()); */
   }
-
-  bool ball_is_loose() {
-    if(current_owner == NO_OWNER)return false;
-    return current_time - players[current_owner].time_got_ball < loose_ball_period;
-  }
-
-  double current_time = 0.;
-  void idle(double curtime=NAN) {
-    current_time = std::isnan(curtime) ? glfwGetTime() : curtime;
-    ball.idle(current_time);
-    for(auto &p: players) {
-      p.idle(current_time);
-    }
-    update_possession();
-    if(current_owner != NO_OWNER) {
-      auto &p = players[current_owner];
-      if(!p.is_sliding()) {
-        if(!ball_is_loose()) {
-          ball.position() = p.possession_point();
-          ball.velocity() = p.speed();
-        }
-      } else {
-        ball.velocity() = p.speed();
-      }
-    }
-  }
-
-  const glm::vec3 single_player_pass_point = glm::vec3(.0, 2./3, 0);
-
-  static constexpr int NO_OWNER = -1;
-  int current_owner = NO_OWNER;
-  void update_possession() {
-    // if noone controls, closest gets the ball
-    // if someone controls, closest other than the owner or nothing controls the ball
-    glm::vec3 ball_pos = ball.position();
-    int owner = current_owner;
-    double best_tackle_value = NAN;
-    for(int i = 0; i < players.size(); ++i) {
-      if(i == current_owner)continue;
-      if(current_owner != NO_OWNER && get_team(current_owner) == get_team(i))continue;
-      auto &p = players[i];
-      double value = p.tackle_value(ball_pos);
-      if(std::isnan(value))continue;
-      if(std::isnan(best_tackle_value) || best_tackle_value > value) {
-        best_tackle_value = value;
-        owner = i;
-      }
-    }
-    if(current_owner != NO_OWNER && std::isnan(best_tackle_value)) {
-      // our owner is not controlling the ball
-      // and noone else is able to pick it up
-      if(std::isnan(players[current_owner].tackle_value(ball_pos))) {
-        owner = NO_OWNER;
-        players[current_owner].lose_ball(current_time);
-      }
-      // otherwise there's still the same person reaching the ball
-    } else if(owner != NO_OWNER && current_owner != owner) {
-      // some player takse over the ball
-      players[current_owner].lose_ball(current_time);
-    }
-    if(owner != NO_OWNER && current_owner != owner)players[owner].get_ball(current_time);
-    current_owner = owner;
-  }
-
-  bool get_team(size_t i) {
-    return (i < team1_size) ? RED_TEAM : BLUE_TEAM;
-  }
-
-  int get_pass_destination(int playerId) {
-    bool team = get_team(playerId);
-    if(team == NO_OWNER)return NO_OWNER;
-    int start = (team == RED_TEAM) ? 0 : team1_size;
-    int end = (team == RED_TEAM) ? team1_size : team2_size;
-
-    int ind_pass_to = NO_OWNER;
-    double range = NAN;
-    for(int i = start; i < end; ++i) {
-      if(playerId == i)continue;
-      int dist = glm::length(players[playerId].position() - players[i].position());
-      if(std::isnan(range) || dist < range) {
-        range = dist;
-        ind_pass_to = i;
-      }
-    }
-    return ind_pass_to;
-  }
-
-  void z_perform() {
-    if(current_owner == NO_OWNER)return;
-    auto &p = players[current_owner];
-    if(p.is_jumping()) {
-      through_ball();
-    } else {
-      pass();
-    }
-  }
-
-  double pass_speed = .01;
-  glm::vec3 pass_vector{1, 0, .5};
-  void pass() {
-    if(current_owner == NO_OWNER)return;
-    auto &p = players[current_owner];
-    if(!p.try_pass(current_time))return;
-    int pass_to = get_pass_destination(current_owner);
-    glm::vec3 dest = (pass_to == NO_OWNER) ? single_player_pass_point : players[pass_to].possession_point();
-    glm::vec3 dir = dest - p.position();
-    float angle = atan2(dir.y, dir.x);
-    p.kick_the_ball(ball, pass_vector * float(pass_speed), angle);
-  }
-
-  double through_ball_speed = .02;
-  glm::vec3 through_ball_vector{1, 0, 0};
-  void through_ball() {
-    if(current_owner == NO_OWNER)return;
-    auto &p = players[current_owner];
-    if(!p.try_pass(current_time))return;
-    if(p.height() < .001)return;
-    p.kick_the_ball(ball, through_ball_vector * float(through_ball_speed), p.facing);
-  }
-
   void display(Camera &cam) {
-    idle();
+    idle(glfwGetTime());
 
     pitch.display(cam);
     post_red.display(cam);
@@ -229,7 +115,7 @@ struct Soccer {
     // sort by Y coordinate as we want to see the closest.
     for(int i = 0; i < players.size() - 1; ++i) {
       for(int j = i + 1; j < players.size(); ++j) {
-        if(players[indices[i]].position().y > players[indices[j]].position().y) {
+        if(players[indices[i]].unit.pos.y > players[indices[j]].unit.pos.y) {
           std::swap(indices[i], indices[j]);
         }
       }
@@ -247,5 +133,253 @@ struct Soccer {
     post_red.clear();
     post_blue.clear();
     pitch.clear();
+  }
+
+// gameplay
+  Timer timer;
+  enum class GameState {
+    IN_PROGRESS,
+    RED_START,
+    BLUE_START,
+    RED_THROWIN,
+    BLUE_THROWIN,
+    HALFTIME,
+    FINISHED
+  };
+  GameState state = GameState::RED_START;
+  struct Team {
+    static constexpr bool RED_TEAM = 0;
+    static constexpr bool BLUE_TEAM = 1;
+
+    Soccer &soccer;
+    bool teamId;
+
+    Team(Soccer &soccer, bool id):
+      soccer(soccer), teamId(teamId)
+    {}
+
+    size_t size() const {
+      return !teamId ? soccer.team1_size : soccer.team2_size;
+    }
+
+    bool id() const {
+      return teamId;
+    }
+
+    Player &operator[](size_t i) {
+      if(!teamId) {
+        return soccer.players[i];
+      } else {
+        return soccer.players[soccer.team1_size + i];
+      }
+    }
+
+    Player operator[](size_t i) const {
+      if(!teamId) {
+        return soccer.players[i];
+      } else {
+        return soccer.players[soccer.team1_size + i];
+      }
+    }
+
+    bool operator==(const Team &other) const {
+      return id() == other.id();
+    }
+
+    decltype(auto) begin() const { return soccer.players.begin() + (!teamId ? 0 : soccer.team1_size); }
+    decltype(auto) begin() { return soccer.players.begin() + (!teamId ? 0 : soccer.team1_size); }
+    decltype(auto) end() const {
+      if(!teamId) {
+        if(soccer.team2_size)return soccer.players.end();
+        else return soccer.players.begin() + size();
+      } else {
+        return soccer.players.end();
+      }
+    }
+    decltype(auto) end() {
+      if(!teamId) {
+        if(soccer.team2_size)return soccer.players.end();
+        else return soccer.players.begin() + size();
+      } else {
+        return soccer.players.end();
+      }
+    }
+  };
+
+  Team team1;
+  Team team2;
+  size_t team1_size;
+  size_t team2_size;
+  glm::vec2 cursor;
+
+  void idle(double curtime) {
+    timer.set_time(curtime);
+    ball.idle(timer.current_time);
+    for(auto &p: players) {
+      p.idle(timer.current_time);
+    }
+    idle_control();
+  }
+
+  void idle_control() {
+    if(ball.owner() != Ball::NO_OWNER) {
+      auto &p = players[ball.owner()];
+      if(!p.is_sliding() && !ball.is_loose()) {
+        printf("controlling fully\n");
+        ball.position() = p.possession_point();
+      } else if(p.is_sliding()) {
+        printf("controlling with slide\n");
+        ball.velocity() = p.velocity();
+      }
+    }
+    int new_owner = find_best_possession(ball);
+    set_control_player(new_owner);
+  }
+
+  const Unit::vec_t single_player_pass_point = glm::vec3(.0, 2./3, 0);
+
+  int find_best_possession(Ball &ball) {
+    // if noone controls, closest gets the ball
+    // if someone controls, closest other than the owner or nothing controls the ball
+    glm::vec3 ball_pos = ball.position();
+    int owner = ball.owner();
+    double best_control_potential = NAN;
+    for(int i = 0; i < players.size(); ++i) {
+      if(i == ball.owner())continue;
+      if(ball.owner() != Ball::NO_OWNER && get_team(ball.owner()) == get_team(i))continue;
+      auto &p = players[i];
+      double value = p.get_control_potential(ball);
+      if(std::isnan(value))continue;
+      if(std::isnan(best_control_potential) || best_control_potential > value) {
+        best_control_potential = value;
+        owner = i;
+      }
+    }
+    // case when the current owner no longer controls the ball
+    if(ball.owner() != Ball::NO_OWNER && std::isnan(best_control_potential)) {
+      float cur_potential = players[ball.owner()].get_control_potential(ball);
+      if(std::isnan(cur_potential)) {
+        owner = Ball::NO_OWNER;
+        players[ball.owner()].timestamp_lost_ball();
+        /* if(state == GameState::RED_THROWIN || state == GameState::BLUE_THROWIN)state=GameState::IN_PROGRESS; */
+      }
+    }
+    return owner;
+  }
+
+  void set_control_player(int playerId) {
+    // lose the ball if we are a player and we lost it
+    if(ball.owner() != Ball::NO_OWNER && playerId != ball.owner()) {
+      players[ball.owner()].timestamp_lost_ball();
+    }
+    // get it if we are player and new owner
+    if(ball.owner() != playerId && playerId != Ball::NO_OWNER) {
+      players[playerId].timestamp_got_ball();
+      ball.last_touched = playerId;
+    }
+    ball.timestamp_set_owner(playerId);
+  }
+
+  Team &get_team(size_t i) {
+    return (i < team1_size) ? team1 : team2;
+  }
+
+  int get_pass_destination(int playerId) {
+    if(playerId == Ball::NO_OWNER)return Ball::NO_OWNER;
+    Team team = get_team(playerId);
+
+    int teamPlayerId = (team.id() == Team::RED_TEAM) ? playerId : playerId - team1_size;
+
+    int ind_pass_to = Ball::NO_OWNER;
+    double range = NAN;
+    for(int i = 0; i < team.size(); ++i) {
+      if(teamPlayerId == i)continue;
+      int dist = Unit::length(team[teamPlayerId].unit.pos - team[i].unit.pos);
+      if(std::isnan(range) || dist < range) {
+        range = dist;
+        ind_pass_to = i;
+      }
+    }
+    return team[ind_pass_to].id();
+  }
+
+  void z_perform(int playerId) {
+    if(playerId == Ball::NO_OWNER)return;
+    auto &p = players[playerId];
+    if(p.is_jumping()) {
+      through_ball(playerId);
+    } else {
+      pass_ball(playerId);
+    }
+  }
+
+  const float pass_speed = .5;
+  Unit::vec_t pass_vector{1, 0, .5};
+  void pass_ball(int playerId) {
+    auto &p = players[ball.owner()];
+    if(!p.can_pass())return;
+    p.timestamp_passed();
+    if(!p.has_ball)return;
+    int pass_to = get_pass_destination(ball.owner());
+    glm::vec3 dest = (pass_to == Ball::NO_OWNER) ? single_player_pass_point : players[pass_to].possession_point();
+    Unit::vec_t dir = dest - p.unit.pos;
+    float angle = atan2(dir.y, dir.x);
+    p.kick_the_ball(ball, pass_vector * pass_speed, angle);
+  }
+
+  const float through_ball_speed = 1.;
+  Unit::vec_t through_ball_vector{1, 0, .25};
+  void through_ball(int playerId) {
+    auto &p = players[playerId];
+    if(!p.can_pass())return;
+    p.timestamp_passed();
+    if(!p.has_ball)return;
+    p.kick_the_ball(ball, through_ball_vector * through_ball_speed, p.unit.facing);
+  }
+
+  void x_perform(int playerId, float direction) {
+    if(playerId == Ball::NO_OWNER)return;
+    auto &p = players[playerId];
+    if(playerId == ball.owner() && !p.is_sliding()) {
+      p.unit.face(direction);
+      p.kick_the_ball(ball, .5f * Unit::vec_t(.5, 0, 1), direction);
+    } else if(p.can_slide()) {
+      p.timestamp_slide();
+      Unit::vec_t slide_vec(std::cos(direction), std::sin(direction), 0);
+      slide_vec *= p.slide_speed * p.slide_duration;
+      p.unit.move(p.unit.pos + slide_vec, p.slide_duration);
+    }
+  }
+
+  void c_perform(int playerId, float direction) {
+    if(playerId == Ball::NO_OWNER)return;
+    auto &p = players[playerId];
+    if(playerId == ball.owner() && !p.is_jumping()) {
+      long_ball(playerId, direction);
+    } else {
+      auto &p = players[playerId];
+      p.unit.face(direction);
+    }
+  }
+
+  const float cross_speed = 1.;
+  Unit::vec_t cross_vector{1.25, 0, 1};
+  void long_ball(int playerId, float cross_direction) {
+    auto &p = players[playerId];
+    p.unit.face(cross_direction);
+    p.kick_the_ball(ball, cross_speed * cross_vector, cross_direction);
+  }
+
+  void v_perform(int playerId) {
+    players[0].jump();
+  }
+
+  bool throw_in_check() {
+    auto bpos = ball.position();
+    if(pitch.playable_area().contains(bpos.x, bpos.y))return false;
+    if(ball.last_touched == Ball::NO_OWNER || get_team(ball.last_touched).id() == Team::RED_TEAM)state = GameState::RED_THROWIN;
+    else state = GameState::BLUE_THROWIN;
+    ball.velocity() = Unit::vec_t(0, 0, 0);
+    ball.position().z = 0;
   }
 };

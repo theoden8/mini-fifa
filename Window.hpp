@@ -120,17 +120,17 @@ public:
     });
   }
   void idle() {
-    double m_x, m_y;
+    double m_x, m_y, m_z;
     /* audio.Play(); */
     while(!glfwWindowShouldClose(window)) {
       display();
-      std::get<1>(layers).Keyboard(window);
+      /* std::get<1>(layers).keyboard(window); */
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
       glfwGetCursorPos(window, &m_x, &m_y);
       m_x /= width(), m_y /= height();
       cam.mouse(m_x, m_y);
-      std::get<1>(layers).mouse(m_x, m_y, cam);
+      std::get<1>(layers).mouse(m_x, m_y, 1, width(), height(), cam);
     }
     /* audio.Stop(); */
   }
@@ -164,6 +164,7 @@ public:
       glfwSetWindowShouldClose(window, true);
     }
     if(action == GLFW_PRESS) {
+      std::get<1>(layers).keyboard(key);
       /* current_screen->KeyPress(key, scancode, mods); */
     }
     if(action == GLFW_RELEASE) {

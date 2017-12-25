@@ -2,18 +2,14 @@
 
 #include <string>
 
-#include "freetype_config.h"
-#include <freetype/ftglyph.h>
-
 #include "incgraphics.h"
+
 #include "ShaderProgram.hpp"
 #include "ShaderUniform.hpp"
-#include "File.hpp"
-#include "Image.hpp"
+
 #include "PNGImage.hpp"
 #include "JPEGImage.hpp"
-#include "Debug.hpp"
-#include "Logger.hpp"
+#include "BMPImage.hpp"
 
 namespace gl {
 struct Texture {
@@ -25,6 +21,7 @@ struct Texture {
   {}
 
   static img::Image *make_image(File &file) {
+    Logger::Info("Loading image file '%s'\n", file.name().c_str());
     if(!file.exists()) {
       Logger::Info("file '%s' not found", file.name().c_str());
       ASSERT(file.exists());
@@ -35,8 +32,8 @@ struct Texture {
       return new img::JPEGImage(file.name().c_str());
     /* } else if(file.is_ext(".tiff")) { */
     /*   return new img::TIFFImage(file.name().c_str()); */
-    /* } else if(file.is_ext(".bmp")) { */
-    /*   return new img::BMPImage(file.name().c_str()); */
+    } else if(file.is_ext(".bmp")) {
+      return new img::BMPImage(file.name().c_str());
     }
     Logger::Error("unsupported file format for %s\n", file.name().c_str());
     throw std::domain_error("invalid image format for " + file.name());
@@ -87,18 +84,18 @@ struct Texture {
     Logger::Info("Finished loading texture '%s'.\n", filename.c_str());
   }
 
-  void init(FT_GlyphSlot *glyph) {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1); GLERROR
-    glGenTextures(1, &tex); GLERROR
-    glBindTexture(GL_TEXTURE_2D, tex); GLERROR
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (*glyph)->bitmap.width, (*glyph)->bitmap.rows,
-                 0, GL_RED, GL_UNSIGNED_BYTE, (*glyph)->bitmap.buffer); GLERROR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); GLERROR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); GLERROR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); GLERROR
-    unbind();
-  }
+  /* void init(FT_GlyphSlot *glyph) { */
+  /*   glPixelStorei(GL_UNPACK_ALIGNMENT, 1); GLERROR */
+  /*   glGenTextures(1, &tex); GLERROR */
+  /*   glBindTexture(GL_TEXTURE_2D, tex); GLERROR */
+  /*   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (*glyph)->bitmap.width, (*glyph)->bitmap.rows, */
+  /*                0, GL_RED, GL_UNSIGNED_BYTE, (*glyph)->bitmap.buffer); GLERROR */
+  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); GLERROR */
+  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); GLERROR */
+  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR */
+  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); GLERROR */
+  /*   unbind(); */
+  /* } */
 
   static void set_active(int index) {
     glActiveTexture(GL_TEXTURE0 + index); GLERROR

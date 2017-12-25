@@ -58,18 +58,24 @@ struct Camera {
   /* glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f); */
   /* glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f); */
   float cameraSpeed = 0.05f; // adjust accordingly
+  void move_up() { cameraTarget.y = std::max<float>(cameraTarget.y - cameraSpeed, -1.5); /* * cameraFront; */ }
+  void move_down() { cameraTarget.y = std::min<float>(cameraTarget.y + cameraSpeed, 2); /* * cameraFront; */ }
+  void move_left() { cameraTarget.x = std::min<float>(cameraTarget.x + cameraSpeed, 3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
+  void move_right() { cameraTarget.x = std::max<float>(cameraTarget.x - cameraSpeed, -3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
   void keyboard(GLFWwindow *w, float ratio) {
     /* static float accel = 1.01; */
     if (glfwGetKey(w, GLFW_KEY_UP) == GLFW_PRESS) {
-      cameraTarget.y -= cameraSpeed; // * cameraFront;
+      move_up();
+       // * cameraFront;
     } else if (glfwGetKey(w, GLFW_KEY_DOWN) == GLFW_PRESS) {
-      cameraTarget.y += cameraSpeed; // * cameraFront;
+      move_down();
+       // * cameraFront;
     } else if (glfwGetKey(w, GLFW_KEY_LEFT) == GLFW_PRESS) {
-      cameraTarget.x += cameraSpeed; // glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+      move_left();
     } else if (glfwGetKey(w, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-      cameraTarget.x -= cameraSpeed; // glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+      move_right();
     } else if (glfwGetKey(w, GLFW_KEY_MINUS) == GLFW_PRESS) {
-      fov = std::fmin<double>(fov + 1, 1200);
+      fov = std::fmin<double>(fov + 1, 150);
     } else if (glfwGetKey(w, GLFW_KEY_EQUAL) == GLFW_PRESS) {
       fov = std::fmax<double>(fov - 1, 1);
     } else if (glfwGetKey(w, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS) {
@@ -83,14 +89,14 @@ struct Camera {
   void mouse(double x, double y) {
     double border = .05;
     if(x < border) {
-      cameraTarget.x += cameraSpeed;
+      move_left();
     } else if(x > 1.-border) {
-      cameraTarget.x -= cameraSpeed;
+      move_right();
     }
     if(y < border) {
-      cameraTarget.y -= cameraSpeed;
+      move_up();
     } else if(y > 1.-border) {
-      cameraTarget.y += cameraSpeed;
+      move_down();
     }
   }
 

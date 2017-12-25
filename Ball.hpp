@@ -7,9 +7,14 @@
 #include "Camera.hpp"
 #include "Model.hpp"
 
+#include "Timer.hpp"
+#include "Unit.hpp"
+
+struct Player;
+
 struct Ball {
-  static constexpr size_t DIM = 10;
-  static constexpr size_t SIZE = DIM*DIM*4;
+  static constexpr size_t DIM = 10; // number of steps per dimension to perform for tessellation
+  static constexpr size_t SIZE = DIM*DIM*4; // number of triangles used in tessellation
 
   Transformation transform;
   glm::mat4 matrix;
@@ -29,13 +34,16 @@ struct Ball {
     program({"ball.vert", "ball.frag"}),
     ballTx("ballTx"),
     attrVertices("vpos"),
-    attrTexcoords("vtex")
+    attrTexcoords("vtex"),
+    unit(Unit::vec_t(0, 0, 0), M_PI * 4)
   {
     transform.SetScale(.01, .01, .01);
-    transform.SetPosition(0, 0, 0);
+    transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
     transform.SetRotation(1, 0, 0, 180.f);
   }
 
+  // tesselate a sphere with triangles
+  // this function takes two angles and constructs a triangle with them
   glm::vec3 point_on_sphere(float dyx, float dzx) {
     return glm::vec3(
       std::sin(dyx) * std::cos(dzx),
@@ -44,6 +52,7 @@ struct Ball {
     );
   }
 
+  // set vertices of the tessellation
   void set_vertices(float *verts) {
     float dimf = DIM;
     for(int index = 0; index < SIZE; ++index) {
@@ -65,6 +74,7 @@ struct Ball {
     }
   }
 
+  // set texture coordinates for triangles used to tessellate
   void set_texcoords(float *coords) {
     float dimf = DIM;
     for(int index = 0; index < SIZE; ++index) {
@@ -110,67 +120,20 @@ struct Ball {
     ballTx.uSampler.set_id(program.id());
     uTransform.set_id(program.id());
     gl::VertexArray::unbind();
+
+    set_timer();
   }
 
-  void Keyboard(GLFWwindow *w) {
-    /* if(glfwGetKey(w, GLFW_KEY_X)) { */
-    /*   posit = glm::vec3(0, 0, .4); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_Z)) { */
-    /*   speed += glm::vec3(.001, 0, 0); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_C)) { */
-    /*   speed += glm::vec3(-.005, 0, .003); */
-    /* } */
-  }
-
-// gameplay
-  glm::vec3 posit{0, 0, 0};
-  glm::vec3 speed{0, 0, 0};
-  float mass = 1.0f;
-  glm::vec3 gravity{0, 0, -.0007};
-  double current_time = 0.;
-
-  void idle(double curtime = NAN) {
-    double prev_time = current_time;
-    current_time = std::isnan(curtime) ? glfwGetTime() : curtime;
-    double timediff = current_time - prev_time;
-    float air_resistance = 0.9;
-    float collision_resistance = 0.85;
-    posit += speed * air_resistance;
-    if(posit.z < 0) {
-      posit.z = -posit.z;
-      speed.z = -speed.z;
-      speed *= collision_resistance;
-    } else if(posit.z > .001) {
-      speed += gravity/mass;
-    } else if(posit.z < 0.001) {
-      speed *= collision_resistance;
-    }
-    transform.SetPosition(posit.x, posit.y, posit.z);
-    /* transform.SetRotation(0, 0, 1, glfwGetTime() * 10); */
-    auto speedlen = glm::length(glm::vec2(speed.x, speed.y));
-    if(speedlen) {
-      glm::vec3 norm = glm::vec3(
-        speed.x,
-        speed.y,
-        0
-      );
-      norm /= glm::length(norm);
-      float angle = atan2(norm.x, norm.y);
-      angle += 90;
-      norm = glm::vec3(
-        std::cos(angle),
-        std::sin(angle),
-        0
-      );
-      transform.Rotate(norm.x, norm.y, norm.z, glm::length(speed) * 100);
+  void keyboard(int key) {
+    if(key == GLFW_KEY_X) {
+      /* unit.pos = Unit::loc_t(0, 0, .2); */
+    } else if(key == GLFW_KEY_T) {
+      speed = Unit::vec_t(1.25, 0, 1);
+    } else if(key == GLFW_KEY_Y) {
+      speed = Unit::vec_t(-1.25, 0, 1);
     }
   }
 
-  glm::vec3 &position() { return posit; }
-  glm::vec3 &velocity() { return speed; }
-  double height() const { return posit.z; }
-
-// graphics again
   void display(Camera &cam) {
     program.use();
 
@@ -199,5 +162,90 @@ struct Ball {
     attrTexcoords.clear();
     vao.clear();
     program.clear();
+  }
+
+// gameplay
+  Unit unit;
+  Timer timer;
+  static constexpr int
+    TIME_CHANGED_OWNER = 0;
+  const float loose_ball_cooldown = .16;
+  Unit::vec_t speed{0, 0, 0};
+  const float default_height = .0001;
+  const float air_friction = .1;
+  const float ground_friction = .3;
+  const Unit::vec_t gravity{0, 0, -2};
+  const float mass = 1.0f;
+  static constexpr int NO_OWNER = -1;
+  int current_owner = NO_OWNER;
+  int last_touched = NO_OWNER;
+
+  void set_timer() {
+    timer.set_timeout(TIME_CHANGED_OWNER, loose_ball_cooldown);
+  }
+
+  Unit::vec_t &position() { return unit.pos; }
+  Unit::vec_t &velocity() { return speed; }
+  void reset_height() {
+    unit.height() = default_height;
+  }
+
+  void idle(double curtime) {
+    printf("ball pos: %f %f %f\n", unit.pos.x,unit.pos.y,unit.pos.z);
+    printf("ball speed: %f %f %f\n", speed.x,speed.y,speed.z);
+    timer.set_time(curtime);
+    /* printf("ball: %f %f %f\n", unit.pos.x, unit.pos.y, unit.pos.z); */
+    unit.idle(curtime);
+    /* printf("ball: %f %f %f\n", unit.pos.x, unit.pos.y, unit.pos.z); */
+    if(is_loose() || owner() == NO_OWNER) {
+      idle_physics();
+    }
+    transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
+  }
+
+  void idle_physics() {
+    Timer::time_t timediff = timer.elapsed();
+    unit.pos += speed * (1.f - air_friction) * float(timediff);
+    /* printf("ball: %f %f %f\n", unit.pos.x, unit.pos.y, unit.pos.z); */
+    if(unit.height() < 0) {
+      unit.height() = -unit.height();
+      speed.z = -speed.z;
+      speed *= (1.f - ground_friction);
+    } else if(unit.height() >= .001) {
+      speed += (gravity * float(timediff))/float(mass);
+    } else if(unit.height() < .001) {
+      reset_height();
+      speed *= (1.f - ground_friction);
+    }
+    /* printf("ball: %f %f %f\n", unit.pos.x, unit.pos.y, unit.pos.z); */
+    /* transform.SetRotation(0, 0, 1, timer.current_time * 10); */
+    unit.facing_dest = unit.facing_angle(unit.pos + speed);
+    auto speedlen = glm::length(glm::vec2(speed.x, speed.y));
+    if(speedlen > .001) {
+      float spin_angle = unit.facing + 90;
+      glm::vec3 norm(
+        std::cos(spin_angle),
+        std::sin(spin_angle),
+        0
+      );
+      transform.Rotate(norm.x, norm.y, norm.z, glm::length(speed) * 50);
+    }
+  }
+
+  void timestamp_set_owner(int new_owner) {
+    if(current_owner == new_owner)return;
+    current_owner = new_owner;
+    if(current_owner != -1) {
+      timer.set_event(TIME_CHANGED_OWNER);
+      last_touched = current_owner;
+    }
+  }
+
+  int owner() const {
+    return current_owner;
+  }
+
+  bool is_loose() const {
+    return !timer.timed_out(TIME_CHANGED_OWNER);
   }
 };
