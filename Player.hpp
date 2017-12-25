@@ -10,13 +10,16 @@
 #include "Timer.hpp"
 #include "Unit.hpp"
 
+#include "File.hpp"
+
 struct Player {
 // opengl stuff
   glm::mat4 matrix;
   glm::mat4 extra_rotate;
   Transformation transform;
 
-	Sprite<Model, Player> *playerModel;
+	Sprite<Model, class RedPlayer> *playerModelRed;
+	Sprite<Model, class BluePlayer> *playerModelBlue;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::ShaderProgram<
     gl::VertexShader,
@@ -29,15 +32,15 @@ struct Player {
     team(team), playerId(id),
     initial_position(pos.first, pos.second, 0),
     uTransform("transform"),
-    playerModel(Sprite<Model, Player>::create("assets/nanosuit/nanosuit.obj")),
+    playerModelRed(Sprite<Model, class RedPlayer>::create("assets/ninja/ninja.3ds")),
+    playerModelBlue(Sprite<Model, class BluePlayer>::create("assets/ninja/ninja.3ds")),
     program({"player.vert", "player.frag"}),
     unit(Unit::loc_t(initial_position), 4*M_PI)
   {
     transform.SetScale(.01);
-    transform.Scale(1, .75, 1);
     transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
     extra_rotate =
-      glm::rotate(glm::radians(90.f), glm::vec3(0, 0, 1))
+      glm::rotate(glm::radians(-90.f), glm::vec3(0, 0, 1))
       * glm::rotate(glm::radians(90.f), glm::vec3(1, 0, 0));
     transform.rotation = extra_rotate;
     shadow.transform.SetScale(.025);
@@ -45,7 +48,14 @@ struct Player {
 
   void init() {
     program.compile_program();
-    playerModel->init();
+    if(!playerModelRed->initialized) {
+      HACK::swap_files("assets/ninja/nskinbl.jpg", "assets/ninja/nskinrd.jpg");
+    }
+    playerModelRed->init();
+    if(!playerModelBlue->initialized) {
+      HACK::swap_files("assets/ninja/nskinbl.jpg", "assets/ninja/nskinrd.jpg");
+    }
+    playerModelBlue->init();
     uTransform.set_id(program.id());
     shadow.init();
     set_timer();
@@ -79,13 +89,18 @@ struct Player {
       transform.has_changed = false;
     }
 
-    playerModel->display(program);
+    if(!team) {
+      playerModelRed->display(program);
+    } else {
+      playerModelBlue->display(program);
+    }
 
     decltype(program)::unuse();
   }
 
   void clear() {
-    playerModel->clear();
+    playerModelRed->clear();
+    playerModelBlue->clear();
     program.clear();
   }
 
@@ -99,7 +114,8 @@ struct Player {
     TIME_GOT_BALL = 1,
     TIME_OF_LAST_JUMP = 2,
     TIME_OF_LAST_SLIDE = 3,
-    TIME_OF_LAST_PASS = 4;
+    TIME_LAST_SLOWN_DOWN = 4,
+    TIME_OF_LAST_PASS = 5;
   const float running_speed = 0.1;
   bool has_ball = false;
   const Timer::time_t possession_cooldown = 1.1;
@@ -111,7 +127,7 @@ struct Player {
   const Timer::time_t jump_duration = 1.75;
   const Timer::time_t pass_cooldown = 2.;
   const Timer::time_t slide_duration = .5;
-  const Timer::time_t slide_slowdown_duration = .5;
+  const Timer::time_t slide_slowdown_duration = 1.;
   const float slide_speed = 2 * running_speed;
   const float slide_slowdown_speed = .5 * running_speed;
   const float slide_cooldown = slide_duration + slide_slowdown_duration;
@@ -121,6 +137,7 @@ struct Player {
     timer.set_timeout(TIME_LOST_BALL, possession_cooldown);
     timer.set_timeout(TIME_OF_LAST_JUMP, jump_cooldown);
     timer.set_timeout(TIME_OF_LAST_SLIDE, slide_cooldown);
+    timer.set_timeout(TIME_LAST_SLOWN_DOWN, slide_slowdown_duration);
     timer.set_timeout(TIME_OF_LAST_PASS, pass_cooldown);
     /* timer.dump_times(); */
   }
@@ -177,7 +194,7 @@ struct Player {
   void update_speed() {
     if(is_sliding_fast()) {
       unit.moving_speed = slide_speed;
-    } else if(is_sliding_slowndown()) {
+    } else if(is_sliding_slowndown() || is_slown_down()) {
       unit.moving_speed = slide_slowdown_speed;
     } else if(has_ball) {
       unit.moving_speed = possession_running_speed;
@@ -237,7 +254,7 @@ struct Player {
   }
 
   bool is_sliding() const {
-    return timer.elapsed(TIME_OF_LAST_SLIDE) < slide_cooldown;
+    return !timer.timed_out(TIME_OF_LAST_SLIDE);
   }
 
   bool is_sliding_fast() const {
@@ -246,6 +263,10 @@ struct Player {
 
   bool is_sliding_slowndown() const {
     return is_sliding() && !is_sliding_fast();
+  }
+
+  bool is_slown_down() const {
+    return !timer.timed_out(TIME_LAST_SLOWN_DOWN);
   }
 
   void timestamp_slide() {

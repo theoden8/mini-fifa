@@ -20,17 +20,18 @@ struct Soccer {
   Post post_red, post_blue;
   Ball ball;
 
-  Soccer(size_t team1=2, size_t team2=1):
+  Soccer(size_t team1sz=2, size_t team2sz=2):
     players(), post_red(Team::RED_TEAM), post_blue(Team::BLUE_TEAM),
-    team1(*this, Team::RED_TEAM), team2(*this, Team::BLUE_TEAM),
-    team1_size(team1), team2_size(team2)
+    team1(*this, team1sz, Team::RED_TEAM), team2(*this, team2sz, Team::BLUE_TEAM)
   {
-    for(int i = 0; i < team1 + team2; ++i) {
-      bool t = get_team(i).id();
-      if(t == Team::RED_TEAM) {
-        players.push_back(Player(i, Team::RED_TEAM, {.1f, .0f}));
+    for(int i = 0; i < team1sz + team2sz; ++i) {
+      Team &t = get_team(i);
+      float top1 = .1 * team1.size() / 2;
+      float top2 = .1 * team2.size() / 2;
+      if(get_team(i).id() == Team::RED_TEAM) {
+        players.push_back(Player(i, Team::RED_TEAM, {.1f, top1 - .1*i}));
       } else {
-        players.push_back(Player(i, Team::BLUE_TEAM, {-.1f, .0f}));
+        players.push_back(Player(i, Team::BLUE_TEAM, {-.1f, top2 - .1*(i-team1.size())}));
       }
       players.back().unit.face(glm::vec3(0, 0, 0));
     }
@@ -152,14 +153,15 @@ struct Soccer {
     static constexpr bool BLUE_TEAM = 1;
 
     Soccer &soccer;
+    size_t teamSize;
     bool teamId;
 
-    Team(Soccer &soccer, bool id):
-      soccer(soccer), teamId(teamId)
+    Team(Soccer &soccer, size_t teamSize, bool id):
+      soccer(soccer), teamSize(teamSize), teamId(id)
     {}
 
     size_t size() const {
-      return !teamId ? soccer.team1_size : soccer.team2_size;
+      return teamSize;
     }
 
     bool id() const {
@@ -170,7 +172,7 @@ struct Soccer {
       if(!teamId) {
         return soccer.players[i];
       } else {
-        return soccer.players[soccer.team1_size + i];
+        return soccer.players[soccer.team1.size() + i];
       }
     }
 
@@ -178,7 +180,7 @@ struct Soccer {
       if(!teamId) {
         return soccer.players[i];
       } else {
-        return soccer.players[soccer.team1_size + i];
+        return soccer.players[soccer.team1.size() + i];
       }
     }
 
@@ -186,19 +188,19 @@ struct Soccer {
       return id() == other.id();
     }
 
-    decltype(auto) begin() const { return soccer.players.begin() + (!teamId ? 0 : soccer.team1_size); }
-    decltype(auto) begin() { return soccer.players.begin() + (!teamId ? 0 : soccer.team1_size); }
+    decltype(auto) begin() const { return soccer.players.begin() + ((teamId==RED_TEAM) ? 0 : soccer.team1.size()); }
+    decltype(auto) begin() { return soccer.players.begin() + ((teamId==RED_TEAM) ? 0 : soccer.team1.size()); }
     decltype(auto) end() const {
-      if(!teamId) {
-        if(soccer.team2_size)return soccer.players.end();
+      if(teamId == RED_TEAM) {
+        if(soccer.team2.size())return soccer.players.end();
         else return soccer.players.begin() + size();
       } else {
         return soccer.players.end();
       }
     }
     decltype(auto) end() {
-      if(!teamId) {
-        if(soccer.team2_size)return soccer.players.end();
+      if(teamId == RED_TEAM) {
+        if(soccer.team2.size())return soccer.players.end();
         else return soccer.players.begin() + size();
       } else {
         return soccer.players.end();
@@ -206,10 +208,7 @@ struct Soccer {
     }
   };
 
-  Team team1;
-  Team team2;
-  size_t team1_size;
-  size_t team2_size;
+  Team team1, team2;
   glm::vec2 cursor;
 
   void idle(double curtime) {
@@ -230,6 +229,7 @@ struct Soccer {
       } else if(p.is_sliding()) {
         printf("controlling with slide\n");
         ball.velocity() = p.velocity();
+        ball.unit.height() = .005;
       }
     }
     int new_owner = find_best_possession(ball);
@@ -281,14 +281,14 @@ struct Soccer {
   }
 
   Team &get_team(size_t i) {
-    return (i < team1_size) ? team1 : team2;
+    return (i < team1.size()) ? team1 : team2;
   }
 
   int get_pass_destination(int playerId) {
     if(playerId == Ball::NO_OWNER)return Ball::NO_OWNER;
-    Team team = get_team(playerId);
+    Team &team = get_team(playerId);
 
-    int teamPlayerId = (team.id() == Team::RED_TEAM) ? playerId : playerId - team1_size;
+    int teamPlayerId = (team.id() == Team::RED_TEAM) ? playerId : playerId - team1.size();
 
     int ind_pass_to = Ball::NO_OWNER;
     double range = NAN;

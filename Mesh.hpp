@@ -81,6 +81,7 @@ struct Mesh {
       } else if(name == "texture_height") {
         number = std::to_string(heightNr++);
       }
+      /* Logger::Info("Mesh: field %s\n", (name + number).c_str()); */
       glUniform1i(glGetUniformLocation(program.id(), (name + number).c_str()), i); GLERROR
       glBindTexture(GL_TEXTURE_2D, textures[i].id); GLERROR
     }

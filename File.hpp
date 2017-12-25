@@ -3,9 +3,25 @@
 #include "Debug.hpp"
 
 #include <string>
+#include <cstdio>
 #include <cassert>
 #include <unistd.h>
 #include <sys/stat.h>
+
+namespace HACK {
+  void rename_file(const char *a, const char *b) {
+    int err = rename(a, b);
+    if(err)perror( "Error renaming file");
+  }
+
+  static void swap_files(std::string a, std::string b) {
+    ASSERT(a != b);
+    const char *TMP = "dahfsjkgdhjsfgshjkgfdhjgfwfghjfhdgjsvfh";
+    rename_file(a.c_str(), TMP);
+    rename_file(b.c_str(), a.c_str());
+    rename_file(TMP, b.c_str());
+  }
+}
 
 class File {
   std::string filename;
