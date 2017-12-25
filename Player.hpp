@@ -5,6 +5,7 @@
 #include "Ball.hpp"
 #include "Model.hpp"
 #include "Shadow.hpp"
+#include "Sprite.hpp"
 
 #include "Timer.hpp"
 #include "Unit.hpp"
@@ -15,7 +16,7 @@ struct Player {
   glm::mat4 extra_rotate;
   Transformation transform;
 
-	Model playerModel;
+	Sprite<Model, Player> *playerModel;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::ShaderProgram<
     gl::VertexShader,
@@ -28,7 +29,7 @@ struct Player {
     team(team), playerId(id),
     initial_position(pos.first, pos.second, 0),
     uTransform("transform"),
-    playerModel("assets/nanosuit/nanosuit.obj"),
+    playerModel(Sprite<Model, Player>::create("assets/nanosuit/nanosuit.obj")),
     program({"player.vert", "player.frag"}),
     unit(Unit::loc_t(initial_position), 4*M_PI)
   {
@@ -44,7 +45,7 @@ struct Player {
 
   void init() {
     program.compile_program();
-    playerModel.init();
+    playerModel->init();
     uTransform.set_id(program.id());
     shadow.init();
     set_timer();
@@ -78,13 +79,13 @@ struct Player {
       transform.has_changed = false;
     }
 
-    playerModel.display(program);
+    playerModel->display(program);
 
     decltype(program)::unuse();
   }
 
   void clear() {
-    playerModel.clear();
+    playerModel->clear();
     program.clear();
   }
 
