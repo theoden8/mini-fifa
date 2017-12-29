@@ -38,28 +38,33 @@ struct Unit {
       dest.y - pos.y,
       0
     );
-    printf("dir: %f %f %f\n", dir.x, dir.y, dir.z);
+    /* printf("dir: %f %f %f\n", dir.x, dir.y, dir.z); */
     if(length(dir) < .0001) return vec_t(0, 0, 0);
     return moving_speed * dir / length(dir);
   }
 
-  void idle(time_t curtime) {
-    timer.set_time(curtime);
+  void idle(Timer &t) {
+    timer.set_time(t.current_time);
     if(dest_unit)dest=dest_unit->pos;
     idle_facing();
     idle_moving();
   }
 
-  void move(loc_t location, time_t lock_dur=0.) {
+  void move(loc_t location) {
+    if(!timer.timed_out(TIME_LOCKED_MOVE)) {
+      facing_dest = facing_angle(location);
+      return;
+    }
+    face(location);
+    dest = location;
+  }
+
+  void slide(loc_t location, time_t lock_dur) {
     if(!timer.timed_out(TIME_LOCKED_MOVE))return;
     stop();
     dest = location;
     timer.set_event(TIME_LOCKED_MOVE);
     timer.set_timeout(TIME_LOCKED_MOVE, lock_dur);
-    printf("move dest: %f %f %f\n", dest.x, dest.y, dest.z);
-    if(is_moving()) {
-      facing_dest = facing_angle(dest);
-    }
   }
 
   void move(Unit &unit) {
@@ -80,7 +85,7 @@ struct Unit {
   }
 
   void stop() {
-    printf("stop dest: %f %f %f\n", dest.x, dest.y, dest.z);
+    /* printf("stop dest: %f %f %f\n", dest.x, dest.y, dest.z); */
     dest = pos;
     if(dest_unit)dest_unit=nullptr;
   }
@@ -93,7 +98,7 @@ struct Unit {
     real_t timediff = timer.elapsed();
     if(face_diff < .001)return;
     real_t delta = facing_speed * timediff;
-    printf("facing: %f \\tendsto %f\n", facing, facing_dest);
+    /* printf("facing: %f \\tendsto %f\n", facing, facing_dest); */
     if(face_diff < M_PI) {
       if(face_diff < std::abs(delta))facing=facing_dest;
       else if(facing > facing_dest)facing -= delta;
@@ -105,12 +110,16 @@ struct Unit {
     }
   }
 
-  vec_t point_offset(real_t offset) const {
+  vec_t point_offset(real_t offset, float angle) const {
     return pos + offset * vec_t(
-      std::cos(facing),
-      std::sin(facing),
+      std::cos(angle),
+      std::sin(angle),
       height()
     );
+  }
+
+  vec_t point_offset(real_t offset) const {
+    return point_offset(offset, facing);
   }
 
   bool is_moving() const {
@@ -119,22 +128,23 @@ struct Unit {
 
   void idle_moving() {
     if(!is_moving())return;
-    printf("pos: %f %f %f\n", pos.x, pos.y, pos.z);
+    /* printf("pos: %f %f %f\n", pos.x, pos.y, pos.z); */
     real_t timediff = timer.elapsed();
     auto dir = vec_t(dest.x - pos.x, dest.y - pos.y, 0);
-    printf("pos: %f %f %f\n", pos.x, pos.y, pos.z);
-    printf("dest: %f %f %f\n", dest.x, dest.y, dest.z);
-    printf("dir: %f %f %f\n", dir.x, dir.y, dir.z);
-    printf("timediff: %f\n", timediff);
-    printf("moving_speed: %f\n", moving_speed);
+    /* printf("pos: %f %f %f\n", pos.x, pos.y, pos.z); */
+    /* printf("dest: %f %f %f\n", dest.x, dest.y, dest.z); */
+    /* printf("dir: %f %f %f\n", dir.x, dir.y, dir.z); */
+    /* printf("timediff: %f\n", timediff); */
+    /* printf("moving_speed: %f\n", moving_speed); */
     real_t step = timediff * moving_speed;
     if(length(dir) <= step) {
-      pos = dest;
+      pos.x = dest.x;
+      pos.y = dest.y;
     } else {
       dir *= step / length(dir);
       pos += dir;
-      printf("facing angle: %f\n", facing_dest);
+      /* printf("facing angle: %f\n", facing_dest); */
     }
-    printf("pos: %f %f %f\n", pos.x, pos.y, pos.z);
+    /* printf("pos: %f %f %f\n", pos.x, pos.y, pos.z); */
   }
 };

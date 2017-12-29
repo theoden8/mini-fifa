@@ -20,7 +20,7 @@ struct Post {
   Post(bool team):
     team(team),
     uTransform("transform"),
-    postModel("assets/woodswing/Models and Textures/woodswing.obj"),
+    postModel("assets/woodswing/woodswing.obj"),
     program({"post.vert", "post.frag"})
   {
     transform.SetScale(.033);

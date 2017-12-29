@@ -16,14 +16,25 @@ struct Region {
   Region(glm::vec2 xs, glm::vec2 ys):
     xs(xs), ys(ys)
   {
-    if(xs.x>xs.y)xs=glm::vec2(xs.y,xs.x);
-    if(ys.x>ys.y)ys=glm::vec2(ys.y,ys.x);
+    if(xs.x > xs.y)std::swap(xs.x, xs.y);
+    if(ys.x > ys.y)std::swap(ys.x, ys.y);
   }
 
   bool contains(float x, float y) const {
     return
       xs.x <= x && x <= xs.y
       && ys.x <= y && y <= ys.y;
+  }
+
+  glm::vec2 center() const {
+    return glm::vec2(
+      xs.x + (xs.y - xs.x) / 2,
+      ys.x + (ys.y - ys.x) / 2
+    );
+  }
+
+  std::string str() const {
+    return "X[" + std::to_string(xs.x) + " .. " + std::to_string(xs.y) + "] Y[" + std::to_string(ys.x) + std::to_string(ys.y) + "]";
   }
 };
 

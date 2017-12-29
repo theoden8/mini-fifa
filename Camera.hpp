@@ -15,22 +15,14 @@ struct Window;
 }
 
 struct Camera {
-  /* glm::mat4 perspective; */
-  /* glm::mat4 lookat; */
-  /* glm::mat4 projection; */
   bool has_changed = true;
 
   Camera()
-  {
-    /* perspective = glm::perspective(glm::radians(45.0f), 1.33f, 0.1f, 10.0f); */
-  }
-    /* WindowResize(w, h); */
+  {}
 
-  void init() {
-    update();
-  }
+  void init() {}
 
-  void update(float ratio=1.33f) {
+  void update(float ratio) {
     /* cameraPos = cameraTarget + glm::vec3(0, std::cos(glm::radians(angle)), std::sin(glm::radians(angle))); */
     cameraPos = cameraTarget + glm::vec3(0, std::cos(glm::radians(angle)), std::sin(glm::radians(angle)));
     cameraDirection = glm::normalize(cameraPos - cameraTarget);
@@ -41,8 +33,12 @@ struct Camera {
       cameraTarget,
       up
     );
-    zoom = glm::perspective(glm::radians(fov), ratio, 0.1f, 100.0f);
-    /* lookat = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp); */
+    projection = glm::perspective(
+      glm::radians(fov),
+      ratio,
+      0.1f,
+      100.0f
+    );
   }
 
   glm::vec3 cameraPos;
@@ -52,28 +48,29 @@ struct Camera {
   glm::vec3 cameraRight;
   glm::vec3 cameraUp;
   glm::mat4 view;
-  glm::mat4 zoom;
+  glm::mat4 projection;
   float fov = 75.;
   float angle = 60.f;
   /* glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f); */
   /* glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f); */
-  float cameraSpeed = 0.05f; // adjust accordingly
-  void move_up() { cameraTarget.y = std::max<float>(cameraTarget.y - cameraSpeed, -1.5); /* * cameraFront; */ }
-  void move_down() { cameraTarget.y = std::min<float>(cameraTarget.y + cameraSpeed, 2); /* * cameraFront; */ }
-  void move_left() { cameraTarget.x = std::min<float>(cameraTarget.x + cameraSpeed, 3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
-  void move_right() { cameraTarget.x = std::max<float>(cameraTarget.x - cameraSpeed, -3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
+  float cameraSpeedKeys = 0.05f; // adjust accordingly
+  float cameraSpeedMouse = 0.05f; // adjust accordingly
+  void move_up(float movespeed) { cameraTarget.y = std::max<float>(cameraTarget.y - movespeed, -1.5); /* * cameraFront; */ }
+  void move_down(float movespeed) { cameraTarget.y = std::min<float>(cameraTarget.y + movespeed, 2); /* * cameraFront; */ }
+  void move_left(float movespeed) { cameraTarget.x = std::min<float>(cameraTarget.x + movespeed, 3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
+  void move_right(float movespeed) { cameraTarget.x = std::max<float>(cameraTarget.x - movespeed, -3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
   void keyboard(GLFWwindow *w, float ratio) {
     /* static float accel = 1.01; */
     if (glfwGetKey(w, GLFW_KEY_UP) == GLFW_PRESS) {
-      move_up();
+      move_up(cameraSpeedKeys);
        // * cameraFront;
     } else if (glfwGetKey(w, GLFW_KEY_DOWN) == GLFW_PRESS) {
-      move_down();
+      move_down(cameraSpeedKeys);
        // * cameraFront;
     } else if (glfwGetKey(w, GLFW_KEY_LEFT) == GLFW_PRESS) {
-      move_left();
+      move_left(cameraSpeedKeys);
     } else if (glfwGetKey(w, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-      move_right();
+      move_right(cameraSpeedKeys);
     } else if (glfwGetKey(w, GLFW_KEY_MINUS) == GLFW_PRESS) {
       fov = std::fmin<double>(fov + 1, 150);
     } else if (glfwGetKey(w, GLFW_KEY_EQUAL) == GLFW_PRESS) {
@@ -89,14 +86,14 @@ struct Camera {
   void mouse(double x, double y) {
     double border = .05;
     if(x < border) {
-      move_left();
+      move_left(cameraSpeedMouse);
     } else if(x > 1.-border) {
-      move_right();
+      move_right(cameraSpeedMouse);
     }
     if(y < border) {
-      move_up();
+      move_up(cameraSpeedMouse);
     } else if(y > 1.-border) {
-      move_down();
+      move_down(cameraSpeedMouse);
     }
   }
 
@@ -115,7 +112,7 @@ struct Camera {
   }
 
   decltype(auto) get_matrix() {
-    return zoom * view;
+    return projection * view;
   }
 
   void clear() {

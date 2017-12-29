@@ -43,7 +43,6 @@ struct Sprite {
       getInstance<T, X>()->object.clear();
       delete getInstance<T, X>();
       getInstance<T, X>() = nullptr;
-      getInstance<T, X>()->initialized = false;
     }
   }
 };

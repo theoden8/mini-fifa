@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <map>
+#include <deque>
 
 #include "Debug.hpp"
 
@@ -13,6 +14,7 @@ struct Timer {
   time_t prev_time = .0;
   time_t current_time = .0;
   std::map<int, time_t> events;
+  std::map<int, std::deque<time_t>> event_counters;
   std::map<int, time_t> timeouts;
 
   Timer()
@@ -38,6 +40,21 @@ struct Timer {
     return current_time - events.at(key);
   }
 
+  void set_event_counter(int key) {
+    event_counters[key].push_back(key);
+  }
+
+  time_t difference(int key) const {
+    return event_counters.at(key).back() - event_counters.at(key).front();
+  }
+
+  int get_count(int key) {
+    while(difference(key) > timeouts[key]) {
+      event_counters[key].pop_front();
+    }
+    return event_counters[key].size();
+  }
+
   void set_timeout(int key, time_t timeout) {
     if(events.find(key) == events.end()) {
       set_event(key);
@@ -48,6 +65,9 @@ struct Timer {
   bool timed_out(int key) const {
     /* Logger::Info("timeout access: %d\n", key); */
     time_t timeout = 0.;
+    if(events.find(key) == events.end()) {
+      return true;
+    }
     if(timeouts.find(key) != timeouts.end()) {
       timeout = timeouts.at(key);
     }

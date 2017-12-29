@@ -18,20 +18,23 @@ enum class UniformType {
   SAMPLER2D
 };
 
+#define using_sc static constexpr GLenum
 template <UniformType U> struct u_cast_type { using type = void; };
-template <> struct u_cast_type <UniformType::INTEGER> { using type = GLint; };
-template <> struct u_cast_type <UniformType::FLOAT> { using type = GLfloat; };
-template <> struct u_cast_type <UniformType::VEC2> { using type = glm::vec2; };
-template <> struct u_cast_type <UniformType::VEC3> { using type = glm::vec3; };
-template <> struct u_cast_type <UniformType::VEC4> { using type = glm::vec4; };
-template <> struct u_cast_type <UniformType::MAT2> { using type = glm::mat2; };
-template <> struct u_cast_type <UniformType::MAT3> { using type = glm::mat3; };
-template <> struct u_cast_type <UniformType::MAT4> { using type = glm::mat4; };
-template <> struct u_cast_type <UniformType::SAMPLER2D> { using type = GLuint; };
+template <> struct u_cast_type <UniformType::INTEGER> { using type = GLint; using_sc gltype = GL_INT; };
+template <> struct u_cast_type <UniformType::FLOAT> { using type = GLfloat; using_sc gltype = GL_FLOAT; };
+template <> struct u_cast_type <UniformType::VEC2> { using type = glm::vec2; using_sc gltype = GL_FLOAT_VEC2; };
+template <> struct u_cast_type <UniformType::VEC3> { using type = glm::vec3; using_sc gltype = GL_FLOAT_VEC3; };
+template <> struct u_cast_type <UniformType::VEC4> { using type = glm::vec4; using_sc gltype = GL_FLOAT_VEC4; };
+template <> struct u_cast_type <UniformType::MAT2> { using type = glm::mat2; using_sc gltype = GL_FLOAT_MAT2; };
+template <> struct u_cast_type <UniformType::MAT3> { using type = glm::mat3; using_sc gltype = GL_FLOAT_MAT3; };
+template <> struct u_cast_type <UniformType::MAT4> { using type = glm::mat4; using_sc gltype = GL_FLOAT_MAT4; };
+template <> struct u_cast_type <UniformType::SAMPLER2D> { using type = GLuint; using_sc gltype = GL_SAMPLER_2D; };
+#undef using_sc
 
 template <UniformType U>
 struct Uniform {
   using type = typename u_cast_type<U>::type;
+  static constexpr GLenum gltype = u_cast_type<U>::gltype;
   using dtype = std::conditional_t<
     std::is_fundamental<type>::value,
       std::remove_reference_t<type>,
@@ -47,13 +50,25 @@ struct Uniform {
   GLuint id() const {
     return uniformId;
   }
+  GLuint loc() const {
+    ASSERT(location != "");
+    GLuint lc = glGetUniformLocation(progId, location.c_str()); GLERROR
+    return lc;
+  }
   void set_id(GLuint program_id) {
     ASSERT(program_id != 0);
     if(progId == program_id) {
       return;
     }
     progId = program_id;
-    uniformId = glGetUniformLocation(program_id, location.c_str()); GLERROR
+    uniformId = loc();
+  }
+  bool is_active() {
+    char name[81];
+    GLint size;
+    GLenum t;
+    glGetActiveUniform(progId, uniformId, 80, &size, &t, name); GLERROR
+    return t == gltype && location == name;
   }
   void unset_id() {
     progId = 0;

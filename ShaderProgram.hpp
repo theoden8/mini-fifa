@@ -13,8 +13,8 @@
 namespace gl {
 template <typename... ShaderTs>
 class ShaderProgram {
-  static GLuint last_used_program;
-  GLuint program = 0;
+  static GLuint last_used_program_id;
+  GLuint programId = 0;
   std::tuple<ShaderTs...> shaders;
 
 public:
@@ -22,19 +22,19 @@ public:
     Tuple::for_each(shaders, [&](auto &s) mutable {
       s.init();
     });
-    program = glCreateProgram(); GLERROR
-    ASSERT(program != 0);
+    programId = glCreateProgram(); GLERROR
+    ASSERT(programId != 0);
     Tuple::for_each(shaders, [&](auto &s) mutable {
-      glAttachShader(program, s.id()); GLERROR
+      glAttachShader(programId, s.id()); GLERROR
     });
-    glLinkProgram(program); GLERROR
+    glLinkProgram(programId); GLERROR
     Tuple::for_each(shaders, [&](auto &s) mutable {
       s.clear();
     });
   }
   void bind_attrib(const std::vector <std::string> &locations) {
     for(size_t i = 0; i < locations.size(); ++i) {
-      glBindAttribLocation(program, i, locations[i].c_str()); GLERROR
+      glBindAttribLocation(programId, i, locations[i].c_str()); GLERROR
     }
   }
 
@@ -43,7 +43,7 @@ public:
     shaders(shader_filenames...)
   {}
   GLuint id() const {
-    return program;
+    return programId;
   }
   void init(gl::VertexArray &vao, const std::vector <std::string> &&locations) {
     vao.bind();
@@ -53,28 +53,28 @@ public:
     gl::VertexArray::unbind();
   }
   void use() {
-    if(last_used_program != id()) {
+    if(last_used_program_id != id()) {
       glUseProgram(id()); GLERROR
-      last_used_program = id();
+      last_used_program_id = id();
     }
   }
   static void unuse() {
     glUseProgram(0); GLERROR
-    last_used_program = 0;
+    last_used_program_id = 0;
   }
 
   void clear() {
     Tuple::for_each(shaders, [&](const auto &s) {
-      glDetachShader(program, s.id()); GLERROR
+      glDetachShader(programId, s.id()); GLERROR
     });
-    glDeleteProgram(program); GLERROR
+    glDeleteProgram(programId); GLERROR
   }
 
   bool is_valid() {
-    glValidateProgram(program);
+    glValidateProgram(programId);
     int params = -1;
-    glGetProgramiv(program, GL_VALIDATE_STATUS, &params);
-    Logger::Info("program %d GL_VALIDATE_STATUS = %d\n", program, params);
+    glGetProgramiv(programId, GL_VALIDATE_STATUS, &params);
+    Logger::Info("programId %d GL_VALIDATE_STATUS = %d\n", programId, params);
     print_info_log();
     print_all();
     if (GL_TRUE != params) {
@@ -104,20 +104,21 @@ public:
   void print_info_log() {
     int max_length = 2048;
     int actual_length = 0;
-    char program_log[2048];
-    glGetProgramInfoLog(program, max_length, &actual_length, program_log); GLERROR
-    Logger::Info("program info log for GL index %u:\n%s", program, program_log);
+    char programId_log[2048];
+    glGetProgramInfoLog(programId, max_length, &actual_length, programId_log); GLERROR
+    Logger::Info("programId info log for GL index %u:\n%s", programId, programId_log);
   }
   void print_all() {
-    Logger::Info("--------------------\nshader program %d info:\n", program);
+    Logger::Info("--------------------\n");
+    Logger::Info("shader programId %d info:\n", programId);
     int params = -1;
-    glGetProgramiv(program, GL_LINK_STATUS, &params);
+    glGetProgramiv(programId, GL_LINK_STATUS, &params);
     Logger::Info("GL_LINK_STATUS = %d\n", params);
 
-    glGetProgramiv(program, GL_ATTACHED_SHADERS, &params);
+    glGetProgramiv(programId, GL_ATTACHED_SHADERS, &params);
     Logger::Info("GL_ATTACHED_SHADERS = %d\n", params);
 
-    glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &params);
+    glGetProgramiv(programId, GL_ACTIVE_ATTRIBUTES, &params);
     Logger::Info("GL_ACTIVE_ATTRIBUTES = %d\n", params);
     for (int i = 0; i < params; i++) {
       char name[64];
@@ -126,7 +127,7 @@ public:
       int size = 0;
       GLenum type;
       glGetActiveAttrib (
-        program,
+        programId,
         i,
         max_length,
         &actual_length,
@@ -138,18 +139,18 @@ public:
         for(int j = 0; j < size; j++) {
           char long_name[64];
           sprintf(long_name, "%s[%d]", name, j);
-          int location = glGetAttribLocation(program, long_name);
+          int location = glGetAttribLocation(programId, long_name);
           Logger::Info("  %d) type:%s name:%s location:%d\n",
                  i, GL_type_to_string(type), long_name, location);
         }
       } else {
-        int location = glGetAttribLocation(program, name);
+        int location = glGetAttribLocation(programId, name);
         Logger::Info("  %d) type:%s name:%s location:%d\n",
                i, GL_type_to_string(type), name, location);
       }
     }
 
-    glGetProgramiv(program, GL_ACTIVE_UNIFORMS, &params);
+    glGetProgramiv(programId, GL_ACTIVE_UNIFORMS, &params);
     Logger::Info("GL_ACTIVE_UNIFORMS = %d\n", params);
     for(int i = 0; i < params; i++) {
       char name[64];
@@ -158,7 +159,7 @@ public:
       int size = 0;
       GLenum type;
       glGetActiveUniform(
-      program,
+      programId,
       i,
       max_length,
       &actual_length,
@@ -170,12 +171,12 @@ public:
       for(int j = 0; j < size; j++) {
         char long_name[64];
         sprintf(long_name, "%s[%d]", name, j);
-        int location = glGetUniformLocation(program, long_name);
+        int location = glGetUniformLocation(programId, long_name);
         Logger::Info("  %d) type:%s name:%s location:%d\n",
            i, GL_type_to_string(type), long_name, location);
       }
       } else {
-      int location = glGetUniformLocation(program, name);
+      int location = glGetUniformLocation(programId, name);
       Logger::Info("  %d) type:%s name:%s location:%d\n",
            i, GL_type_to_string(type), name, location);
       }
@@ -183,5 +184,5 @@ public:
   }
 };
 template <typename... Ss>
-GLuint gl::ShaderProgram<Ss...>::last_used_program = 0;
+GLuint gl::ShaderProgram<Ss...>::last_used_program_id = 0;
 }

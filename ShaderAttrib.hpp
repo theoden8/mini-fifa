@@ -17,18 +17,20 @@ enum class AttribType {
   MAT2, MAT3, MAT4
 };
 
+#define using_sc static constexpr GLenum
 template <AttribType A> struct a_cast_type { using type = void; };
-template <> struct a_cast_type <AttribType::INTEGER> { using type = GLint; using vtype = GLint; };
-template <> struct a_cast_type <AttribType::FLOAT> { using type = GLfloat; using vtype  = GLfloat; };
-template <> struct a_cast_type <AttribType::VEC2> { using type = glm::vec2; using vtype  = GLfloat; };
-template <> struct a_cast_type <AttribType::VEC3> { using type = glm::vec3; using vtype  = GLfloat; };
-template <> struct a_cast_type <AttribType::VEC4> { using type = glm::vec4; using vtype  = GLfloat; };
-template <> struct a_cast_type <AttribType::IVEC2> { using type = glm::ivec2; using vtype  = GLint; };
-template <> struct a_cast_type <AttribType::IVEC3> { using type = glm::ivec3; using vtype  = GLint; };
-template <> struct a_cast_type <AttribType::IVEC4> { using type = glm::ivec4; using vtype  = GLint; };
-template <> struct a_cast_type <AttribType::MAT2> { using type = glm::mat2; using vtype  = GLfloat; };
-template <> struct a_cast_type <AttribType::MAT3> { using type = glm::mat3; using vtype  = GLfloat; };
-template <> struct a_cast_type <AttribType::MAT4> { using type = glm::mat4; using vtype  = GLfloat; };
+template <> struct a_cast_type <AttribType::INTEGER> { using type = GLint; using vtype = GLint; using_sc gltype = GL_INT; };
+template <> struct a_cast_type <AttribType::FLOAT> { using type = GLfloat; using vtype  = GLfloat; using_sc gltype = GL_FLOAT; };
+template <> struct a_cast_type <AttribType::VEC2> { using type = glm::vec2; using vtype  = GLfloat; using_sc gltype = GL_FLOAT_VEC2; };
+template <> struct a_cast_type <AttribType::VEC3> { using type = glm::vec3; using vtype  = GLfloat; using_sc gltype = GL_FLOAT_VEC3; };
+template <> struct a_cast_type <AttribType::VEC4> { using type = glm::vec4; using vtype  = GLfloat; using_sc gltype = GL_FLOAT_VEC4; };
+template <> struct a_cast_type <AttribType::IVEC2> { using type = glm::ivec2; using vtype  = GLint; using_sc gltype = GL_INT_VEC2; };
+template <> struct a_cast_type <AttribType::IVEC3> { using type = glm::ivec3; using vtype  = GLint; using_sc gltype = GL_INT_VEC3; };
+template <> struct a_cast_type <AttribType::IVEC4> { using type = glm::ivec4; using vtype  = GLint; using_sc gltype = GL_INT_VEC4; };
+template <> struct a_cast_type <AttribType::MAT2> { using type = glm::mat2; using vtype  = GLfloat; using_sc gltype = GL_FLOAT_MAT2; };
+template <> struct a_cast_type <AttribType::MAT3> { using type = glm::mat3; using vtype  = GLfloat; using_sc gltype = GL_FLOAT_MAT3; };
+template <> struct a_cast_type <AttribType::MAT4> { using type = glm::mat4; using vtype  = GLfloat; using_sc gltype = GL_FLOAT_MAT4; };
+#undef using_sc
 
 template <typename T> struct gl_scalar_enum { static constexpr GLenum value = 0; };
 template <> struct gl_scalar_enum<GLint> { static constexpr GLenum value = GL_INT; };
@@ -86,6 +88,14 @@ struct Attrib : GenericShaderAttrib {
     glBindBuffer(ArrayType, vbo); GLERROR
   }
 
+  bool is_active(GLuint program_id) {
+    char name[81];
+    GLint size;
+    GLenum t;
+    glGetActiveAttrib(program_id, vbo, 80, &size, &t, name); GLERROR
+    return t == a_cast_type<AttribT>::gltype && location == name;
+  }
+
   template <GLenum Mode>
   void allocate(size_t count, void *host_data) {
     bind();
@@ -99,7 +109,7 @@ struct Attrib : GenericShaderAttrib {
   }
 
   decltype(auto) operator[](size_t i) {
-    return AttribBufferAccessor(*this, i);
+    return AttribBufferAccessor<Attrib<ArrayType, AttribT>>(*this, i);
   }
 
   static void unbind() {

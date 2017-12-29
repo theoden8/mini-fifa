@@ -3,6 +3,7 @@
 #include <cstdarg>
 #include <string>
 #include <cstdlib>
+#include <unistd.h>
 
 #include "incaudio.h"
 #include "incgraphics.h"

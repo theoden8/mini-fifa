@@ -46,7 +46,7 @@ protected:
     init_glew();
     init_controls();
     /* audio.Init(); */
-    /* GLVersion(); */
+    /* gl_version(); */
   }
   void init_glfw() {
     glfwSetErrorCallback(glfw::error_callback);
@@ -64,8 +64,7 @@ protected:
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL
 
-    #define MONITOR nullptr
-    window = glfwCreateWindow(width(), height(), "pitch", MONITOR, nullptr);
+    window = glfwCreateWindow(width(), height(), "pitch", nullptr, nullptr);
     ASSERT(window != nullptr);
     window_reference[window] = this;
     glfwMakeContextCurrent(window); GLERROR
@@ -83,21 +82,17 @@ protected:
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
-    /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
   }
   const GLFWvidmode *vidmode = nullptr;
 public:
   GLFWwindow *window = nullptr;
   Window():
-    width_(0), height_(0)
+    width_(0),
+    height_(0)
   {}
-  size_t width() const {
-    return width_;
-  }
-  size_t height() const {
-    return height_;
-  }
-  void GLVersion() {
+  size_t width() const { return width_; }
+  size_t height() const { return height_; }
+  void gl_version() {
     // get version info
     const GLubyte* renderer = glGetString(GL_RENDERER); GLERROR // get renderer string
     const GLubyte* version = glGetString(GL_VERSION); GLERROR // version as a string
@@ -112,18 +107,18 @@ public:
   }
   void init() {
     start();
-    Logger::Info("INIT\n");
     cam.init();
     Tuple::for_each(layers, [&](auto &lyr) mutable {
-      Logger::Info("INIT LAYER\n");
       lyr.init();
     });
+    cam.update(float(width()) / float(height()));
   }
   void idle() {
     double m_x, m_y, m_z;
     /* audio.Play(); */
+    double current_time = .0;
+    glfwSwapInterval(1);
     while(!glfwWindowShouldClose(window)) {
-      display();
       /* std::get<1>(layers).keyboard(window); */
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
@@ -131,6 +126,10 @@ public:
       m_x /= width(), m_y /= height();
       cam.mouse(m_x, m_y);
       std::get<1>(layers).mouse(m_x, m_y, 1, width(), height(), cam);
+      std::get<1>(layers).idle(current_time);
+      if(glfwGetKey(window, GLFW_KEY_ESCAPE))glfwSetWindowShouldClose(window,1);
+      display();
+      current_time += 1./60;
     }
     /* audio.Stop(); */
   }
@@ -150,7 +149,6 @@ public:
     Tuple::for_each(layers, [&](auto &lyr) mutable {
       lyr.display(cam);
     });
-
     glfwPollEvents(); GLERROR
     glfwSwapBuffers(window); GLERROR
   }

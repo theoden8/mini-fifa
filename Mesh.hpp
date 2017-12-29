@@ -10,28 +10,28 @@
 #include "ShaderAttrib.hpp"
 #include "Texture.hpp"
 
-struct Vertex {
+struct ModelVertex {
   glm::vec3 pos;
   glm::vec3 nrm;
   glm::vec2 txcoords;
-  glm::vec3 tg;
-  glm::vec3 tg2;
+  glm::vec3 tangent;
+  glm::vec3 bitan;
 };
 
-struct Texture {
+struct ModelTexture {
   GLuint id;
   std::string type;
   std::string path;
 };
 
 struct Mesh {
-  std::vector<Vertex> vertices;
+  std::vector<ModelVertex> vertices;
   std::vector<unsigned> indices;
-  std::vector<Texture> textures;
+  std::vector<ModelTexture> textures;
 
   gl::VertexArray vao;
 
-  Mesh(std::vector<Vertex> vertices, std::vector<unsigned> indices, std::vector<Texture> textures):
+  Mesh(std::vector<ModelVertex> vertices, std::vector<unsigned> indices, std::vector<ModelTexture> textures):
     vertices(vertices), indices(indices), textures(textures)
   {}
 
@@ -43,19 +43,19 @@ struct Mesh {
     vbo.init(); ebo.init();
     vao.bind();
     vbo.bind();
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW); GLERROR
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ModelVertex), &vertices[0], GL_STATIC_DRAW); GLERROR
     ebo.bind();
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW); GLERROR
     vao.enable(ebo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), nullptr); GLERROR
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), nullptr); GLERROR
     vao.enable(ebo);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, nrm));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, nrm));
     vao.enable(ebo);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, txcoords));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, txcoords));
     vao.enable(ebo);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tg));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, tangent));
     vao.enable(ebo);
-    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, tg2));
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, bitan));
     /* decltype(ebo)::unbind(); */
     decltype(vao)::unbind();
   }
@@ -69,20 +69,22 @@ struct Mesh {
       normalNr = 1,
       heightNr = 1;
     for(unsigned i = 0; i < textures.size(); ++i) {
-      gl::Texture::set_active(i);
-      std::string number;
+      int number;
       std::string name = textures[i].type;
       if(name == "texture_diffuse") {
-        number = std::to_string(diffuseNr++);
+        number = (diffuseNr++);
       } else if(name == "texture_specular") {
-        number = std::to_string(specNr++);
+        number = (specNr++);
       } else if(name == "texture_normal") {
-        number = std::to_string(normalNr++);
+        number = (normalNr++);
       } else if(name == "texture_height") {
-        number = std::to_string(heightNr++);
+        number = (heightNr++);
       }
       /* Logger::Info("Mesh: field %s\n", (name + number).c_str()); */
-      glUniform1i(glGetUniformLocation(program.id(), (name + number).c_str()), i); GLERROR
+      gl::Uniform<gl::UniformType::SAMPLER2D> uSampler((name + std::to_string(number)).c_str());
+      uSampler.set_id(program.id());
+      uSampler.set_data(i);
+      gl::Texture::set_active(i);
       glBindTexture(GL_TEXTURE_2D, textures[i].id); GLERROR
     }
     vao.bind();

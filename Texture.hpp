@@ -7,6 +7,7 @@
 #include "ShaderProgram.hpp"
 #include "ShaderUniform.hpp"
 
+#include "freetype_config.h"
 #include "PNGImage.hpp"
 #include "JPEGImage.hpp"
 #include "BMPImage.hpp"
@@ -41,6 +42,8 @@ struct Texture {
     return nullptr;
   }
 
+  GLuint id() const { return tex; }
+
   void init_white_square() {
     uint32_t *image = new uint32_t[100*100];
     for(int i = 0; i < 100*100; ++i) {
@@ -54,7 +57,7 @@ struct Texture {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); GLERROR
     glGenerateMipmap(GL_TEXTURE_2D); GLERROR
-    Texture::unbind();
+    gl::Texture::unbind();
     delete [] image;
   }
 
@@ -77,7 +80,7 @@ struct Texture {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); GLERROR
     glGenerateMipmap(GL_TEXTURE_2D); GLERROR
-    Texture::unbind();
+    gl::Texture::unbind();
     /* Logger::Info("create texture '%s': %ld\n", filename.c_str(), clock()-c); */
     /* std::cout << "create texture '" << filename << "': " << clock()-c << std::endl; */
     image->clear();
@@ -85,21 +88,27 @@ struct Texture {
     Logger::Info("Finished loading texture '%s'.\n", filename.c_str());
   }
 
-  /* void init(FT_GlyphSlot *glyph) { */
-  /*   glPixelStorei(GL_UNPACK_ALIGNMENT, 1); GLERROR */
-  /*   glGenTextures(1, &tex); GLERROR */
-  /*   glBindTexture(GL_TEXTURE_2D, tex); GLERROR */
-  /*   glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (*glyph)->bitmap.width, (*glyph)->bitmap.rows, */
-  /*                0, GL_RED, GL_UNSIGNED_BYTE, (*glyph)->bitmap.buffer); GLERROR */
-  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); GLERROR */
-  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); GLERROR */
-  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR */
-  /*   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); GLERROR */
-  /*   unbind(); */
-  /* } */
+  void init(FT_GlyphSlot *glyph) {
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1); GLERROR
+    glGenTextures(1, &tex); GLERROR
+    glBindTexture(GL_TEXTURE_2D, tex); GLERROR
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (*glyph)->bitmap.width, (*glyph)->bitmap.rows,
+                 0, GL_RED, GL_UNSIGNED_BYTE, (*glyph)->bitmap.buffer); GLERROR
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); GLERROR
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); GLERROR
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); GLERROR
+    gl::Texture::unbind();
+  }
 
   static void set_active(int index) {
     glActiveTexture(GL_TEXTURE0 + index); GLERROR
+  }
+
+  static GLint get_active_texture() {
+    GLint active_tex;
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &active_tex); GLERROR
+    return active_tex;
   }
 
   void bind() {
@@ -115,7 +124,7 @@ struct Texture {
   }
 
   void clear() {
-    glDeleteTextures(1, &tex);
+    glDeleteTextures(1, &tex); GLERROR
   }
 };
 }
