@@ -27,6 +27,8 @@ struct Player {
   > program;
   Shadow shadow;
 
+  using ShaderProgram = decltype(program);
+
   Unit::loc_t initial_position;
   Player(int id, bool team, std::pair<float, float> pos={0, 0}):
     team(team), playerId(id),
@@ -34,7 +36,7 @@ struct Player {
     uTransform("transform"),
     playerModelRed(Sprite<Model, class RedPlayer>::create("assets/ninja/ninja.3ds")),
     playerModelBlue(Sprite<Model, class BluePlayer>::create("assets/ninja/ninja.3ds")),
-    program({"player.vert", "player.frag"}),
+    program({"shaders/player.vert", "shaders/player.frag"}),
     unit(Unit::loc_t(initial_position), 4*M_PI)
   {
     transform.SetScale(.01);
@@ -72,7 +74,7 @@ struct Player {
     shadow.transform.SetPosition(unit.pos.x, unit.pos.y, .001);
     shadow.display(cam);
 
-    program.use();
+    ShaderProgram::use(program);
 
     if(cam.has_changed || transform.has_changed) {
       matrix = cam.get_matrix() * transform.get_matrix();
@@ -87,13 +89,13 @@ struct Player {
       playerModelBlue->display(program);
     }
 
-    decltype(program)::unuse();
+    ShaderProgram::unuse();
   }
 
   void clear() {
     playerModelRed->clear();
     playerModelBlue->clear();
-    program.clear();
+    ShaderProgram::clear(program);
   }
 
 // gameplay
@@ -209,6 +211,7 @@ struct Player {
   void jump(float vspeed) {
     if(!can_jump())return;
     timer.set_event(TIME_OF_LAST_JUMP);
+    if(is_sliding() || is_slown_down())return;
     ASSERT(!is_in_air);
     is_in_air = true;
     vertical_speed = vspeed;

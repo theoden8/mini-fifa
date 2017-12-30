@@ -16,12 +16,14 @@ struct Post {
     gl::FragmentShader
   > program;
 
+  using ShaderProgram = decltype(program);
+
   bool team;
   Post(bool team):
     team(team),
     uTransform("transform"),
     postModel("assets/woodswing/woodswing.obj"),
-    program({"post.vert", "post.frag"})
+    program({"shaders/post.vert", "shaders/post.frag"})
   {
     transform.SetScale(.033);
     transform.SetPosition(team ? -1.82 : 1.82, .0, 0);
@@ -32,13 +34,13 @@ struct Post {
   }
 
   void init() {
-    program.compile_program();
+    ShaderProgram::compile_program(program);
     postModel.init();
     uTransform.set_id(program.id());
   }
 
   void display(Camera &cam) {
-    program.use();
+    ShaderProgram::use(program);
 
     if(cam.has_changed || transform.has_changed) {
       matrix = cam.get_matrix() * transform.get_matrix();
@@ -49,7 +51,7 @@ struct Post {
 
     postModel.display(program);
 
-    decltype(program)::unuse();
+    ShaderProgram::unuse();
   }
 
   void clear() {

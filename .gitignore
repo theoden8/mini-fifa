@@ -2,3 +2,4 @@ build
 assets/nanosuit
 assets/woodswing
 *.log
+unused

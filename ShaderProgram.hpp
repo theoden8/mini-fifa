@@ -13,11 +13,14 @@
 namespace gl {
 template <typename... ShaderTs>
 class ShaderProgram {
-  static GLuint last_used_program_id;
   GLuint programId = 0;
   std::tuple<ShaderTs...> shaders;
 
 public:
+  static void compile_program(ShaderProgram<ShaderTs...> &program) {
+    program.compile_program();
+  }
+
   void compile_program() {
     Tuple::for_each(shaders, [&](auto &s) mutable {
       s.init();
@@ -32,6 +35,7 @@ public:
       s.clear();
     });
   }
+
   void bind_attrib(const std::vector <std::string> &locations) {
     for(size_t i = 0; i < locations.size(); ++i) {
       glBindAttribLocation(programId, i, locations[i].c_str()); GLERROR
@@ -42,25 +46,45 @@ public:
   ShaderProgram(STRINGs... shader_filenames):
     shaders(shader_filenames...)
   {}
+
   GLuint id() const {
     return programId;
   }
+
+  static void init(ShaderProgram<ShaderTs...> &program, gl::VertexArray &vao, const std::vector<std::string> &&locations) {
+    program.init(vao, locations);
+  }
+
   void init(gl::VertexArray &vao, const std::vector <std::string> &&locations) {
+    init(vao, locations);
+  }
+
+  void init(gl::VertexArray &vao, const std::vector <std::string> &locations) {
     vao.bind();
     compile_program();
     bind_attrib(locations);
     ASSERT(is_valid());
     gl::VertexArray::unbind();
   }
-  void use() {
-    if(last_used_program_id != id()) {
-      glUseProgram(id()); GLERROR
-      last_used_program_id = id();
-    }
+
+  static void use(GLuint progId) {
+    glUseProgram(progId); GLERROR
   }
+
+  static void use(ShaderProgram<ShaderTs...> &program) {
+    program.use();
+  }
+
+  void use() {
+    use(id());
+  }
+
   static void unuse() {
     glUseProgram(0); GLERROR
-    last_used_program_id = 0;
+  }
+
+  static void clear(ShaderProgram<ShaderTs...> &program) {
+    program.clear();
   }
 
   void clear() {
@@ -82,6 +106,7 @@ public:
     }
     return true;
   }
+
   static const char* GL_type_to_string(GLenum type) {
     switch(type) {
       case GL_BOOL: return "bool";
@@ -101,6 +126,7 @@ public:
     }
     return "other";
   }
+
   void print_info_log() {
     int max_length = 2048;
     int actual_length = 0;
@@ -108,6 +134,7 @@ public:
     glGetProgramInfoLog(programId, max_length, &actual_length, programId_log); GLERROR
     Logger::Info("programId info log for GL index %u:\n%s", programId, programId_log);
   }
+
   void print_all() {
     Logger::Info("--------------------\n");
     Logger::Info("shader programId %d info:\n", programId);
@@ -183,6 +210,4 @@ public:
     }
   }
 };
-template <typename... Ss>
-GLuint gl::ShaderProgram<Ss...>::last_used_program_id = 0;
 }

@@ -13,41 +13,44 @@ struct Background {
     gl::FragmentShader
   > program;
   gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertices;
+  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
+
+  using ShaderAttrib = decltype(attrVertex);
+  using ShaderProgram = decltype(program);
 
   Background():
-    program({"bg.vert", "bg.frag"}),
-    attrVertices("vertex")
+    program({"shaders/bg.vert", "shaders/bg.frag"}),
+    attrVertex("vertex")
   {}
 
   void init() {
-    attrVertices.init();
-    attrVertices.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+    ShaderAttrib::init(attrVertex);
+    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
       -1,-1, 1,-1, 1,1,
       1,1, -1,1, -1,-1,
     });
 
-    vao.init();
-    vao.bind();
-    vao.enable(attrVertices);
-    vao.set_access(attrVertices, 0, 0);
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
+    vao.enable(attrVertex);
+    vao.set_access(attrVertex, 0, 0);
     gl::VertexArray::unbind();
-    program.init(vao, {"attrVertices"});
+    ShaderProgram::init(program, vao, {"attrVertex"});
   }
 
   void display(Camera &cam) {
-    program.use();
+    ShaderProgram::use(program);
 
-    vao.bind();
+    gl::VertexArray::bind(vao);
     glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
     gl::VertexArray::unbind();
 
-    decltype(program)::unuse();
+    ShaderProgram::unuse();
   }
 
   void clear() {
-    attrVertices.clear();
-    vao.clear();
-    program.clear();
+    ShaderAttrib::clear(attrVertex);
+    gl::VertexArray::clear(vao);
+    ShaderProgram::clear(program);
   }
 };

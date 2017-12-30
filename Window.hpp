@@ -83,7 +83,7 @@ protected:
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
-    /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR
   }
   const GLFWvidmode *vidmode = nullptr;
 public:
@@ -119,7 +119,7 @@ public:
     init();
     /* audio.Play(); */
     double current_time = .0;
-    glfwSwapInterval(1);
+    glfwSwapInterval(1); GLERROR
     while(!glfwWindowShouldClose(window)) {
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
@@ -152,7 +152,7 @@ public:
   }
   void resize(float new_width, float new_height) {
     width_ = new_width, height_ = new_height;
-    cam.WindowResize(new_width, new_height);
+    cam.update(float(width_)/height_);
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
     if(action == GLFW_PRESS) {
@@ -172,7 +172,6 @@ public:
   void mouse_click(double x, double y, int button, int action, int mods) {
     std::get<1>(layers).set_cursor(std::get<2>(layers), x/width(), y/height(), width(), height(), cam);
     std::get<1>(layers).mouse_click(button, action);
-    printf("-----------------\nCLICK DETECTED\n");
   }
   void mouse_scroll(double xoffset, double yoffset) {
   }

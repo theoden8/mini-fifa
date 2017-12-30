@@ -7,12 +7,7 @@
 #include <glm/gtc/matrix_inverse.hpp>
 
 #include "incgraphics.h"
-#include "Window.hpp"
 #include "Transformation.hpp"
-
-namespace gl {
-struct Window;
-}
 
 struct Camera {
   bool has_changed = true;
@@ -58,7 +53,7 @@ struct Camera {
   /* glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 0.0f); */
   /* glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f); */
   float cameraSpeedKeys = 0.05f; // adjust accordingly
-  float cameraSpeedMouse = 0.05f; // adjust accordingly
+  float cameraSpeedMouse = 0.02f; // adjust accordingly
   void move_up(float movespeed) { cameraTarget.y = std::max<float>(cameraTarget.y - movespeed, -1.5); /* * cameraFront; */ }
   void move_down(float movespeed) { cameraTarget.y = std::min<float>(cameraTarget.y + movespeed, 2); /* * cameraFront; */ }
   void move_left(float movespeed) { cameraTarget.x = std::min<float>(cameraTarget.x + movespeed, 3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
@@ -88,7 +83,7 @@ struct Camera {
   }
 
   void mouse(double x, double y) {
-    double border = .05;
+    double border = .02;
     if(x < border) {
       move_left(cameraSpeedMouse);
     } else if(x > 1.-border) {
@@ -99,20 +94,6 @@ struct Camera {
     } else if(y > 1.-border) {
       move_down(cameraSpeedMouse);
     }
-  }
-
-  void WindowResize(float new_width, float new_height) {
-    /* glm::vec3 target = transform.GetPosition(); */
-    /* lookat = glm::lookAt( */
-    /*   target + glm::vec3(0, 0, 1), */
-    /*   target, */
-    /*   glm::vec3(0, 1, 0) */
-    /* ); */
-    /* if(new_width > new_height) { */
-    /*   projection = glm::ortho(-new_width/new_height, new_width/new_height, -1.0f, 1.0f, 1.0f, -1.0f); */
-    /* } else if(new_width <= new_height) { */
-    /*   projection = glm::ortho(-1.0f, 1.0f, -new_height/new_width, new_height/new_width, 1.0f, -1.0f); */
-    /* } */
   }
 
   decltype(auto) get_matrix() {

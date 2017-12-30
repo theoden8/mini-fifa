@@ -28,13 +28,16 @@ struct Cursor {
   gl::VertexArray vao;
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
 
+  using ShaderAttrib = decltype(attrVertex);
+  using ShaderProgram = decltype(program);
+
   State state = State::POINTER;
 
   Cursor():
     uTransform("transform"),
     pointerTx("cursorTx"),
     selectorTx("cursorTx"),
-    program({"cursor.vert", "cursor.frag"})
+    program({"shaders/cursor.vert", "shaders/cursor.frag"})
   {
     transform.SetScale(.02f);
     transform.SetPosition(0, 0, 0);
@@ -42,17 +45,17 @@ struct Cursor {
   }
 
   void init() {
-    attrVertex.init();
+    ShaderAttrib::init(attrVertex);
     attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
       1,1, -1,1, -1,-1,
       -1,-1, 1,-1, 1,1,
     });
-    vao.init();
-    vao.bind();
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0, 0);
     gl::VertexArray::unbind();
-    program.init(vao, {"attrVertex"});
+    ShaderProgram::init(program, vao, {"attrVertex"});
     pointerTx.init("assets/pointer.png");
     selectorTx.init("assets/selector.png");
     pointerTx.uSampler.set_id(program.id());
@@ -73,7 +76,7 @@ struct Cursor {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
 
-    program.use();
+    ShaderProgram::use(program);
 
     if(transform.has_changed) {
       glm::mat4 matrix = transform.get_matrix();
@@ -91,7 +94,7 @@ struct Cursor {
       selectorTx.set_data(0);
     }
 
-    vao.bind();
+    gl::VertexArray::bind(vao);
     glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
     gl::VertexArray::unbind();
 
@@ -103,6 +106,8 @@ struct Cursor {
   void clear() {
     pointerTx.clear();
     selectorTx.clear();
-    program.clear();
+    ShaderAttrib::clear(attrVertex);
+    gl::VertexArray::clear(vao);
+    ShaderProgram::clear(program);
   }
 };

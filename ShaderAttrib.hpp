@@ -70,8 +70,16 @@ struct Attrib : GenericShaderAttrib {
     location(loc)
   {}
 
-  void init() {
+  static void init(GLuint &vbo) {
     glGenBuffers(1, &vbo); GLERROR
+  }
+
+  static void init(Attrib<ArrayType, AttribT> &attr) {
+    attr.init();
+  }
+
+  void init() {
+    init(vbo);
   }
 
   GLuint id() const {
@@ -84,8 +92,16 @@ struct Attrib : GenericShaderAttrib {
     return lc;
   }
 
-  void bind() {
+  static void bind(GLuint vbo) {
     glBindBuffer(ArrayType, vbo); GLERROR
+  }
+
+  static void bind(Attrib<ArrayType, AttribT> &attr) {
+    attr.bind();
+  }
+
+  void bind() {
+    bind(vbo);
   }
 
   bool is_active(GLuint program_id) {
@@ -116,8 +132,16 @@ struct Attrib : GenericShaderAttrib {
     glBindBuffer(ArrayType, 0); GLERROR
   }
 
-  void clear() {
+  static void clear(GLuint &vbo) {
     glDeleteBuffers(1, &vbo); GLERROR
+  }
+
+  static void clear(Attrib<ArrayType, AttribT> &attr) {
+    attr.clear();
+  }
+
+  void clear() {
+    clear(vbo);
   }
 };
 
@@ -130,24 +154,45 @@ struct VertexArray {
   {}
   ~VertexArray()
   {}
-  void init() {
-    glGenVertexArrays(1, &vaoId); GLERROR
+
+  static void init(GLuint &vao) {
+    glGenVertexArrays(1, &vao); GLERROR
   }
+
+  static void init(VertexArray &va) {
+    va.init();
+  }
+
+  void init() {
+    init(vaoId);
+  }
+
   GLuint id() const {
     return vaoId;
   }
+
+  static void bind(GLuint vao) {
+    glBindVertexArray(vao); GLERROR
+    last_vao = vao;
+  }
+
+  static void bind(VertexArray &va) {
+    va.bind();
+  }
+
   void bind() {
     /* if(last_vao == vaoId) { */
     /*   return; */
     /* } */
-    glBindVertexArray(vaoId); GLERROR
-    last_vao = vaoId;
+    bind(vaoId);
   }
+
   template <GLenum ArrayType, AttribType AttribT>
   void enable(gl::Attrib<ArrayType, AttribT> &attrib) {
     glEnableVertexAttribArray(attribs.size()); GLERROR
     attribs.push_back(attrib);
   }
+
   template <GLenum ArrayType, AttribType AttribT>
   void set_access(gl::Attrib<ArrayType, AttribT> a, size_t start=0, size_t stride=0) {
     a.bind();
@@ -160,12 +205,22 @@ struct VertexArray {
       nullptr); GLERROR
     Attrib<ArrayType, AttribT>::unbind();
   }
+
   static void unbind() {
     glBindVertexArray(0); GLERROR
     last_vao = 0;
   }
+
+  static void clear(GLuint &vao) {
+    glDeleteVertexArrays(1, &vao); GLERROR
+  }
+
+  static void clear(VertexArray &va) {
+    va.clear();
+  }
+
   void clear() {
-    glDeleteVertexArrays(1, &vaoId); GLERROR
+    clear(vaoId);
   }
 };
 GLuint VertexArray::last_vao = 0;

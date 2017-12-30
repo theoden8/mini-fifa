@@ -51,8 +51,11 @@ struct Pitch {
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
   gl::Texture grassTx;
 
+  using ShaderAttrib = decltype(attrVertex);
+  using ShaderProgram = decltype(program);
+
   Pitch():
-    program({"pitch.vert", "pitch.frag"}),
+    program({"shaders/pitch.vert", "shaders/pitch.frag"}),
     uTransform("transform"),
     attrVertex("vertex"),
     grassTx("grass")
@@ -63,18 +66,18 @@ struct Pitch {
   }
 
   void init() {
-    attrVertex.init();
+    ShaderAttrib::init(attrVertex);
     attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
       1,1, -1,1, -1,-1,
       -1,-1, 1,-1, 1,1,
     });
 
-    vao.init();
-    vao.bind();
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0, 0);
     gl::VertexArray::unbind();
-    program.init(vao, {"attrVertex"});
+    ShaderProgram::init(program, vao, {"attrVertex"});
     grassTx.init("assets/grass.png");
 
     grassTx.uSampler.set_id(program.id());
@@ -96,7 +99,9 @@ struct Pitch {
   }
 
   void display(Camera &cam) {
-    program.use();
+    using ShaderProgram = decltype(program);
+
+    ShaderProgram::use(program);
 
     if(transform.has_changed || cam.has_changed) {
       matrix = cam.get_matrix() * transform.get_matrix();
@@ -109,18 +114,18 @@ struct Pitch {
     grassTx.bind();
     grassTx.set_data(0);
 
-    vao.bind();
+    gl::VertexArray::bind(vao);
     glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
     gl::VertexArray::unbind();
 
     gl::Texture::unbind();
-    decltype(program)::unuse();
+    ShaderProgram::unuse();
   }
 
   void clear() {
     grassTx.clear();
-    attrVertex.clear();
-    vao.clear();
-    program.clear();
+    ShaderAttrib::clear(attrVertex);
+    gl::VertexArray::clear(vao);
+    ShaderProgram::clear(program);
   }
 };

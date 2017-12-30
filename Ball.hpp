@@ -27,18 +27,22 @@ struct Ball {
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::Uniform<gl::UniformType::VEC3> uColor;
   gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC3> attrVertices;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrTexcoords;
+  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC3> attrVertex;
+  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrTexcoord;
   gl::Texture ballTx;
   Shadow shadow;
+
+  using ShaderAttribVEC3 = decltype(attrVertex);
+  using ShaderAttribVEC2 = decltype(attrTexcoord);
+  using ShaderProgram = decltype(program);
 
   Ball():
     uTransform("transform"),
     uColor("color"),
-    program({"ball.vert", "ball.frag"}),
+    program({"shaders/ball.vert", "shaders/ball.frag"}),
     ballTx("ballTx"),
-    attrVertices("vpos"),
-    attrTexcoords("vtex"),
+    attrVertex("vpos"),
+    attrTexcoord("vtex"),
     unit(Unit::vec_t(0, 0, 0), M_PI * 4)
   {
     transform.SetScale(.01, .01, .01);
@@ -103,24 +107,24 @@ struct Ball {
   void init() {
     float *vertices = new float[SIZE*9];
     set_vertices(vertices);
-    attrVertices.init();
-    attrVertices.allocate<GL_STREAM_DRAW>(SIZE*3, vertices);
+    ShaderAttribVEC3::init(attrVertex);
+    attrVertex.allocate<GL_STREAM_DRAW>(SIZE*3, vertices);
     delete [] vertices;
     float *txcoords = new float[SIZE*6];
     set_texcoords(txcoords);
-    attrTexcoords.init();
-    attrTexcoords.allocate<GL_STREAM_DRAW>(SIZE*3, txcoords);
+    ShaderAttribVEC2::init(attrTexcoord);
+    attrTexcoord.allocate<GL_STREAM_DRAW>(SIZE*3, txcoords);
     delete [] txcoords;
-    vao.init();
-    vao.bind();
-    vao.enable(attrVertices);
-    vao.set_access(attrVertices, 0, 0);
-    vao.enable(attrTexcoords);
-    vao.set_access(attrTexcoords, 1, 0);
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
+    vao.enable(attrVertex);
+    vao.set_access(attrVertex, 0, 0);
+    vao.enable(attrTexcoord);
+    vao.set_access(attrTexcoord, 1, 0);
     glVertexAttribDivisor(0, 0); GLERROR
     glVertexAttribDivisor(1, 0); GLERROR
     gl::VertexArray::unbind();
-    program.init(vao, {"vpos", "vtex"});
+    ShaderProgram::init(program, vao, {"vpos", "vtex"});
     ballTx.init("assets/ball.png");
 
     ballTx.uSampler.set_id(program.id());
@@ -146,7 +150,7 @@ struct Ball {
     shadow.transform.SetPosition(unit.pos.x, unit.pos.y, .001);
     shadow.display(cam);
 
-    program.use();
+    ShaderProgram::use(program);
 
     if(transform.has_changed || cam.has_changed) {
       matrix = cam.get_matrix() * transform.get_matrix();
@@ -170,21 +174,21 @@ struct Ball {
     ballTx.bind();
     ballTx.set_data(0);
 
-    vao.bind();
+    gl::VertexArray::bind(vao);
     glDrawArrays(GL_TRIANGLES, 0, SIZE*3); GLERROR
     gl::VertexArray::unbind();
 
     gl::Texture::unbind();
-    decltype(program)::unuse();
+    ShaderProgram::unuse();
   }
 
   void clear() {
     shadow.clear();
     ballTx.clear();
-    attrVertices.clear();
-    attrTexcoords.clear();
-    vao.clear();
-    program.clear();
+    ShaderAttribVEC3::clear(attrVertex);
+    ShaderAttribVEC2::clear(attrTexcoord);
+    gl::VertexArray::clear(vao);
+    ShaderProgram::clear(program);
   }
 
 // gameplay

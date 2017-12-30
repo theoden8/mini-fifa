@@ -16,27 +16,30 @@ struct Shadow {
   > program;
   gl::VertexArray vao;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertices;
+  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
+
+  using ShaderAttrib = decltype(attrVertex);
+  using ShaderProgram = decltype(program);
 
   Shadow():
-    program({"shadow.vert", "shadow.frag"}),
+    program({"shaders/shadow.vert", "shaders/shadow.frag"}),
     uTransform("transform"),
-    attrVertices("vertex")
+    attrVertex("vertex")
   {}
 
   void init() {
-    attrVertices.init();
-    attrVertices.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+    ShaderAttrib::init(attrVertex);
+    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
       -1,-1, 1,-1, 1,1,
       1,1, -1,1, -1,-1,
     });
 
-    vao.init();
-    vao.bind();
-    vao.enable(attrVertices);
-    vao.set_access(attrVertices, 0, 0);
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
+    vao.enable(attrVertex);
+    vao.set_access(attrVertex, 0, 0);
     gl::VertexArray::unbind();
-    program.init(vao, {"attrVertices"});
+    ShaderProgram::init(program, vao, {"attrVertex"});
     uTransform.set_id(program.id());
   }
 
@@ -45,7 +48,7 @@ struct Shadow {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
 
-    program.use();
+    ShaderProgram::use(program);
 
     if(cam.has_changed || transform.has_changed) {
       matrix = cam.get_matrix() * transform.get_matrix();
@@ -54,18 +57,18 @@ struct Shadow {
       transform.has_changed = false;
     }
 
-    vao.bind();
+    gl::VertexArray::bind(vao);
     glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
     gl::VertexArray::unbind();
 
-    decltype(program)::unuse();
+    ShaderProgram::unuse();
 
     glDisable(GL_BLEND); GLERROR
   }
 
   void clear() {
-    attrVertices.clear();
-    vao.clear();
-    program.clear();
+    ShaderAttrib::clear(attrVertex);
+    gl::VertexArray::clear(vao);
+    ShaderProgram::clear(program);
   }
 };
