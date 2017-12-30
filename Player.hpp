@@ -112,6 +112,7 @@ struct Player {
   static constexpr Timer::time_t CANT_HOLD_BALL_SHOT = 0.9;
   const float running_speed = 0.29 * .5;
   float tallness = .05;
+  float G = .00115;
   bool is_in_air = false;
   float default_height = .0001;
   float vertical_speed = .0;

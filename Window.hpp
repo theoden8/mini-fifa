@@ -155,9 +155,6 @@ public:
     cam.WindowResize(new_width, new_height);
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
-    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-      glfwSetWindowShouldClose(window, true);
-    }
     if(action == GLFW_PRESS) {
       std::get<1>(layers).keyboard(key);
     }

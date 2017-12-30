@@ -324,6 +324,26 @@ struct Soccer {
         p.timestamp_dispossess(ball, Player::CANT_HOLD_BALL_SHOT);
         ball.unit.face(p.unit.facing_angle(p.unit.dest));
         ball.unit.moving_speed = p.unit.moving_speed;
+      } else if(p.is_going_up()) {
+        Unit::loc_t dest = single_player_pass_point;
+        int pass_to = get_pass_destination(ball.owner());
+        if(is_active_player(pass_to)) {
+          dest = players[pass_to].possession_point();
+        }
+        float dist = glm::distance(p.unit.pos, dest);
+        float time = std::sqrt(2 * ball.unit.height() / p.G) * .1;
+        float speed = std::fmax(ball.unit.moving_speed, p.running_speed * 1.2);
+
+        if(dist < speed * time) {
+          ball.vertical_speed = 0;
+          speed = dist/time;
+        } else {
+          ball.vertical_speed = std::fmin(.01*p.tallness, .01*p.tallness*p.G*.05/speed);
+        }
+        ball.unit.moving_speed = speed;
+        ball.is_in_air = true;
+        ball.unit.facing_dest = ball.unit.facing_angle(dest);
+        p.timestamp_dispossess(ball, Player::CANT_HOLD_BALL_SHOT);
       }
     }
   }

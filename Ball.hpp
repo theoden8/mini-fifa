@@ -199,7 +199,7 @@ struct Ball {
   /* Unit::vec_t speed{0, 0, 0}; */
   const float default_height = .001;
   static constexpr float GROUND_FRICTION = .05;
-  static constexpr float GROUND_HIT_SLOWDOWN = .05;
+  static constexpr float GROUND_HIT_SLOWDOWN = .02;
   /* const float G = 1.15; */
   /* const float gravity = 2.3; */
   /* const float mass = 1.0f; */
@@ -267,7 +267,7 @@ struct Ball {
         is_in_air = false;
         vertical_speed = 0.;
       } else {
-        vertical_speed *= .6;
+        vertical_speed -= .3 * vertical_speed;
         vertical_speed = std::abs(vertical_speed);
       }
     } else {
