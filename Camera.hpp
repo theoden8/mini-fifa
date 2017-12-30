@@ -33,12 +33,16 @@ struct Camera {
       cameraTarget,
       up
     );
-    projection = glm::perspective(
+    projection = glm::infinitePerspective(
       glm::radians(fov),
       ratio,
-      0.1f,
-      100.0f
+      0.1f
     );
+    /* * glm::ortho( */
+    /*   -ratio, ratio, */
+    /*   -ratio, ratio, */
+    /*   std::cos(glm::radians(fov)), 0.f */
+    /* ); */
   }
 
   glm::vec3 cameraPos;

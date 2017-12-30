@@ -6,6 +6,7 @@
 #include "Transformation.hpp"
 #include "Camera.hpp"
 #include "Model.hpp"
+#include "Shadow.hpp"
 
 #include "Timer.hpp"
 #include "Unit.hpp"
@@ -29,6 +30,7 @@ struct Ball {
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC3> attrVertices;
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrTexcoords;
   gl::Texture ballTx;
+  Shadow shadow;
 
   Ball():
     uTransform("transform"),
@@ -43,6 +45,7 @@ struct Ball {
     transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
     transform.SetRotation(1, 0, 0, 180.f);
     reset_height();
+    shadow.transform.SetScale(.01);
   }
 
   // tesselate a sphere with triangles
@@ -125,6 +128,7 @@ struct Ball {
     uColor.set_id(program.id());
     gl::VertexArray::unbind();
 
+    shadow.init();
     set_timer();
   }
 
@@ -139,6 +143,9 @@ struct Ball {
   }
 
   void display(Camera &cam) {
+    shadow.transform.SetPosition(unit.pos.x, unit.pos.y, .001);
+    shadow.display(cam);
+
     program.use();
 
     if(transform.has_changed || cam.has_changed) {
@@ -172,6 +179,7 @@ struct Ball {
   }
 
   void clear() {
+    shadow.clear();
     ballTx.clear();
     attrVertices.clear();
     attrTexcoords.clear();

@@ -5,8 +5,6 @@ int main() {
   gl::Window w;
   Logger::Setup("prog.log");
   Logger::MirrorLog(stderr);
-  w.init();
-  w.idle();
-  w.clear();
+  w.run();
   Logger::Close();
 }

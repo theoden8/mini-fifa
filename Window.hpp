@@ -18,6 +18,7 @@
 #include "Camera.hpp"
 #include "Background.hpp"
 #include "Soccer.hpp"
+#include "Cursor.hpp"
 
 namespace glfw {
 void error_callback(int error, const char* description);
@@ -38,7 +39,7 @@ protected:
 
   /* al::Audio audio; */
   Camera cam;
-  std::tuple<Background, Soccer> layers;
+  std::tuple<Background, Soccer, Cursor> layers;
   /* std::tuple<Background, Player> layers; */
 
   void start() {
@@ -82,6 +83,7 @@ protected:
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
+    /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
   }
   const GLFWvidmode *vidmode = nullptr;
 public:
@@ -113,25 +115,21 @@ public:
     });
     cam.update(float(width()) / float(height()));
   }
-  void idle() {
-    double m_x, m_y, m_z;
+  void run() {
+    init();
     /* audio.Play(); */
     double current_time = .0;
     glfwSwapInterval(1);
     while(!glfwWindowShouldClose(window)) {
-      /* std::get<1>(layers).keyboard(window); */
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
-      glfwGetCursorPos(window, &m_x, &m_y);
-      m_x /= width(), m_y /= height();
-      cam.mouse(m_x, m_y);
-      std::get<1>(layers).mouse(m_x, m_y, 1, width(), height(), cam);
+      idle_mouse();
       std::get<1>(layers).idle(current_time);
-      if(glfwGetKey(window, GLFW_KEY_ESCAPE))glfwSetWindowShouldClose(window,1);
       display();
       current_time += 1./60;
     }
     /* audio.Stop(); */
+    clear();
   }
   void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
@@ -142,9 +140,9 @@ public:
     /* glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); GLERROR */
     /* glStencilMask(0xFF); GLERROR */
 
-    glEnable(GL_CULL_FACE); GLERROR
-    glCullFace(GL_FRONT); GLERROR
-    glFrontFace(GL_CW); GLERROR
+    /* glEnable(GL_CULL_FACE); GLERROR */
+    /* glCullFace(GL_FRONT); GLERROR */
+    /* glFrontFace(GL_CW); GLERROR */
 
     Tuple::for_each(layers, [&](auto &lyr) mutable {
       lyr.display(cam);
@@ -155,7 +153,6 @@ public:
   void resize(float new_width, float new_height) {
     width_ = new_width, height_ = new_height;
     cam.WindowResize(new_width, new_height);
-    /* current_screen->Resize(); */
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
@@ -163,13 +160,21 @@ public:
     }
     if(action == GLFW_PRESS) {
       std::get<1>(layers).keyboard(key);
-      /* current_screen->KeyPress(key, scancode, mods); */
     }
     if(action == GLFW_RELEASE) {
-      /* current_screen->KeyRelease(key, scancode, mods); */
     }
   }
+  void idle_mouse() {
+    double m_x, m_y;
+    glfwGetCursorPos(window, &m_x, &m_y);
+    m_x /= width(), m_y /= height();
+    cam.mouse(m_x, m_y);
+    std::get<1>(layers).set_cursor(std::get<2>(layers), m_x, m_y, width(), height(), cam);
+    std::get<2>(layers).mouse(m_x, m_y);
+  }
   void mouse_click(double x, double y, int button, int action, int mods) {
+    std::get<1>(layers).set_cursor(std::get<2>(layers), x/width(), y/height(), width(), height(), cam);
+    std::get<1>(layers).mouse_click(button, action);
   }
   void mouse_scroll(double xoffset, double yoffset) {
   }

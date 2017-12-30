@@ -63,17 +63,7 @@ struct Player {
 
   void keyboard(int key) {
     double step = .3;
-    if(key == GLFW_KEY_A) {
-      unit.move(Unit::loc_t(unit.pos.x + step, unit.pos.y, unit.pos.z));
-    } else if(key == GLFW_KEY_D) {
-      unit.move(Unit::loc_t(unit.pos.x - step, unit.pos.y, unit.pos.z));
-    } else if(key == GLFW_KEY_W) {
-      unit.move(Unit::loc_t(unit.pos.x, unit.pos.y - step, unit.pos.z));
-    } else if(key == GLFW_KEY_S) {
-      unit.move(Unit::loc_t(unit.pos.x, unit.pos.y + step, unit.pos.z));
-    } else if(key == GLFW_KEY_SPACE) {
-      unit.move(unit.point_offset(step));
-    } else if(key == GLFW_KEY_H) {
+    if(key == GLFW_KEY_S) {
       unit.stop();
     }
   }
@@ -178,18 +168,18 @@ struct Player {
   void idle_jump() {
     double timediff = timer.elapsed();
     if(is_jumping() && id()==0) {
-      printf("mode: %s [%d %d]\n", is_in_air?"jumping":"running", is_going_up(), is_landing());
-      printf("height: %f\n", unit.height());
-      printf("vertical speed: %f\n", vertical_speed);
+      /* printf("mode: %s [%d %d]\n", is_in_air?"jumping":"running", is_going_up(), is_landing()); */
+      /* printf("height: %f\n", unit.height()); */
+      /* printf("vertical speed: %f\n", vertical_speed); */
     }
     if(is_jumping()) {
       if(vertical_speed > .0 || unit.height() > default_height) {
         float h = unit.height();
         unit.height() += 30 * vertical_speed * timediff;
-        printf("height: %f -> %f\n", h, unit.height());
+        /* if(!id())printf("height: %f -> %f\n", h, unit.height()); */
         vertical_speed -= .0069 * timediff;
       } else {
-        if(!id())printf("landing\n");
+        /* if(!id())printf("landing\n"); */
         unit.height() = default_height;
         vertical_speed = .0;
         is_in_air = false;

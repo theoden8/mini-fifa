@@ -2,6 +2,7 @@
 
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtx/intersect.hpp>
 
 #include "Transformation.hpp"
 #include "Camera.hpp"
@@ -9,6 +10,7 @@
 #include "Player.hpp"
 #include "Pitch.hpp"
 #include "Post.hpp"
+#include "Cursor.hpp"
 
 #include "Timer.hpp"
 
@@ -51,105 +53,84 @@ struct Soccer {
   void set_timer() {
   }
 
+  enum class CursorState {
+    DEFAULT,
+    X_AIM,
+    C_AIM,
+    F_AIM
+  };
+  CursorState cursorState = CursorState::DEFAULT;
   void keyboard(int key) {
     ball.keyboard(key);
     players[0].keyboard(key);
     if(key == GLFW_KEY_Z) {
       z_action(ball.owner());
     } else if(key == GLFW_KEY_X) {
-      x_action(0, players[0].unit.facing);
+      cursorState = CursorState::X_AIM;
     } else if(key == GLFW_KEY_C) {
-      c_action(0, players[0].unit.facing);
+      cursorState = CursorState::C_AIM;
     } else if(key == GLFW_KEY_V) {
       v_action(0);
     } else if(key == GLFW_KEY_F) {
-      for(int i = 0; i < players.size(); ++i) {
-        auto &p = get_player(i);
-        f_action(p.id(), p.unit.facing_angle(ball.unit.pos));
+      cursorState = CursorState::F_AIM;
+    } else if(key == GLFW_KEY_ESCAPE) {
+      if(cursorState != CursorState::DEFAULT) {
+        cursorState = CursorState::DEFAULT;
       }
     }
   }
 
-/*   glm::vec2 find_cursor(float sx, float sy, glm::mat4 trymat, Region reg, float precision=0.001, int tab=0) { */
-/*     float cur_prec = std::sqrt((std::abs(reg.xs.y - reg.xs.x) + std::abs(reg.ys.y - reg.ys.x))); */
-/*     if(cur_prec < precision)return reg.center(); */
-/*     glm::vec2 sizes(reg.xs.y - reg.xs.x, reg.ys.y - reg.ys.x); */
-/*     glm::vec2 start(reg.xs.x, reg.ys.x); */
-/*     glm::vec2 mid(reg.xs.x + sizes.x/2, reg.ys.x + sizes.y/2); */
-/*     glm::vec2 end(reg.xs.y, reg.ys.y); */
-/*     std::vector<Region> screen_regions = { */
-/*       Region(glm::vec2(start.x+sizes.x/4, start.x+sizes.x*3/4), glm::vec2(start.y+sizes.y/4, start.y+sizes.y*3/4)), */
-/*       Region(glm::vec2(start.x, mid.x), glm::vec2(start.y, mid.y)), */
-/*       Region(glm::vec2(mid.x, end.x), glm::vec2(start.y, mid.y)), */
-/*       Region(glm::vec2(start.x, mid.x), glm::vec2(mid.y, end.y)), */
-/*       Region(glm::vec2(mid.x, end.x), glm::vec2(mid.y, end.y)) */
-/*     }; */
-/*     for(int i = 0; i < tab; ++i)printf("  "); */
-/*     /1* printf("mouse: (%f %f)\n", sx, sy); *1/ */
-/*     for(auto &sr : screen_regions) { */
-/*       auto transform_coord = [=](glm::vec2 coord) { */
-/*         glm::vec4 res = trymat * glm::vec4(coord.x, coord.y, 0, 1); */
-/*         return glm::vec2(res.x, res.y); */
-/*       }; */
-/*       glm::vec2 corner1 = transform_coord(glm::vec2(sr.xs.x, sr.ys.x)); */
-/*       glm::vec2 corner2 = transform_coord(glm::vec2(sr.xs.y, sr.ys.y)); */
-/*       Region pitch_region( */
-/*         glm::vec2(corner1.x, corner2.x), */
-/*         glm::vec2(corner1.y, corner2.y) */
-/*       ); */
-/*       for(int i = 0; i < tab; ++i)printf("  "); */
-/*       /1* printf("region: %s | prec: %f\n", pitch_region.str().c_str(), cur_prec); *1/ */
-/*       if(pitch_region.contains(sx, sy)) { */
-/*         return find_cursor(sx, sy, trymat, pitch_region, precision, tab+1); */
-/*       } */
-/*     } */
-/*     return glm::vec2(0, 0); */
-/*   } */
-
-  void mouse(float m_x, float m_y, float m_z, float width, float height, Camera &cam) {
-    // pitch:
-    // pos = ([-2, 2], [-1, 1], 0, 1)
-    // displayed = MVP * pos
-    //
-    // mouse -> pitch:
-    // mouse = MVP * pos
-    // MVP^-1 * mouse = pos
-    // MVP = cam * model
-    // MVP^-1 = model^-1 * cam^-1
-    //
-    // inverse of an affine transformation is exactly what we need
-    /* double s_x = 2 * m_x - 1, s_y = 2 * m_y - 1, s_z = m_z; */
-
-    /* glm::vec3 mvec(s_x, s_y, s_z); */
-    /* glm::mat4 model_mat = pitch.transform.get_matrix(); */
-    /* glm::mat4 cam_mat = cam.get_matrix(); */
-    /* glm::mat4 mat = cam_mat * model_mat; */
-    /* glm::mat4 inverse = glm::inverse(mat); */
-    glm::vec4 viewport(0, 0, width, height);
-    glGetFloatv(GL_VIEWPORT, glm::value_ptr(viewport)); GLERROR
-    int w_x = m_x * width;
-    int w_y = (1 - m_y) * height;
-    int w_z;
-    glReadPixels(w_x, w_y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &w_z); GLERROR
-    glm::vec3 screen(w_x, w_y, w_z);
-    glm::vec3 pos = glm::unProject(
-      screen,
-      cam.view,
-      cam.projection,
-      viewport
+  void set_cursor(Cursor &cursor, float m_x, float m_y, float width, float height, Camera &cam) {
+    float s_x = m_x * 2 - 1, s_y = m_y * 2 - 1;
+    glm::vec4 screenPos = glm::vec4(s_x, -s_y, 1.f, 1.f);
+    glm::vec4 worldPos = glm::inverse(cam.get_matrix()) * screenPos;
+    glm::vec3 dir = glm::normalize(glm::vec3(worldPos));
+    float dist;
+    bool intersects = glm::intersectRayPlane(
+      cam.cameraPos,
+      dir,
+      glm::vec3(0, 0, 0),
+      glm::vec3(0, 0, 1),
+      dist
     );
-    cursor = pos;
-    /* printf("cursor (%f %f %d) -> (%f %f %f)\n", m_x, m_y, w_z, pos.x,pos.y,pos.z); */
-    /* ball.position() = pos; */
-    /* glm::vec4 v(rand_dc(), rand_dc(), 0, 1); auto w = inverse * v * model_mat * cam_mat; */
-    /* printf("[%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f]\n", */
-    /*   v.x, v.y, v.z, v.w, */
-    /*   w.x, w.y, w.z, w.w */
-    /* ); */
-    /* glm::vec4 pos = inverse * lhs; */
-    /* printf("[%.3f %.3f %.3f %.3f] -> [%.3f %.3f %.3f %.3f]\n\n", s_x, s_y, 0., 1., pos.x, pos.y, pos.z, pos.w); */
-    /* cursor = find_cursor(s_x, s_y, mat, Region(glm::vec2(-1, 1), glm::vec2(-1, 1)), .1); */
-    /* ball.position() = glm::vec3(cursor.x, cursor.y, ball.unit.height()); */
+    glm::vec3 pos = cam.cameraPos + dir * dist;
+    cursorPoint = glm::vec2(pos.x, pos.y);
+    /* printf("cursor (%f %f) -> (%f %f %f)\n", s_x, s_y, pos.x,pos.y, pos.z); */
+    /* ball.position() = glm::vec3(cursorPoint.x, cursorPoint.y, ball.unit.height()); */
+    if(cursorState == CursorState::DEFAULT) {
+      cursor.state = Cursor::State::POINTER;
+    } else {
+      cursor.state = Cursor::State::SELECTOR;
+    }
+  }
+
+  void mouse_click(int button, int action) {
+    auto &p = players[0];
+    glm::vec3 cpos(cursorPoint.x, cursorPoint.y, 0);
+    if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+      if(cursorState == CursorState::DEFAULT) {
+        p.unit.move(cpos);
+      } else {
+        cursorState = CursorState::DEFAULT;
+      }
+    } else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+      switch(cursorState) {
+        case CursorState::DEFAULT:
+        break;
+        case CursorState::X_AIM:
+          x_action(p.id(), p.unit.facing_angle(cpos));
+          cursorState = CursorState::DEFAULT;
+        break;
+        case CursorState::C_AIM:
+          c_action(p.id(), p.unit.facing_angle(cpos));
+          cursorState = CursorState::DEFAULT;
+        break;
+        case CursorState::F_AIM:
+          f_action(p.id(), p.unit.facing_angle(cpos));
+          cursorState = CursorState::DEFAULT;
+        break;
+      }
+    }
   }
 
   void display(Camera &cam) {
@@ -258,7 +239,7 @@ struct Soccer {
   };
 
   Team team1, team2;
-  glm::vec2 cursor;
+  glm::vec2 cursorPoint;
 
   void idle(double curtime) {
     timer.set_time(curtime);

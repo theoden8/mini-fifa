@@ -95,38 +95,6 @@ struct Pitch {
     return Region(glm::vec2(0, playable.xs.y), glm::vec2(playable.ys.x, playable.ys.y));
   }
 
-  /* void keyboard(GLFWwindow *w) { */
-    /* if(glfwGetKey(w, GLFW_KEY_UP)) { */
-    /*   transform.MovePosition(0, -.05, 0); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_DOWN)) { */
-    /*   transform.MovePosition(0, .05, 0); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_LEFT)) { */
-    /*   transform.MovePosition(.05, 0, 0); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_RIGHT)) { */
-    /*   transform.MovePosition(-.05, 0, 0); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_W)) { */
-    /*   transform.Rotate(1, 0, 0, 10); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_S)) { */
-    /*   transform.Rotate(1, 0, 0, -10); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_A)) { */
-    /*   transform.Rotate(0, 1, 0, 10); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_D)) { */
-    /*   transform.Rotate(0, 1, 0, -10); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_Q)) { */
-    /*   transform.Rotate(0, 0, 1, 10); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_E)) { */
-    /*   transform.Rotate(0, 0, 1, -10); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_EQUAL)) { */
-    /*   transform.Scale(1.05); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_MINUS)) { */
-    /*   transform.Scale(1./1.05); */
-    /* } else if(glfwGetKey(w, GLFW_KEY_0)) { */
-    /*   transform.SetScale(1.0f); */
-    /*   transform.SetPosition(0, 0, .1); */
-    /*   transform.SetRotation(0, 1, 0, 0); */
-    /* } */
-  /* } */
-
   void display(Camera &cam) {
     program.use();
 
