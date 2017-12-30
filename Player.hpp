@@ -111,7 +111,7 @@ struct Player {
   static constexpr Timer::time_t CANT_HOLD_BALL_DISPOSSESS = 1.45;
   static constexpr Timer::time_t CANT_HOLD_BALL_SHOT = 0.9;
   const float running_speed = 0.29 * .5;
-  float tallness = .03;
+  float tallness = .05;
   bool is_in_air = false;
   float default_height = .0001;
   float vertical_speed = .0;
@@ -175,9 +175,9 @@ struct Player {
     if(is_jumping()) {
       if(vertical_speed > .0 || unit.height() > default_height) {
         float h = unit.height();
-        unit.height() += 30 * vertical_speed * timediff;
+        unit.height() += 10 * vertical_speed * timediff;
         /* if(!id())printf("height: %f -> %f\n", h, unit.height()); */
-        vertical_speed -= .0069 * timediff;
+        vertical_speed -= .0115 * timediff;
       } else {
         /* if(!id())printf("landing\n"); */
         unit.height() = default_height;

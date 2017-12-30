@@ -106,6 +106,7 @@ struct Soccer {
 
   void mouse_click(int button, int action) {
     auto &p = players[0];
+    printf("CLICK RECEIVED\n");
     glm::vec3 cpos(cursorPoint.x, cursorPoint.y, 0);
     if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
       if(cursorState == CursorState::DEFAULT) {
@@ -118,6 +119,7 @@ struct Soccer {
         case CursorState::DEFAULT:
         break;
         case CursorState::X_AIM:
+          printf("wtf?\n");
           x_action(p.id(), p.unit.facing_angle(cpos));
           cursorState = CursorState::DEFAULT;
         break;

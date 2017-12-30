@@ -225,12 +225,8 @@ struct Ball {
     /* printf("ball pos: %f %f %f\n", unit.pos.x,unit.pos.y,unit.pos.z); */
     /* printf("ball speed: %f %f\n", unit.moving_speed, vertical_speed); */
     timer.set_time(curtime);
-    /* unit.moving_speed = std::max<float>(.01, glm::length(glm::vec2(speed.x, speed.y))); */
-    /* if(is_loose() || owner() == NO_OWNER) { */
-      /* idle_physics(); */
-    /* } */
     Timer::time_t timediff = timer.elapsed();
-    if(owner() == NO_OWNER) {
+    if(owner() == NO_OWNER || is_loose()) {
       idle_horizontal();
       if(is_in_air) {
         idle_vertical();
@@ -255,7 +251,7 @@ struct Ball {
   void idle_horizontal() {
     if(unit.moving_speed < min_speed) {
       unit.stop();
-      unit.moving_speed = 0.;
+      unit.moving_speed = min_speed;
     } else {
       unit.move(unit.point_offset(1., unit.facing_dest));
     }
@@ -276,8 +272,8 @@ struct Ball {
       }
     } else {
       // update height
-      unit.height() += 30 * vertical_speed * timediff;
-      vertical_speed -= .0069 * timediff;
+      unit.height() += 10 * vertical_speed * timediff;
+      vertical_speed -= .0115 * timediff;
     }
   }
 
@@ -287,7 +283,7 @@ struct Ball {
     if(current_owner != -1) {
       timer.set_event(TIME_LOOSE_BALL_BEGINS);
       last_touched = current_owner;
-      unit.moving_speed = 0.;
+      unit.moving_speed = min_speed;
     }
   }
 

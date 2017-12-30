@@ -175,6 +175,7 @@ public:
   void mouse_click(double x, double y, int button, int action, int mods) {
     std::get<1>(layers).set_cursor(std::get<2>(layers), x/width(), y/height(), width(), height(), cam);
     std::get<1>(layers).mouse_click(button, action);
+    printf("-----------------\nCLICK DETECTED\n");
   }
   void mouse_scroll(double xoffset, double yoffset) {
   }

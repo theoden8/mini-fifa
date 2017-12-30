@@ -9,9 +9,13 @@
 
 #include "freetype_config.h"
 #include "PNGImage.hpp"
+#ifdef COMPILE_IMGJPEG
 #include "JPEGImage.hpp"
-#include "BMPImage.hpp"
+#endif
+#ifdef COMPILE_IMGTIFF
 #include "TIFFImage.hpp"
+#endif
+#include "BMPImage.hpp"
 
 namespace gl {
 struct Texture {
@@ -30,11 +34,18 @@ struct Texture {
     }
     if(file.is_ext(".png")) {
       return new img::PNGImage(file.name().c_str());
-    } else if(file.is_ext(".jpg") || file.is_ext(".jpeg")) {
+    }
+#ifdef COMPILE_IMGJPEG
+    else if(file.is_ext(".jpg") || file.is_ext(".jpeg")) {
       return new img::JPEGImage(file.name().c_str());
-    } else if(file.is_ext(".tiff")) {
+    }
+#endif
+#ifdef COMPILE_IMGTIFF
+    else if(file.is_ext(".tiff")) {
       return new img::TIFFImage(file.name().c_str());
-    } else if(file.is_ext(".bmp")) {
+    }
+#endif
+    else if(file.is_ext(".bmp")) {
       return new img::BMPImage(file.name().c_str());
     }
     Logger::Error("unsupported file format for %s\n", file.name().c_str());
