@@ -5,7 +5,7 @@
 
 namespace img {
 struct Image {
-  size_t width, height, depth = 1;
+  size_t width=0, height=0, depth=1;
   GLenum format = GL_RGBA;
   unsigned char *data = NULL;
   std::string filename;
@@ -13,10 +13,8 @@ struct Image {
   Image(const char *filename):
     filename(filename)
   {}
-  virtual ~Image()
-  {}
-  virtual void init() = 0;
-  virtual void clear() {
+
+  virtual ~Image() {
     width=height=depth=0;
     delete [] data;
     data = NULL;

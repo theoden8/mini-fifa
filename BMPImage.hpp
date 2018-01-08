@@ -8,9 +8,9 @@ namespace img {
 struct BMPImage : public Image {
   BMPImage(const char *filename):
     Image(filename)
-  {}
-
-  ~BMPImage(){}
+  {
+    init();
+  }
 
   void init() {
     unsigned char header[138];
@@ -22,8 +22,9 @@ struct BMPImage : public Image {
 
     // If less than 54 bytes are read, problem
     size_t r;
-    if((r = fread(header, sizeof(unsigned char), 138, file)) != 138)
+    if((r = fread(header, sizeof(unsigned char), 138, file)) != 138) {
       throw std::runtime_error("error reading header of file " + filename + ", length " + std::to_string(r));
+    }
 
     // file signature
     ASSERT(header[0] == 'B' && header[1] == 'M');

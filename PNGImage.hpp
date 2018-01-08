@@ -12,9 +12,10 @@ namespace img {
 struct PNGImage : public Image {
   PNGImage(const char *filename):
     Image(filename)
-  {}
-  ~PNGImage()
-  {}
+  {
+    init();
+  }
+
   void init() {
     unsigned char header[8];    // 8 is the maximum size that can be checked
     format = GL_RGBA;

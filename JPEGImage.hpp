@@ -11,9 +11,10 @@ namespace img {
 struct JPEGImage : public Image {
   JPEGImage(const char *filename):
     Image(filename)
-  {}
-  ~JPEGImage()
-  {}
+  {
+    init();
+  }
+
   void init() {
     unsigned char *rowptr[1];    // pointer to an array
     struct jpeg_decompress_struct info; //for our jpeg info

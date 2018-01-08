@@ -10,9 +10,10 @@ namespace img {
 struct TIFFImage : public Image {
   TIFFImage(const char *filename):
     Image(filename)
-  {}
-  ~TIFFImage()
-  {}
+  {
+    init();
+  }
+
   void init() {
     TIFFRGBAImage img;
     char error[1024];
