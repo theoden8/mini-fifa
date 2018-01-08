@@ -118,7 +118,6 @@ struct Soccer {
         case CursorState::DEFAULT:
         break;
         case CursorState::X_AIM:
-          printf("wtf?\n");
           x_action(p.id(), p.unit.facing_angle(cpos));
           cursorState = CursorState::DEFAULT;
         break;
@@ -252,18 +251,11 @@ struct Soccer {
   }
 
   void idle_control() {
-    if(is_active_player(ball.owner())) {
+    if(is_active_player(ball.owner()) && !ball.is_loose()) {
       auto &p = get_player(ball.owner());
-      if(!ball.is_loose()) {
-        /* printf("controlling fully\n"); */
-        ball.position() = p.unit.point_offset(p.possession_offset);
-        ball.position().z = p.unit.height() + ball.default_height;
-      }
-      /* } else if(p.is_sliding_fast()) { */
-      /*   printf("controlling with slide\n"); */
-      /*   ball.velocity() = p.velocity(); */
-      /*   ball.unit.height() = .005; */
-      /* } */
+      /* printf("controlling fully\n"); */
+      ball.position() = p.unit.point_offset(p.possession_offset);
+      ball.position().z = p.unit.height() + ball.default_height;
     }
     int new_owner = find_best_possession(ball);
     set_control_player(new_owner);

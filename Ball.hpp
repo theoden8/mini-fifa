@@ -197,7 +197,7 @@ struct Ball {
   static constexpr int
     TIME_LOOSE_BALL_BEGINS = 0,
     TIME_ABLE_TO_INTERACT = 1;
-  const float loose_ball_cooldown = .16;
+  const float loose_ball_cooldown = 0.1;
   static constexpr Timer::time_t CANT_INTERACT_SHOT = .7;
   static constexpr Timer::time_t CANT_INTERACT_SLIDE = .45;
   /* Unit::vec_t speed{0, 0, 0}; */
@@ -231,17 +231,40 @@ struct Ball {
     timer.set_time(curtime);
     Timer::time_t timediff = timer.elapsed();
     if(owner() == NO_OWNER || is_loose()) {
-      idle_horizontal();
+      if(unit.moving_speed < min_speed) {
+        unit.stop();
+        unit.moving_speed = min_speed;
+      } else {
+        unit.move(unit.point_offset(1., unit.facing_dest));
+      }
+
       if(is_in_air) {
-        idle_vertical();
+        if(vertical_speed < 0. && unit.height() <= default_height) {
+          // ball hits the ground
+          unit.moving_speed -= GROUND_HIT_SLOWDOWN;
+          reset_height();
+          if(std::abs(vertical_speed) < min_speed) {
+            is_in_air = false;
+            vertical_speed = 0.;
+          } else {
+            vertical_speed -= .3 * vertical_speed;
+            vertical_speed = std::abs(vertical_speed);
+          }
+        } else {
+          // update height
+          unit.height() += 10 * vertical_speed * timediff;
+          vertical_speed -= .0115 * timediff;
+        }
       } else {
         unit.moving_speed -= GROUND_FRICTION * timediff;
       }
     }
     unit.idle(timer);
     transform.SetPosition(unit.pos.x, unit.pos.y, unit.pos.z);
-    float angle = unit.facing;
-    transform.Rotate(std::cos(angle+90), std::sin(angle+90), 0, 5*360.f*unit.moving_speed*timediff);
+    float angle = unit.facing_dest;
+    glm::vec2 dir(std::cos(angle), std::sin(angle));
+    glm::vec2 nrm = glm::normalize(dir);
+    transform.Rotate(nrm.x, nrm.y, 0, 5*360.f*unit.moving_speed*timediff);
   }
 
   void face(float angle) {
@@ -252,42 +275,12 @@ struct Ball {
     unit.facing_dest = atan2(point.y - unit.pos.y, point.x - unit.pos.x);
   }
 
-  void idle_horizontal() {
-    if(unit.moving_speed < min_speed) {
-      unit.stop();
-      unit.moving_speed = min_speed;
-    } else {
-      unit.move(unit.point_offset(1., unit.facing_dest));
-    }
-  }
-
-  void idle_vertical() {
-    Timer::time_t timediff = timer.elapsed();
-    if(vertical_speed < 0. && unit.height() <= default_height) {
-      // ball hits the ground
-      unit.moving_speed -= GROUND_HIT_SLOWDOWN;
-      reset_height();
-      if(std::abs(vertical_speed) < min_speed) {
-        is_in_air = false;
-        vertical_speed = 0.;
-      } else {
-        vertical_speed -= .3 * vertical_speed;
-        vertical_speed = std::abs(vertical_speed);
-      }
-    } else {
-      // update height
-      unit.height() += 10 * vertical_speed * timediff;
-      vertical_speed -= .0115 * timediff;
-    }
-  }
-
   void timestamp_set_owner(int new_owner) {
     if(current_owner == new_owner)return;
     current_owner = new_owner;
     if(current_owner != -1) {
       timer.set_event(TIME_LOOSE_BALL_BEGINS);
       last_touched = current_owner;
-      unit.moving_speed = min_speed;
     }
   }
 
@@ -296,7 +289,7 @@ struct Ball {
   }
 
   bool is_loose() const {
-    return !timer.timed_out(TIME_LOOSE_BALL_BEGINS);
+    return owner() != NO_OWNER && !timer.timed_out(TIME_LOOSE_BALL_BEGINS);
   }
 
   void disable_interaction(Timer::time_t lock_for=CANT_INTERACT_SHOT) {

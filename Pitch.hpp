@@ -33,6 +33,17 @@ struct Region {
     );
   }
 
+  glm::vec2 x() const { return xs; }
+  glm::vec2 y() const { return ys; }
+  float x1() const { return xs.x; }
+  float &x1() { return xs.x; }
+  float x2() const { return xs.y; }
+  float &x2() { return xs.y; }
+  float y1() const { return ys.x; }
+  float &y1() { return ys.x; }
+  float y2() const { return ys.y; }
+  float &y2() { return ys.y; }
+
   std::string str() const {
     return "X[" + std::to_string(xs.x) + " .. " + std::to_string(xs.y) + "] Y[" + std::to_string(ys.x) + std::to_string(ys.y) + "]";
   }
