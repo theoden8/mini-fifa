@@ -8,14 +8,7 @@
 #include "ShaderUniform.hpp"
 
 #include "freetype_config.h"
-#include "PNGImage.hpp"
-#ifdef COMPILE_IMGJPEG
-#include "JPEGImage.hpp"
-#endif
-#ifdef COMPILE_IMGTIFF
-#include "TIFFImage.hpp"
-#endif
-#include "BMPImage.hpp"
+#include "ImageLoader.hpp"
 
 namespace gl {
 struct Texture {
@@ -25,33 +18,6 @@ struct Texture {
   Texture(std::string uniform_name):
     uSampler(uniform_name.c_str())
   {}
-
-  static img::Image *make_image(File &file) {
-    Logger::Info("Loading image file '%s'\n", file.name().c_str());
-    if(!file.exists()) {
-      Logger::Info("file '%s' not found", file.name().c_str());
-      ASSERT(file.exists());
-    }
-    if(file.is_ext(".png")) {
-      return new img::PNGImage(file.name().c_str());
-    }
-#ifdef COMPILE_IMGJPEG
-    else if(file.is_ext(".jpg") || file.is_ext(".jpeg")) {
-      return new img::JPEGImage(file.name().c_str());
-    }
-#endif
-#ifdef COMPILE_IMGTIFF
-    else if(file.is_ext(".tiff")) {
-      return new img::TIFFImage(file.name().c_str());
-    }
-#endif
-    else if(file.is_ext(".bmp")) {
-      return new img::BMPImage(file.name().c_str());
-    }
-    Logger::Error("unsupported file format for %s\n", file.name().c_str());
-    throw std::domain_error("invalid image format for " + file.name());
-    return nullptr;
-  }
 
   GLuint id() const { return tex; }
 
@@ -78,8 +44,7 @@ struct Texture {
     Logger::Info("Loading texture '%s'\n", filename.c_str());
     File file(filename.c_str());
     /* c=clock(); */
-    img::Image *image = make_image(file);
-    image->init();
+    img::Image *image = img::load_image(file);
     /* Logger::Info("load image '%s': %ld\n", filename.c_str(), clock()-c); */
     /* std::cout << "load image '" << filename << "': " << clock()-c << std::endl; */
     /* c=clock(); */
@@ -94,7 +59,6 @@ struct Texture {
     gl::Texture::unbind();
     /* Logger::Info("create texture '%s': %ld\n", filename.c_str(), clock()-c); */
     /* std::cout << "create texture '" << filename << "': " << clock()-c << std::endl; */
-    image->clear();
     delete image;
     Logger::Info("Finished loading texture '%s'.\n", filename.c_str());
   }
@@ -122,8 +86,16 @@ struct Texture {
     return active_tex;
   }
 
+  static void bind(GLuint texId) {
+    glBindTexture(GL_TEXTURE_2D, texId); GLERROR
+  }
+
+  static void bind(gl::Texture &tx) {
+    tx.bind();
+  }
+
   void bind() {
-    glBindTexture(GL_TEXTURE_2D, tex); GLERROR
+    bind(tex);
   }
 
   void set_data(int index) {
@@ -134,8 +106,16 @@ struct Texture {
     glBindTexture(GL_TEXTURE_2D, 0); GLERROR
   }
 
+  static void clear(GLuint &texId) {
+    glDeleteTextures(1, &texId); GLERROR
+  }
+
+  static void clear(gl::Texture &tx) {
+    tx.clear();
+  }
+
   void clear() {
-    glDeleteTextures(1, &tex); GLERROR
+    clear(tex);
   }
 };
 }

@@ -83,8 +83,10 @@ public:
   }
   static void MirrorLog(FILE *redir) {
     ASSERT(instance != nullptr);
-    if(instance->file == nullptr)
+    if(instance->file == nullptr) {
       return;
+    }
+    ASSERT(instance->file != nullptr);
     dup2(fileno(redir), fileno(instance->file));
     if(errno) {
       perror("error");

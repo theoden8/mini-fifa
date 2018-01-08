@@ -16,10 +16,12 @@
 namespace gl {
 enum class ShaderType {
   VERTEX, TESS_CNTRL, TESS_EVAL,
-  GEOMETRY, FRAGMENT, COMPUTE
+  GEOMETRY, FRAGMENT, COMPUTE,
+  NO_TYPE
 };
 
-constexpr GLenum get_gl_shader_constant(ShaderType sT) {
+template <ShaderType sT>
+constexpr GLenum get_gl_shader_constant() {
   switch(sT) {
     case ShaderType::VERTEX: return GL_VERTEX_SHADER;
     case ShaderType::TESS_CNTRL: return GL_TESS_CONTROL_SHADER;
@@ -28,6 +30,7 @@ constexpr GLenum get_gl_shader_constant(ShaderType sT) {
     case ShaderType::FRAGMENT: return GL_FRAGMENT_SHADER;
     case ShaderType::COMPUTE: return GL_COMPUTE_SHADER;
   }
+  static_assert(sT != ShaderType::NO_TYPE, "");
 }
 
 template <ShaderType ShaderT>
@@ -53,7 +56,7 @@ struct Shader {
     return shaderId;
   }
   void init() {
-    shaderId = glCreateShader(get_gl_shader_constant(ShaderT)); GLERROR
+    shaderId = glCreateShader(get_gl_shader_constant<ShaderT>()); GLERROR
     char *source_code = file.load_text();
     ASSERT(source_code != NULL);
     glShaderSource(shaderId, 1, &source_code, NULL); GLERROR

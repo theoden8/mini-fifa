@@ -107,19 +107,17 @@ public:
       Logger::Info("\t%s\n", glGetStringi(GL_EXTENSIONS, i));
     }
   }
-  void init() {
+  void run() {
     start();
     cam.init();
     Tuple::for_each(layers, [&](auto &lyr) mutable {
       lyr.init();
     });
     cam.update(float(width()) / float(height()));
-  }
-  void run() {
-    init();
+
     /* audio.Play(); */
     double current_time = .0;
-    glfwSwapInterval(1); GLERROR
+    glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window)) {
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
@@ -129,7 +127,11 @@ public:
       current_time += 1./60;
     }
     /* audio.Stop(); */
-    clear();
+    Tuple::for_each(layers, [&](auto &lyr) {
+      lyr.clear();
+    });
+    cam.clear();
+    glfwTerminate(); GLERROR
   }
   void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
@@ -174,13 +176,6 @@ public:
     std::get<1>(layers).mouse_click(button, action);
   }
   void mouse_scroll(double xoffset, double yoffset) {
-  }
-  void clear() {
-    Tuple::for_each(layers, [&](auto &lyr) {
-      lyr.clear();
-    });
-    cam.clear();
-    glfwTerminate(); GLERROR
   }
 };
 }

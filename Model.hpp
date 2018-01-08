@@ -14,6 +14,7 @@
 #include "ShaderAttrib.hpp"
 #include "Mesh.hpp"
 #include "Texture.hpp"
+#include "ImageLoader.hpp"
 
 unsigned int TextureFromFile(const char *path, const std::string &directory, bool gamma = false);
 
@@ -178,24 +179,22 @@ unsigned int TextureFromFile(const char *path, const std::string &directory, boo
 	filename = directory + '/' + filename;
 
 	unsigned int textureID;
-	glGenTextures(1, &textureID);
+	glGenTextures(1, &textureID); GLERROR
 
 	int width, height, nrComponents;
   File fp(filename.c_str());
-  img::Image *image = gl::Texture::make_image(fp);
-  image->init();
+  img::Image *image = img::load_image(fp);
 	GLenum format;
 
-	glBindTexture(GL_TEXTURE_2D, textureID);
-	glTexImage2D(GL_TEXTURE_2D, 0, image->format, image->width, image->height, 0, image->format, GL_UNSIGNED_BYTE, image->data);
-	glGenerateMipmap(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, textureID); GLERROR
+	glTexImage2D(GL_TEXTURE_2D, 0, image->format, image->width, image->height, 0, image->format, GL_UNSIGNED_BYTE, image->data); GLERROR
+	glGenerateMipmap(GL_TEXTURE_2D); GLERROR
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); GLERROR
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); GLERROR
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); GLERROR
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR
 
-  image->clear();
   delete image;
 	return textureID;
 }

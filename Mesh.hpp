@@ -38,31 +38,42 @@ struct Mesh {
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC3> vbo;
   gl::Attrib<GL_ELEMENT_ARRAY_BUFFER, gl::AttribType::VEC3> ebo;
 
+  using ShaderAttribVBO = decltype(vbo);
+  using ShaderAttribEBO = decltype(ebo);
+
   void init() {
-    vao.init();
-    vbo.init(); ebo.init();
-    vao.bind();
-    vbo.bind();
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
+
+    ShaderAttribVBO::init(vbo);
+    ShaderAttribEBO::init(ebo);
+
+    ShaderAttribVBO::bind(vbo);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(ModelVertex), &vertices[0], GL_STATIC_DRAW); GLERROR
-    ebo.bind();
+
+    ShaderAttribEBO::bind(ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW); GLERROR
     vao.enable(ebo);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), nullptr); GLERROR
     vao.enable(ebo);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, nrm));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, nrm)); GLERROR
     vao.enable(ebo);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, txcoords));
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, txcoords)); GLERROR
     vao.enable(ebo);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, tangent));
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, tangent)); GLERROR
     vao.enable(ebo);
-    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, bitan));
-    /* decltype(ebo)::unbind(); */
-    decltype(vao)::unbind();
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(ModelVertex), (void*)offsetof(ModelVertex, bitan)); GLERROR
+
+    /* ShaderAttribVBO::unbind(); */
+    /* ShaderAttribEBO::unbind(); */
+    gl::VertexArray::unbind();
   }
 
   template <typename... ShaderTs>
   void display(gl::ShaderProgram<ShaderTs...> &program) {
-    program.use();
+    using ShaderProgram = gl::ShaderProgram<ShaderTs...>;
+
+    ShaderProgram::use(program);
     unsigned
       diffuseNr = 1,
       specNr = 1,
@@ -85,17 +96,17 @@ struct Mesh {
       uSampler.set_id(program.id());
       uSampler.set_data(i);
       gl::Texture::set_active(i);
-      glBindTexture(GL_TEXTURE_2D, textures[i].id); GLERROR
+      gl::Texture::bind(textures[i].id);
     }
-    vao.bind();
+    gl::VertexArray::bind(vao);
     glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0); GLERROR
     gl::VertexArray::unbind();
-    std::remove_reference_t<decltype(program)>::unuse();
+    ShaderProgram::unuse();
   }
 
   void clear() {
-    vbo.clear();
-    ebo.clear();
-    vao.clear();
+    ShaderAttribVBO::clear(vbo);
+    ShaderAttribEBO::clear(ebo);
+    gl::VertexArray::clear(vao);
   }
 };
