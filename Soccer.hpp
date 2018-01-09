@@ -1,30 +1,21 @@
 #pragma once
 
-#include <glm/gtc/matrix_inverse.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-#include <glm/gtx/intersect.hpp>
+#include <vector>
 
-#include "Transformation.hpp"
-#include "Camera.hpp"
 #include "Ball.hpp"
 #include "Player.hpp"
-#include "Pitch.hpp"
-#include "Post.hpp"
-#include "Cursor.hpp"
-
 #include "Timer.hpp"
 
 struct Team;
 
 struct Soccer {
   std::vector<Player> players;
-  Pitch pitch;
-  Post post_red, post_blue;
   Ball ball;
 
   Soccer(size_t team1sz=2, size_t team2sz=2):
-    players(), post_red(Team::RED_TEAM), post_blue(Team::BLUE_TEAM),
-    team1(*this, team1sz, Team::RED_TEAM), team2(*this, team2sz, Team::BLUE_TEAM)
+    players(),
+    team1(*this, team1sz, Team::RED_TEAM),
+    team2(*this, team2sz, Team::BLUE_TEAM)
   {
     for(int i = 0; i < team1sz + team2sz; ++i) {
       Team &t = get_team(i);
@@ -37,133 +28,14 @@ struct Soccer {
       }
       players.back().unit.face(glm::vec3(0, 0, 0));
     }
-  }
-
-  void init() {
-    pitch.init();
-    post_red.init();
-    post_blue.init();
-    ball.init();
-    for(auto &p: players) {
-      p.init();
-    }
     set_timer();
   }
 
   void set_timer() {
-  }
-
-  enum class CursorState {
-    DEFAULT,
-    X_AIM,
-    C_AIM,
-    F_AIM
-  };
-  CursorState cursorState = CursorState::DEFAULT;
-  void keyboard(int key) {
-    ball.keyboard(key);
-    players[0].keyboard(key);
-    if(key == GLFW_KEY_Z) {
-      z_action(ball.owner());
-    } else if(key == GLFW_KEY_X) {
-      cursorState = CursorState::X_AIM;
-    } else if(key == GLFW_KEY_C) {
-      cursorState = CursorState::C_AIM;
-    } else if(key == GLFW_KEY_V) {
-      v_action(0);
-    } else if(key == GLFW_KEY_F) {
-      cursorState = CursorState::F_AIM;
-    } else if(key == GLFW_KEY_ESCAPE) {
-      if(cursorState != CursorState::DEFAULT) {
-        cursorState = CursorState::DEFAULT;
-      }
+    ball.set_timer();
+    for(auto &p : players) {
+      p.set_timer();
     }
-  }
-
-  void set_cursor(Cursor &cursor, float m_x, float m_y, float width, float height, Camera &cam) {
-    float s_x = m_x * 2 - 1, s_y = m_y * 2 - 1;
-    glm::vec4 screenPos = glm::vec4(s_x, -s_y, 1.f, 1.f);
-    glm::vec4 worldPos = glm::inverse(cam.get_matrix()) * screenPos;
-    glm::vec3 dir = glm::normalize(glm::vec3(worldPos));
-    float dist;
-    bool intersects = glm::intersectRayPlane(
-      cam.cameraPos,
-      dir,
-      glm::vec3(0, 0, 0),
-      glm::vec3(0, 0, 1),
-      dist
-    );
-    glm::vec3 pos = cam.cameraPos + dir * dist;
-    cursorPoint = glm::vec2(pos.x, pos.y);
-    /* printf("cursor (%f %f) -> (%f %f %f)\n", s_x, s_y, pos.x,pos.y, pos.z); */
-    /* ball.position() = glm::vec3(cursorPoint.x, cursorPoint.y, ball.unit.height()); */
-    if(cursorState == CursorState::DEFAULT) {
-      cursor.state = Cursor::State::POINTER;
-    } else {
-      cursor.state = Cursor::State::SELECTOR;
-    }
-  }
-
-  void mouse_click(int button, int action) {
-    auto &p = players[0];
-    glm::vec3 cpos(cursorPoint.x, cursorPoint.y, 0);
-    if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-      if(cursorState == CursorState::DEFAULT) {
-        p.unit.move(cpos);
-      } else {
-        cursorState = CursorState::DEFAULT;
-      }
-    } else if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-      switch(cursorState) {
-        case CursorState::DEFAULT:
-        break;
-        case CursorState::X_AIM:
-          x_action(p.id(), p.unit.facing_angle(cpos));
-          cursorState = CursorState::DEFAULT;
-        break;
-        case CursorState::C_AIM:
-          c_action(p.id(), cpos);
-          cursorState = CursorState::DEFAULT;
-        break;
-        case CursorState::F_AIM:
-          f_action(p.id(), p.unit.facing_angle(cpos));
-          cursorState = CursorState::DEFAULT;
-        break;
-      }
-    }
-  }
-
-  void display(Camera &cam) {
-    pitch.display(cam);
-    post_red.display(cam);
-    post_blue.display(cam);
-    ball.display(cam);
-
-    std::vector<int> indices(players.size());
-    for(int i = 0; i < players.size(); ++i) {
-      indices[i] = i;
-    }
-    // sort by Y coordinate as we want to see the closest.
-    for(int i = 0; i < players.size() - 1; ++i) {
-      for(int j = i + 1; j < players.size(); ++j) {
-        if(players[indices[i]].unit.pos.y > players[indices[j]].unit.pos.y) {
-          std::swap(indices[i], indices[j]);
-        }
-      }
-    }
-    for(auto &ind: indices) {
-      players[ind].display(cam);
-    }
-  }
-
-  void clear() {
-    for(auto &p: players) {
-      p.clear();
-    }
-    ball.clear();
-    post_red.clear();
-    post_blue.clear();
-    pitch.clear();
   }
 
 // gameplay
@@ -239,7 +111,6 @@ struct Soccer {
   };
 
   Team team1, team2;
-  glm::vec2 cursorPoint;
 
   void idle(double curtime) {
     timer.set_time(curtime);
@@ -261,7 +132,7 @@ struct Soccer {
     set_control_player(new_owner);
   }
 
-  bool is_active_player(int playerId) {
+  bool is_active_player(int playerId) const {
     return playerId != Ball::NO_OWNER;
   }
 
@@ -346,6 +217,11 @@ struct Soccer {
   }
 
   Player &get_player(int playerId) {
+    ASSERT(is_active_player(playerId));
+    return players[playerId];
+  }
+
+  const Player &get_player(int playerId) const {
     ASSERT(is_active_player(playerId));
     return players[playerId];
   }
@@ -436,5 +312,17 @@ struct Soccer {
     if(!is_active_player(playerId))return;
     auto &p = get_player(playerId);
     p.unit.face(direction);
+  }
+
+  void s_action(int playerId) {
+    if(!is_active_player(playerId))return;
+    auto &p = get_player(playerId);
+    p.unit.stop();
+  }
+
+  void m_action(int playerId, Unit::loc_t dest) {
+    if(!is_active_player(playerId))return;
+    auto &p = get_player(playerId);
+    p.unit.move(dest);
   }
 };

@@ -17,7 +17,7 @@
 
 #include "Camera.hpp"
 #include "Background.hpp"
-#include "Soccer.hpp"
+#include "SoccerObject.hpp"
 #include "Cursor.hpp"
 
 namespace glfw {
@@ -39,7 +39,8 @@ protected:
 
   /* al::Audio audio; */
   Camera cam;
-  std::tuple<Background, Soccer, Cursor> layers;
+  Soccer soccer;
+  std::tuple<Background, SoccerObject, Cursor> layers;
   /* std::tuple<Background, Player> layers; */
 
   void start() {
@@ -90,7 +91,9 @@ public:
   GLFWwindow *window = nullptr;
   Window():
     width_(0),
-    height_(0)
+    height_(0),
+    soccer(),
+    layers(Background(), SoccerObject(soccer), Cursor())
   {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }
@@ -122,7 +125,7 @@ public:
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
       idle_mouse();
-      std::get<1>(layers).idle(current_time);
+      soccer.idle(current_time);
       display();
       current_time += 1./60;
     }
