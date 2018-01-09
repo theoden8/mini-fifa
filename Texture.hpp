@@ -22,12 +22,13 @@ struct Texture {
   GLuint id() const { return tex; }
 
   void init_white_square() {
+    // 100 x 100 RBGA (1., 1., 1., 1.) image
     uint32_t *image = new uint32_t[100*100];
     for(int i = 0; i < 100*100; ++i) {
       image[i] = UINT32_MAX;
     }
     glGenTextures(1, &tex); GLERROR
-    bind();
+    gl::Texture::bind(tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 100, 100, 0, GL_RGBA, GL_UNSIGNED_BYTE, image); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); GLERROR
@@ -49,7 +50,7 @@ struct Texture {
     /* std::cout << "load image '" << filename << "': " << clock()-c << std::endl; */
     /* c=clock(); */
     glGenTextures(1, &tex); GLERROR
-    bind();
+    gl::Texture::bind(tex);
     glTexImage2D(GL_TEXTURE_2D, 0, image->format, image->width, image->height, 0, image->format, GL_UNSIGNED_BYTE, image->data); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); GLERROR
@@ -66,9 +67,8 @@ struct Texture {
   void init(FT_GlyphSlot *glyph) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1); GLERROR
     glGenTextures(1, &tex); GLERROR
-    glBindTexture(GL_TEXTURE_2D, tex); GLERROR
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (*glyph)->bitmap.width, (*glyph)->bitmap.rows,
-                 0, GL_RED, GL_UNSIGNED_BYTE, (*glyph)->bitmap.buffer); GLERROR
+    gl::Texture::bind(tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, (*glyph)->bitmap.width, (*glyph)->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE, (*glyph)->bitmap.buffer); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); GLERROR
@@ -76,7 +76,7 @@ struct Texture {
     gl::Texture::unbind();
   }
 
-  static void set_active(int index) {
+  static void set_active(int index=0) {
     glActiveTexture(GL_TEXTURE0 + index); GLERROR
   }
 

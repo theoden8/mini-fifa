@@ -122,13 +122,13 @@ struct Player {
   bool has_ball = false;
   const float possession_range = .06;
   const float possession_offset = .03;
-  const float possession_running_speed = running_speed * .69;
+  const float possession_running_speed = tallness * 2.;
   const Timer::time_t pass_cooldown = 2.;
   const Timer::time_t slide_duration = .7;
   const Timer::time_t slide_slowdown_duration = 1.8;
   static constexpr Timer::time_t SLOWDOWN_SLID = .95;
   static constexpr Timer::time_t SLOWDOWN_SHOT = 1.;
-  const float slide_speed = 1.38 * running_speed;
+  const float slide_speed = tallness * 4.;
   const float slide_slowdown_speed = .5 * running_speed;
   const float slide_cooldown = slide_duration + slide_slowdown_duration;
 

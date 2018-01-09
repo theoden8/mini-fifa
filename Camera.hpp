@@ -54,10 +54,27 @@ struct Camera {
   /* glm::vec3 cameraUp    = glm::vec3(0.0f, 1.0f,  0.0f); */
   float cameraSpeedKeys = 0.05f; // adjust accordingly
   float cameraSpeedMouse = 0.02f; // adjust accordingly
-  void move_up(float movespeed) { cameraTarget.y = std::max<float>(cameraTarget.y - movespeed, -1.5); /* * cameraFront; */ }
-  void move_down(float movespeed) { cameraTarget.y = std::min<float>(cameraTarget.y + movespeed, 2); /* * cameraFront; */ }
-  void move_left(float movespeed) { cameraTarget.x = std::min<float>(cameraTarget.x + movespeed, 3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
-  void move_right(float movespeed) { cameraTarget.x = std::max<float>(cameraTarget.x - movespeed, -3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */ }
+
+  void move_up(float movespeed) {
+    cameraTarget.y = std::fmax(cameraTarget.y - movespeed, -1.5); /* * cameraFront; */
+    has_changed = true;
+  }
+
+  void move_down(float movespeed) {
+    cameraTarget.y = std::fmin(cameraTarget.y + movespeed, 2); /* * cameraFront; */
+    has_changed = true;
+  }
+
+  void move_left(float movespeed) {
+    cameraTarget.x = std::fmin(cameraTarget.x + movespeed, 3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */
+    has_changed = true;
+  }
+
+  void move_right(float movespeed) {
+    cameraTarget.x = std::fmax(cameraTarget.x - movespeed, -3); /* glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed; */
+    has_changed = true;
+  }
+
   void keyboard(GLFWwindow *w, float ratio) {
     /* static float accel = 1.01; */
     if (glfwGetKey(w, GLFW_KEY_UP) == GLFW_PRESS) {
@@ -71,13 +88,15 @@ struct Camera {
     } else if (glfwGetKey(w, GLFW_KEY_RIGHT) == GLFW_PRESS) {
       move_right(cameraSpeedKeys);
     } else if (glfwGetKey(w, GLFW_KEY_MINUS) == GLFW_PRESS) {
-      fov = std::fmin<double>(fov + 1, 150);
     } else if (glfwGetKey(w, GLFW_KEY_EQUAL) == GLFW_PRESS) {
       fov = std::fmax<double>(fov - 1, 1);
+      has_changed = true;
     } else if (glfwGetKey(w, GLFW_KEY_LEFT_BRACKET) == GLFW_PRESS) {
       angle = std::fmin<double>(angle + 1, 89);
+      has_changed = true;
     } else if (glfwGetKey(w, GLFW_KEY_RIGHT_BRACKET) == GLFW_PRESS) {
       angle = std::fmax<double>(angle - 1, 10);
+      has_changed = true;
     }
     update(ratio);
   }
