@@ -28,7 +28,6 @@ void mouse_button_callback(GLFWwindow *window, int button, int action, int mods)
 void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 }
 
-namespace gl {
 class Window;
 
 std::map <GLFWwindow *, Window *> window_reference;
@@ -39,7 +38,8 @@ protected:
 
   /* al::Audio audio; */
   Camera cam;
-  Soccer soccer;
+  Soccer &soccer;
+  Intelligence &intelligence;
   std::tuple<Background, SoccerObject, Cursor> layers;
   /* std::tuple<Background, Player> layers; */
 
@@ -89,11 +89,12 @@ protected:
   const GLFWvidmode *vidmode = nullptr;
 public:
   GLFWwindow *window = nullptr;
-  Window():
+  Window(Soccer &soccer, Intelligence &intelligence):
     width_(0),
     height_(0),
-    soccer(),
-    layers(Background(), SoccerObject(soccer), Cursor())
+    soccer(soccer),
+    intelligence(intelligence),
+    layers(Background(), SoccerObject(soccer, intelligence), Cursor())
   {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }
@@ -127,7 +128,8 @@ public:
       idle_mouse();
       soccer.idle(current_time);
       display();
-      current_time += 1./60;
+      /* current_time += 1./60; */
+      current_time = glfwGetTime();
     }
     /* audio.Stop(); */
     Tuple::for_each(layers, [&](auto &lyr) {
@@ -181,7 +183,6 @@ public:
   void mouse_scroll(double xoffset, double yoffset) {
   }
 };
-}
 
 namespace glfw {
 void error_callback(int error, const char* description) {
@@ -190,18 +191,18 @@ void error_callback(int error, const char* description) {
 #endif
 }
 void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-  gl::window_reference[window]->keyboard_event(key, scancode, action, mods);
+  window_reference[window]->keyboard_event(key, scancode, action, mods);
 }
 void size_callback(GLFWwindow *window, int new_width, int new_height) {
-  gl::window_reference[window]->resize((float)new_width, (float)new_height);
+  window_reference[window]->resize((float)new_width, (float)new_height);
 }
 void mouse_button_callback(GLFWwindow *window, int button, int action, int mods) {
   double m_x, m_y;
   glfwGetCursorPos(window, &m_x, &m_y);
-  gl::window_reference[window]->mouse_click(m_x, m_y, button, action, mods);
+  window_reference[window]->mouse_click(m_x, m_y, button, action, mods);
 }
 void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
-  gl::window_reference[window]->mouse_scroll(xoffset, yoffset);
+  window_reference[window]->mouse_scroll(xoffset, yoffset);
 }
 
 }

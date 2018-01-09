@@ -31,7 +31,7 @@ struct Ball {
   int last_touched = NO_OWNER;
 
   Ball():
-    unit(Unit::vec_t(0, 0, 0), M_PI * 4)
+    unit(Unit::loc_t(0, 0, 0), M_PI * 4)
   {
     reset_height();
   }
@@ -74,8 +74,8 @@ struct Ball {
           }
         } else {
           // update height
-          unit.height() += 10. * vertical_speed * timediff;
-          vertical_speed -= 10. * G * timediff;
+          unit.height() += 8. * vertical_speed * timediff;
+          vertical_speed -= 8. * G * timediff;
         }
       } else {
         unit.moving_speed -= GROUND_FRICTION * timediff;

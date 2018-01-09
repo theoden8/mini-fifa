@@ -59,12 +59,10 @@ struct Player {
   Unit::vec_t velocity() const { return unit.velocity(); }
 
   void idle(double curtime) {
-    /* printf("\nplayer idle:\n"); */
     timer.set_time(curtime);
     idle_speed();
     idle_jump();
     unit.idle(timer);
-    /* printf("rotate to %f\n", unit.facing); */
   }
 
   void idle_speed() {
@@ -81,19 +79,12 @@ struct Player {
 
   void idle_jump() {
     double timediff = timer.elapsed();
-    if(is_jumping() && id()==0) {
-      /* printf("mode: %s [%d %d]\n", is_in_air?"jumping":"running", is_going_up(), is_landing()); */
-      /* printf("height: %f\n", unit.height()); */
-      /* printf("vertical speed: %f\n", vertical_speed); */
-    }
     if(is_jumping()) {
       if(vertical_speed > .0 || unit.height() > default_height) {
         float h = unit.height();
-        unit.height() += 10. * vertical_speed * timediff;
-        /* if(!id())printf("height: %f -> %f\n", h, unit.height()); */
-        vertical_speed -= 10. * G * timediff;
+        unit.height() += 8. * vertical_speed * timediff;
+        vertical_speed -= 8. * G * timediff;
       } else {
-        /* if(!id())printf("landing\n"); */
         unit.height() = default_height;
         vertical_speed = .0;
         is_in_air = false;

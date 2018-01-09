@@ -6,7 +6,7 @@
 #include "Timer.hpp"
 
 struct Unit {
-  static constexpr float GAUGE = .0005;
+  static constexpr float GAUGE = .0004;
   using vec_t = glm::vec3;
   using loc_t = vec_t;
   using real_t = float;
@@ -46,6 +46,7 @@ struct Unit {
 
   void idle(Timer &t) {
     timer.set_time(t.current_time);
+    moving_speed = std::fmin(522.f * GAUGE, moving_speed);
     if(dest_unit)dest=dest_unit->pos;
     idle_facing();
     idle_moving();
