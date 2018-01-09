@@ -122,7 +122,7 @@ struct Soccer {
           cursorState = CursorState::DEFAULT;
         break;
         case CursorState::C_AIM:
-          c_action(p.id(), p.unit.facing_angle(cpos));
+          c_action(p.id(), cpos);
           cursorState = CursorState::DEFAULT;
         break;
         case CursorState::F_AIM:
@@ -305,6 +305,8 @@ struct Soccer {
         p.timestamp_dispossess(ball, Player::CANT_HOLD_BALL_SHOT);
       } else if(playerId != ball.owner()) {
         p.timestamp_dispossess(ball, Player::CANT_HOLD_BALL_DISPOSSESS);
+      } else if(players[playerId].is_sliding_fast()) {
+        p.timestamp_slowdown(Player::SLOWDOWN_SLID);
       }
     }
     // get it if we are player and new owner
@@ -402,14 +404,19 @@ struct Soccer {
     }
   }
 
-  void c_action(int playerId, float direction) {
+  void c_action(int playerId, Unit::loc_t dest) {
     if(!is_active_player(playerId))return;
     auto &p = get_player(playerId);
+    float direction = p.unit.facing_angle(dest);
     if(playerId == ball.owner() && !p.is_jumping()) {
       ball.reset_height();
       ball.is_in_air = true;
       p.unit.face(direction);
-      p.kick_the_ball(ball, p.running_speed * 1.8, .3 * p.tallness, direction);
+      float dist = glm::distance(ball.unit.pos, dest);
+      float vspeed = .3 * p.tallness;
+      float speed = std::min(p.running_speed * 1.8f, 5.f * p.G * dist / vspeed);
+      p.kick_the_ball(ball, speed, vspeed, direction);
+      p.timestamp_slowdown(Player::SLOWDOWN_SHOT);
     } else {
       p.unit.face(direction);
     }

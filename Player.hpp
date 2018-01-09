@@ -112,8 +112,8 @@ struct Player {
     TIME_OF_LAST_PASS = 5;
   static constexpr Timer::time_t CANT_HOLD_BALL_DISPOSSESS = 1.45;
   static constexpr Timer::time_t CANT_HOLD_BALL_SHOT = 0.9;
-  const float running_speed = 0.29 * .5;
   float tallness = .05;
+  const float running_speed = tallness * 2.9;
   float G = .00115;
   bool is_in_air = false;
   float default_height = .0001;
@@ -126,7 +126,8 @@ struct Player {
   const Timer::time_t pass_cooldown = 2.;
   const Timer::time_t slide_duration = .7;
   const Timer::time_t slide_slowdown_duration = 1.8;
-  const Timer::time_t slown_down_duration = .95;
+  static constexpr Timer::time_t SLOWDOWN_SLID = .95;
+  static constexpr Timer::time_t SLOWDOWN_SHOT = 1.;
   const float slide_speed = 1.38 * running_speed;
   const float slide_slowdown_speed = .5 * running_speed;
   const float slide_cooldown = slide_duration + slide_slowdown_duration;
@@ -136,7 +137,7 @@ struct Player {
     timer.set_event(TIME_DISPOSSESSED);
     timer.set_timeout(TIME_OF_LAST_JUMP, jump_cooldown);
     timer.set_timeout(TIME_OF_LAST_SLIDE, slide_cooldown);
-    timer.set_timeout(TIME_LAST_SLOWN_DOWN, slown_down_duration);
+    timer.set_timeout(TIME_LAST_SLOWN_DOWN, SLOWDOWN_SHOT);
     timer.set_timeout(TIME_OF_LAST_PASS, pass_cooldown);
     /* timer.dump_times(); */
   }
@@ -316,13 +317,21 @@ struct Player {
     return is_sliding() && !is_sliding_fast();
   }
 
-  bool is_slown_down() const {
-    return !timer.timed_out(TIME_LAST_SLOWN_DOWN);
-  }
-
   void timestamp_slide() {
     ASSERT(!has_ball);
     if(!can_slide())return;
     timer.set_event(TIME_OF_LAST_SLIDE);
+  }
+
+  void slowdown(float time) {
+  }
+
+  bool is_slown_down() const {
+    return !timer.timed_out(TIME_LAST_SLOWN_DOWN);
+  }
+
+  void timestamp_slowdown(Timer::time_t dur=SLOWDOWN_SLID) {
+    timer.set_event(TIME_LAST_SLOWN_DOWN);
+    timer.set_timeout(TIME_LAST_SLOWN_DOWN, dur);
   }
 };
