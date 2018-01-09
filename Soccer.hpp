@@ -331,7 +331,7 @@ struct Soccer {
           ball.vertical_speed = 0;
           speed = dist/time;
         } else {
-          ball.vertical_speed = std::fmin(.01*p.tallness, .01*p.tallness*p.G*.05/speed);
+          ball.vertical_speed = std::fmin(Unit::GAUGE, Unit::GAUGE*p.G*.05/speed);
         }
         ball.unit.moving_speed = speed;
         ball.is_in_air = true;

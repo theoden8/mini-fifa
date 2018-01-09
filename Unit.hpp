@@ -6,6 +6,7 @@
 #include "Timer.hpp"
 
 struct Unit {
+  static constexpr float GAUGE = .0005;
   using vec_t = glm::vec3;
   using loc_t = vec_t;
   using real_t = float;

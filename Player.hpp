@@ -112,23 +112,23 @@ struct Player {
     TIME_OF_LAST_PASS = 5;
   static constexpr Timer::time_t CANT_HOLD_BALL_DISPOSSESS = 1.45;
   static constexpr Timer::time_t CANT_HOLD_BALL_SHOT = 0.9;
-  float tallness = .05;
-  const float running_speed = tallness * 2.9;
-  float G = .00115;
+  float tallness = Unit::GAUGE * 100;
+  const float running_speed = Unit::GAUGE * 290;
+  float G = Unit::GAUGE * 2.3;
   bool is_in_air = false;
-  float default_height = .0001;
+  float default_height = Unit::GAUGE * .01;
   float vertical_speed = .0;
   const Timer::time_t jump_cooldown = 3.;
   bool has_ball = false;
-  const float possession_range = .06;
-  const float possession_offset = .03;
-  const float possession_running_speed = tallness * 2.;
+  const float possession_range = Unit::GAUGE * 100;
+  const float possession_offset = Unit::GAUGE * 60;
+  const float possession_running_speed = Unit::GAUGE * 200;
   const Timer::time_t pass_cooldown = 2.;
   const Timer::time_t slide_duration = .7;
   const Timer::time_t slide_slowdown_duration = 1.8;
   static constexpr Timer::time_t SLOWDOWN_SLID = .95;
   static constexpr Timer::time_t SLOWDOWN_SHOT = 1.;
-  const float slide_speed = tallness * 4.;
+  const float slide_speed = Unit::GAUGE * 400;
   const float slide_slowdown_speed = .5 * running_speed;
   const float slide_cooldown = slide_duration + slide_slowdown_duration;
 
@@ -179,9 +179,9 @@ struct Player {
     if(is_jumping()) {
       if(vertical_speed > .0 || unit.height() > default_height) {
         float h = unit.height();
-        unit.height() += 10 * vertical_speed * timediff;
+        unit.height() += 10. * vertical_speed * timediff;
         /* if(!id())printf("height: %f -> %f\n", h, unit.height()); */
-        vertical_speed -= .0115 * timediff;
+        vertical_speed -= 10. * G * timediff;
       } else {
         /* if(!id())printf("landing\n"); */
         unit.height() = default_height;

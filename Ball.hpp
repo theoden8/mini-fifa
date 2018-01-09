@@ -201,13 +201,13 @@ struct Ball {
   static constexpr Timer::time_t CANT_INTERACT_SHOT = .7;
   static constexpr Timer::time_t CANT_INTERACT_SLIDE = .45;
   /* Unit::vec_t speed{0, 0, 0}; */
-  const float default_height = .001;
+  const float default_height = Unit::GAUGE * 10;
   static constexpr float GROUND_FRICTION = .05;
   static constexpr float GROUND_HIT_SLOWDOWN = .02;
-  /* const float G = 1.15; */
+  const float G = Unit::GAUGE * 2.3;
   /* const float gravity = 2.3; */
   /* const float mass = 1.0f; */
-  const float min_speed = .002;
+  const float min_speed = Unit::GAUGE;
   float vertical_speed = 0.;
   bool is_in_air = false;
   static constexpr int NO_OWNER = -1;
@@ -252,11 +252,12 @@ struct Ball {
           }
         } else {
           // update height
-          unit.height() += 10 * vertical_speed * timediff;
-          vertical_speed -= .0115 * timediff;
+          unit.height() += 10. * vertical_speed * timediff;
+          vertical_speed -= 10. * G * timediff;
         }
       } else {
         unit.moving_speed -= GROUND_FRICTION * timediff;
+        reset_height();
       }
     }
     unit.idle(timer);
