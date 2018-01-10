@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
 
 #include "Ball.hpp"
 #include "Player.hpp"
@@ -11,6 +12,8 @@ struct Team;
 struct Soccer {
   std::vector<Player> players;
   Ball ball;
+
+  std::mutex mtx;
 
   Soccer(size_t team1sz=1, size_t team2sz=2):
     players(),
@@ -112,7 +115,8 @@ struct Soccer {
 
   Team team1, team2;
 
-  void idle(double curtime) {
+  void idle(Timer::time_t curtime) {
+    std::lock_guard<std::mutex> guard(mtx);
     timer.set_time(curtime);
     idle_control();
     ball.idle(timer.current_time);
@@ -136,7 +140,7 @@ struct Soccer {
     return playerId != Ball::NO_OWNER;
   }
 
-  const Unit::vec_t single_player_pass_point = glm::vec3(.0, 2./3, 0);
+  const Unit::loc_t single_player_pass_point = glm::vec3(.0, 2./3, 0);
 
   bool is_able_to_tackle(float val) {
     return !std::isnan(val);
@@ -231,20 +235,17 @@ struct Soccer {
   int get_pass_destination(int playerId) {
     if(!is_active_player(playerId))return playerId;
     Team &team = get_team(playerId);
-
-    int teamPlayerId = (team.id() == Team::RED_TEAM) ? playerId : playerId - team1.size();
-
     int ind_pass_to = Ball::NO_OWNER;
     double range = NAN;
     for(int i = 0; i < team.size(); ++i) {
-      if(teamPlayerId == i)continue;
-      int dist = Unit::length(team[teamPlayerId].unit.pos - team[i].unit.pos);
+      if(playerId == team[i].id())continue;
+      float dist = glm::distance(ball.unit.pos, team[i].unit.pos);
       if(std::isnan(range) || dist < range) {
         range = dist;
-        ind_pass_to = i;
+        ind_pass_to = team[i].id();
       }
     }
-    return team[ind_pass_to].id();
+    return ind_pass_to;
   }
 
   void z_action(int playerId) {

@@ -222,7 +222,7 @@ public:
     int actual_length = 0;
     char programId_log[2048];
     glGetProgramInfoLog(programId, max_length, &actual_length, programId_log); GLERROR
-    Logger::Info("programId info log for GL index %u:\n%s", programId, programId_log);
+    Logger::Info("programId info log for GL index %u:\n%s\n", programId, programId_log);
   }
 
   void print_all() {

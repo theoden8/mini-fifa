@@ -111,7 +111,7 @@ public:
       Logger::Info("\t%s\n", glGetStringi(GL_EXTENSIONS, i));
     }
   }
-  void run() {
+  void run(Soccer &server_soccer) {
     start();
     cam.init();
     Tuple::for_each(layers, [&](auto &lyr) mutable {
@@ -120,12 +120,13 @@ public:
     cam.update(float(width()) / float(height()));
 
     /* audio.Play(); */
-    double current_time = .0;
+    Timer::time_t current_time = .0;
     glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window)) {
       cam.keyboard(window, double(width())/height());
       /* keyboard(); */
       idle_mouse();
+      server_soccer.idle(current_time);
       soccer.idle(current_time);
       display();
       /* current_time += 1./60; */

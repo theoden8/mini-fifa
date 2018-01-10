@@ -9,9 +9,17 @@
 #include <iostream>
 #include <string>
 
+#include "Debug.hpp"
+#include "Logger.hpp"
+
 namespace net {
+
 typedef unsigned long ip_t;
 typedef unsigned short port_t;
+
+ip_t ip_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
+  return (a << 24) | (b << 16) | (c << 8) | (d << 8);
+}
 
 struct Addr {
 	ip_t ip;
@@ -59,7 +67,7 @@ public:
   {
     handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(handle_ <= 0) {
-      throw std::runtime_error("Cant create socket");
+      TERMINATE("Can't create socket\n");
     }
 
     sockaddr_in address;
@@ -67,13 +75,15 @@ public:
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(port_);
 
-    if(bind(handle_, (const sockaddr *) &address, sizeof(sockaddr_in)) < 0) {
-      throw std::runtime_error("Cant bind socket");
+    if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) {
+      perror("error:");
+      TERMINATE("Can't bind socket\n");
     }
 
     int nonBlocking = 1;
     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) {
-      throw std::runtime_error("Cant set non-blocking socket");
+      perror("error:");
+      TERMINATE("Can't set non-blocking socket\n");
     }
   }
 
@@ -84,7 +94,7 @@ public:
   template <typename T>
 	void send(const Package<T> &send) const {
     if(sizeof(send.data) > MAX_PACKET_SIZE) {
-      throw std::runtime_error("Too big packet");
+      TERMINATE("Package too big");
     }
 
     sockaddr_in address;
@@ -95,7 +105,7 @@ public:
     int sent_bytes = sendto(handle_, &send.data, sizeof(T), 0, (sockaddr *) &address, sizeof(sockaddr_in));
 
     if(sent_bytes != sizeof(send.data)) {
-      throw std::runtime_error("Cant send packet");
+      TERMINATE("Can't send packet\n");
     }
 
     /* std::cerr << "Send: " << send.text << std::endl; */
