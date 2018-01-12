@@ -22,30 +22,29 @@ struct PNGImage : public Image {
 
     /* open file and test for it being a png */
     FILE *fp = fopen(filename.c_str(), "rb");
-    ASSERT(fp != NULL);
+    if(fp == nullptr) {
+      TERMINATE("png: unable to open file '%s'\n", filename.c_str());
+    }
     fread(header, 1, 8, fp);
     if(png_sig_cmp(header, 0, 8)) {
-      Logger::Error("[read_png_file] File %s is not recognized as a PNG file", filename.c_str());
-      return;
+      TERMINATE("png: File %s is not recognized as a PNG file\n", filename.c_str());
     }
 
     /* initialize stuff */
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 
-    if(png_ptr == NULL) {
-      Logger::Error("[read_png_file] png_create_read_struct failed");
-      return;
+    if(png_ptr == nullptr) {
+      TERMINATE("png: png_create_read_struct failed\n");
     }
 
     png_infop info_ptr = png_create_info_struct(png_ptr);
     if(!info_ptr) {
-      Logger::Error("[read_png_file] png_create_info_struct failed");
+      TERMINATE("[png:png_create_info_struct failed\n");
       return;
     }
 
     if(setjmp(png_jmpbuf(png_ptr))) {
-      Logger::Error("[read_png_file] Error during init_io");
-      return;
+      Logger::Error("png: error during init_io\n");
     }
 
     png_init_io(png_ptr, fp);
@@ -63,8 +62,7 @@ struct PNGImage : public Image {
 
     /* read file */
     if(setjmp(png_jmpbuf(png_ptr))) {
-      Logger::Error("[read_png_file] read_image failed");
-      return;
+      TERMINATE("[read_png_file] read_image failed\n");
     }
 
     size_t bpp = png_get_channels(png_ptr, info_ptr);
@@ -79,14 +77,15 @@ struct PNGImage : public Image {
 
     fclose(fp);
 
-    if(bpp == 3)
+    if(bpp == 3) {
       format = GL_RGB;
-    else if(bpp == 4)
+    } else if(bpp == 4) {
       format = GL_RGBA;
-    else
-      Logger::Error("unknown image format %d for file %s\n", bpp, filename.c_str()),abort();
+    } else {
+      TERMINATE("png: unknown image format %d for file %s\n", bpp, filename.c_str());
+    }
 
-    png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
   }
 };
 }

@@ -18,12 +18,14 @@ struct BMPImage : public Image {
 
     // Open the file
     FILE *file = fopen(filename.c_str(),"rb");
-    ASSERT(file != NULL);
+    if(file == nullptr) {
+      TERMINATE("bmp: unable to open file '%s'\n", filename.c_str());
+    }
 
     // If less than 54 bytes are read, problem
     size_t r;
     if((r = fread(header, sizeof(unsigned char), 138, file)) != 138) {
-      throw std::runtime_error("error reading header of file " + filename + ", length " + std::to_string(r));
+      TERMINATE("bmp: unable to read header of file '%s', length %lu\n", filename.c_str(), r);
     }
 
     // file signature
@@ -31,7 +33,9 @@ struct BMPImage : public Image {
 
     // make sure this is a 24bpp file
     ASSERT(*(int32_t*)&(header[0x1E]) == 0);
-    ASSERT(*(int32_t*)&(header[0x1C]) == 24);
+    if(*(int32_t*)&(header[0x1C]) != 24) {
+      TERMINATE("bmp: required RGB image (24bpp)\n");
+    }
 
     data_pos = *(int32_t*)&(header[0x0A]);
     img_size = *(int32_t*)&(header[0x22]);

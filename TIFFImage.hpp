@@ -18,7 +18,9 @@ struct TIFFImage : public Image {
     TIFFRGBAImage img;
     char error[1024];
     TIFF *tif = TIFFOpen(filename.c_str(), "r");
-    ASSERT(tif != NULL);
+    if(tif == nullptr) {
+      TERMINATE("tiff: unable to open file '%s'\n", filename.c_str());
+    }
     if(TIFFRGBAImageBegin(&img, tif, 0, error)) {
       size_t bpp = 4;
       format = GL_RGBA;
@@ -28,12 +30,12 @@ struct TIFFImage : public Image {
       int ret = TIFFRGBAImageGet(&img, (uint32_t *)data, width, height);
       if(ret == 0) {
         TIFFError("error: filename '%s', err=%d\n", filename.c_str(), error);
-        exit(1);
+        TERMINATE("tiff: terminating\n");
       }
       Logger::Info("read tiff image %s (%d x %d)\n", filename.c_str(), img.width, img.height);
     } else {
       TIFFError("error: filename '%s', err=%d\n", filename.c_str(), error);
-      exit(1);
+      TERMINATE("tiff: terminating\n");
     }
     TIFFClose(tif);
   }

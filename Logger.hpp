@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <unistd.h>
 
+#include <mutex>
+
 #include "incaudio.h"
 #include "incgraphics.h"
 #include "Debug.hpp"
@@ -15,6 +17,7 @@ class Logger {
 
   static char *log_file;
   static FILE *log_file_ptr;
+  std::mutex mtx;
 
   Logger(const char *filename):
     filename(filename)
@@ -32,6 +35,7 @@ class Logger {
   }
   void Write(const char *fmt, va_list args) {
     #ifndef NDEBUG
+      std::lock_guard<std::mutex> guard(mtx);
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, fmt, args);
@@ -40,6 +44,7 @@ class Logger {
   }
   void WriteFmt(const char *prefix, const char *fmt, va_list args) {
     #ifndef NDEBUG
+      std::lock_guard<std::mutex> guard(mtx);
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, (std::string() + prefix + fmt).c_str(), args);

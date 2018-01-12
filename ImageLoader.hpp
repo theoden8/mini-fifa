@@ -22,9 +22,7 @@ Image *load_image(File &file) {
   Logger::Info("Loading image file '%s'\n", file.name().c_str());
   Image *image = nullptr;
   if(!file.exists()) {
-    Logger::Info("file '%s' not found", file.name().c_str());
-    ASSERT(file.exists());
-    return image;
+    TERMINATE("file '%s' not found", file.name().c_str());
   } else if(file.is_ext(".png")) {
 // png
 #ifdef COMPILE_IMGPNG
@@ -54,9 +52,7 @@ Image *load_image(File &file) {
     image = new img::TGAImage(file.name().c_str());
   }
   if(image == nullptr) {
-    Logger::Error("unsupported file format for %s\n", file.name().c_str());
-    throw std::runtime_error("failed to load image " + file.name());
-    return image;
+    TERMINATE("unsupported file format for %s\n", file.name().c_str());
   }
   return image;
 }

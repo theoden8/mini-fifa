@@ -9,6 +9,7 @@
 #include "incgraphics.h"
 #include "ShaderUniform.hpp"
 #include "Debug.hpp"
+#include "Logger.hpp"
 
 namespace gl {
 enum class UniformType {
@@ -51,12 +52,16 @@ struct Uniform {
     return uniformId;
   }
   GLuint loc() const {
-    ASSERT(location != "");
+    if(location == "") {
+      TERMINATE("location is unset\n");
+    }
     GLuint lc = glGetUniformLocation(progId, location.c_str()); GLERROR
     return lc;
   }
   void set_id(GLuint program_id) {
-    ASSERT(program_id != 0);
+    if(program_id == 0) {
+      TERMINATE("program id is already set\n");
+    }
     if(progId == program_id) {
       return;
     }
@@ -76,57 +81,64 @@ struct Uniform {
   void set_data(dtype data);
 };
 
+#define CHECK_PROGRAM_ID \
+  if(progId == 0) { \
+    TERMINATE("unable to set data to a uniform without program id set\n"); \
+  }
+
 template <>
 void gl::Uniform<gl::UniformType::INTEGER>::set_data(Uniform<gl::UniformType::INTEGER>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniform1i(uniformId, data); GLERROR
 }
 
 template <>
 void gl::Uniform<gl::UniformType::FLOAT>::set_data(Uniform<gl::UniformType::FLOAT>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniform1f(uniformId, data); GLERROR
 }
 
 template <>
 void gl::Uniform<gl::UniformType::VEC2>::set_data(Uniform<gl::UniformType::VEC2>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniform2f(uniformId, data.x, data.y); GLERROR
 }
 
 template <>
 void gl::Uniform<gl::UniformType::VEC3>::set_data(Uniform<gl::UniformType::VEC3>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniform3f(uniformId, data.x, data.y, data.z); GLERROR
 }
 
 template <>
 void Uniform<UniformType::VEC4>::set_data(Uniform<UniformType::VEC4>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniform4f(uniformId, data.x, data.y, data.z, data.t); GLERROR
 }
 
 template <>
 void Uniform<UniformType::MAT2>::set_data(Uniform<UniformType::MAT2>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniformMatrix2fvARB(uniformId, 1 , GL_FALSE, glm::value_ptr(data)); GLERROR
 }
 
 template <>
 void Uniform<UniformType::MAT3>::set_data(Uniform<UniformType::MAT3>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniformMatrix3fvARB(uniformId, 1 , GL_FALSE, glm::value_ptr(data)); GLERROR
 }
 
 template <>
 void Uniform<UniformType::MAT4>::set_data(Uniform<UniformType::MAT4>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniformMatrix4fvARB(uniformId, 1 , GL_FALSE, glm::value_ptr(data)); GLERROR
 }
 
 template <>
 void Uniform<UniformType::SAMPLER2D>::set_data(Uniform<UniformType::SAMPLER2D>::dtype data) {
-  ASSERT(progId != 0);
+  CHECK_PROGRAM_ID;
   glUniform1iARB(uniformId, data); GLERROR
 }
+
+#undef CHECK_PROGRAM_ID
 }

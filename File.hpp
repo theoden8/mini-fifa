@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Debug.hpp"
+#include "Logger.hpp"
 
 #include <string>
 #include <cstdio>
@@ -57,9 +58,15 @@ public:
 
   char *load_text() {
     size_t size = length() + 1;
-    char *text = (char *)malloc(size * sizeof(char)); ASSERT(text != NULL);
+    char *text = (char *)malloc(size * sizeof(char));
+    if(text == nullptr) {
+      TERMINATE("unable to allocate text\n");
+    }
 
-    FILE *file = fopen(filename.c_str(), "r"); ASSERT(file != NULL);
+    FILE *file = fopen(filename.c_str(), "r");
+    if(file == nullptr) {
+      TERMINATE("unable to open file '%s' for reading\n", filename.c_str());
+    }
 
     char *t = text;
     while((*t = fgetc(file)) != EOF)

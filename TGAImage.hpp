@@ -16,7 +16,9 @@ struct TGAImage : public Image {
 
   void init() {
     FILE *file = fopen(filename.c_str(), "r");
-    ASSERT(file != nullptr);
+    if(file == nullptr) {
+      TERMINATE("bmp: unable to open file '%s'\n", filename.c_str());
+    }
 
     uint8_t header[18] = {0};
     constexpr static uint8_t is_decompressed_mask[12] = {0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
@@ -36,7 +38,7 @@ struct TGAImage : public Image {
 
       if ((bpp8 != 24) && (bpp8 != 32)) {
         fclose(file);
-        throw std::runtime_error("Invalid File Format. Required: 24 or 32 Bit Image.");
+        TERMINATE("tga: invalid file format: required 24 (RGB) or 32 (RGBA) bpp image\n");
       }
 
       is_compressed = false;
@@ -75,7 +77,7 @@ struct TGAImage : public Image {
 
       if ((bpp8 != 24) && (bpp8 != 32)) {
         fclose(file);
-        throw std::runtime_error("Invalid File Format. Required: 24 or 32 Bit Image.");
+        TERMINATE("tga: invalid file format: required 24 (RGB) or 32 (RGBA) bpp image\n");
       }
 
       is_compressed = true;
@@ -127,7 +129,7 @@ struct TGAImage : public Image {
         }
       };
     } else {
-      throw std::runtime_error("Invalid File Format. Required: 24 or 32 Bit TGA File.");
+      TERMINATE("tga: invalid file format: required 24 (RGB) or 32 (RGBA) bpp image\n");
     }
 
     fclose(file);

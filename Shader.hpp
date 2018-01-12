@@ -58,8 +58,10 @@ struct Shader {
   void init() {
     shaderId = glCreateShader(get_gl_shader_constant<ShaderT>()); GLERROR
     char *source_code = file.load_text();
-    ASSERT(source_code != NULL);
-    glShaderSource(shaderId, 1, &source_code, NULL); GLERROR
+    if(source_code == nullptr) {
+      TERMINATE("unable to load text from file '%s'\n", file.name().c_str());
+    }
+    glShaderSource(shaderId, 1, &source_code, nullptr); GLERROR
     glCompileShader(shaderId); GLERROR
     free(source_code);
   }

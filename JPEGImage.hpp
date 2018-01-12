@@ -21,7 +21,9 @@ struct JPEGImage : public Image {
     struct jpeg_error_mgr err;          //the error handler
 
     FILE* file = fopen(filename.c_str(), "rb");  //open the file
-    ASSERT(file != NULL);
+    if(file == nullptr) {
+      TERMINATE("jpeg: unable to open file '%s'\n", filename.c_str());
+    }
 
     info.err = jpeg_std_error(& err);
     jpeg_create_decompress(& info);   //fills info structure
@@ -35,12 +37,13 @@ struct JPEGImage : public Image {
     size_t bpp = info.num_components;
     width = info.output_width;
     height = info.output_height;
-    if(bpp == 3)
+    if(bpp == 3) {
       format = GL_RGB;
-    else if(bpp == 4)
+    } else if(bpp == 4) {
       format = GL_RGBA;
-    else
-      throw std::runtime_error("error: unknown pixel format");
+    } else {
+      TERMINATE("jpeg: unknown pixel format\n");
+    }
 
     data = new unsigned char[width * height * bpp];
     while(info.output_scanline < info.output_height) {
