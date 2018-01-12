@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <mutex>
 
 #include "Ball.hpp"
 #include "Player.hpp"
@@ -12,7 +13,9 @@ struct Soccer {
   std::vector<Player> players;
   Ball ball;
 
-  Soccer(size_t team1sz=2, size_t team2sz=2):
+  std::mutex mtx;
+
+  Soccer(size_t team1sz=1, size_t team2sz=2):
     players(),
     team1(*this, team1sz, Team::RED_TEAM),
     team2(*this, team2sz, Team::BLUE_TEAM)
@@ -112,7 +115,8 @@ struct Soccer {
 
   Team team1, team2;
 
-  void idle(double curtime) {
+  void idle(Timer::time_t curtime) {
+    std::lock_guard<std::mutex> guard(mtx);
     timer.set_time(curtime);
     idle_control();
     ball.idle(timer.current_time);
@@ -136,7 +140,7 @@ struct Soccer {
     return playerId != Ball::NO_OWNER;
   }
 
-  const Unit::vec_t single_player_pass_point = glm::vec3(.0, 2./3, 0);
+  const Unit::loc_t single_player_pass_point = glm::vec3(.0, 2./3, 0);
 
   bool is_able_to_tackle(float val) {
     return !std::isnan(val);
@@ -190,19 +194,21 @@ struct Soccer {
         ball.unit.moving_speed = p.unit.moving_speed;
       } else if(p.is_going_up()) {
         Unit::loc_t dest = single_player_pass_point;
-        int pass_to = get_pass_destination(ball.owner());
+        int pass_to = get_pass_destination(p.id());
         if(is_active_player(pass_to)) {
           dest = players[pass_to].possession_point();
+        } else {
+          dest = single_player_pass_point;
         }
-        float dist = glm::distance(p.unit.pos, dest);
-        float time = std::sqrt(2 * ball.unit.height() / p.G) * .1;
-        float speed = std::fmax(ball.unit.moving_speed, p.running_speed * 1.2);
+        float dist = glm::distance(ball.unit.pos, dest);
+        float time = std::sqrt(2 * ball.unit.height() / ball.G) * .1;
+        float speed = std::fmax(ball.unit.moving_speed, 350 * Unit::GAUGE);
 
         if(dist < speed * time) {
           ball.vertical_speed = 0;
-          speed = dist/time;
+          speed = dist / time;
         } else {
-          ball.vertical_speed = std::fmin(Unit::GAUGE, Unit::GAUGE*p.G*.05/speed);
+          ball.vertical_speed = std::fmin(10. * Unit::GAUGE, 10. * Unit::GAUGE * ball.G * .5 * dist / speed);
         }
         ball.unit.moving_speed = speed;
         ball.is_in_air = true;
@@ -226,23 +232,24 @@ struct Soccer {
     return players[playerId];
   }
 
+  Unit &get_unit(int unit_id) {
+    return (unit_id == Ball::NO_OWNER) ? ball.unit : get_player(unit_id).unit;
+  }
+
   int get_pass_destination(int playerId) {
     if(!is_active_player(playerId))return playerId;
     Team &team = get_team(playerId);
-
-    int teamPlayerId = (team.id() == Team::RED_TEAM) ? playerId : playerId - team1.size();
-
     int ind_pass_to = Ball::NO_OWNER;
     double range = NAN;
     for(int i = 0; i < team.size(); ++i) {
-      if(teamPlayerId == i)continue;
-      int dist = Unit::length(team[teamPlayerId].unit.pos - team[i].unit.pos);
+      if(playerId == team[i].id())continue;
+      float dist = glm::distance(ball.unit.pos, team[i].unit.pos);
       if(std::isnan(range) || dist < range) {
         range = dist;
-        ind_pass_to = i;
+        ind_pass_to = team[i].id();
       }
     }
-    return team[ind_pass_to].id();
+    return ind_pass_to;
   }
 
   void z_action(int playerId) {
@@ -271,7 +278,7 @@ struct Soccer {
     if(playerId == ball.owner() && !p.is_sliding()) {
       ball.is_in_air = true;
       p.unit.face(direction);
-      p.kick_the_ball(ball, p.running_speed * 1.25, .2 * p.tallness, direction);
+      p.kick_the_ball(ball, 300. * Unit::GAUGE, 20. * Unit::GAUGE, direction);
     } else if(p.can_slide()) {
       p.timestamp_slide();
       Unit::vec_t slide_vec(std::cos(direction), std::sin(direction), 0);
@@ -289,8 +296,8 @@ struct Soccer {
       ball.is_in_air = true;
       p.unit.face(direction);
       float dist = glm::distance(ball.unit.pos, dest);
-      float vspeed = .3 * p.tallness;
-      float speed = std::min(p.running_speed * 1.8f, 5.f * p.G * dist / vspeed);
+      float vspeed = 30. * Unit::GAUGE;
+      float speed = std::min(522.f * Unit::GAUGE, 5.f * p.G * dist / vspeed);
       p.kick_the_ball(ball, speed, vspeed, direction);
       p.timestamp_slowdown(Player::SLOWDOWN_SHOT);
     } else {
@@ -302,9 +309,9 @@ struct Soccer {
     if(!is_active_player(playerId))return;
     auto &p = get_player(playerId);
     if(p.is_owner(ball)) {
-      p.jump(.15 * p.tallness);
+      p.jump(15. * Unit::GAUGE);
     } else {
-      p.jump(.2 * p.tallness);
+      p.jump(20. * Unit::GAUGE);
     }
   }
 

@@ -11,8 +11,12 @@ struct Timer {
 
   static constexpr int CURRENT_TIME = INT_MAX;
 
-  time_t prev_time = .0;
-  time_t current_time = .0;
+  static constexpr time_t time_start() {
+    return .0;
+  }
+
+  time_t prev_time = time_start();
+  time_t current_time = time_start();
   std::map<int, time_t> events;
   std::map<int, std::deque<time_t>> event_counters;
   std::map<int, time_t> timeouts;
@@ -21,7 +25,7 @@ struct Timer {
   {}
 
   /* void dump_times() { */
-  /*   for(auto &[k,t] : events){Logger::Info("%d: %f\n",k,t);} */
+  /*   for(const auto &[k,t] : events){Logger::Info("%d: %f\n",k,t);} */
   /* } */
 
   void set_time(time_t curtime) {
@@ -64,7 +68,7 @@ struct Timer {
 
   bool timed_out(int key) const {
     /* Logger::Info("timeout access: %d\n", key); */
-    time_t timeout = 0.;
+    time_t timeout = .0;
     if(events.find(key) == events.end()) {
       return true;
     }
