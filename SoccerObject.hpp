@@ -94,6 +94,7 @@ struct SoccerObject {
   }
 
   void mouse_click(int button, int action, int playerId=0) {
+    std::lock_guard<std::mutex> guard(soccer.mtx);
     auto &p = soccer.get_player(playerId);
     glm::vec3 cpos(cursorPoint.x, cursorPoint.y, 0);
     if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
@@ -126,6 +127,7 @@ struct SoccerObject {
     pitch.display(cam);
     post_red.display(cam);
     post_blue.display(cam);
+    std::lock_guard<std::mutex> guard(soccer.mtx);
     ballObj.display(soccer.ball, cam);
 
     std::vector<int> indices(soccer.players.size());

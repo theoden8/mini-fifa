@@ -249,13 +249,11 @@ public:
           char long_name[64];
           sprintf(long_name, "%s[%d]", name, j);
           int location = glGetAttribLocation(programId, long_name);
-          Logger::Info("  %d) type:%s name:%s location:%d\n",
-                 i, GL_type_to_string(type), long_name, location);
+          Logger::Info("  %d) type:%s name:%s location:%d\n", i, GL_type_to_string(type), long_name, location);
         }
       } else {
         int location = glGetAttribLocation(programId, name);
-        Logger::Info("  %d) type:%s name:%s location:%d\n",
-               i, GL_type_to_string(type), name, location);
+        Logger::Info("  %d) type:%s name:%s location:%d\n", i, GL_type_to_string(type), name, location);
       }
     }
 

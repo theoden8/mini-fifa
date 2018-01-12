@@ -24,7 +24,7 @@ struct Ball {
   /* const float gravity = 2.3; */
   /* const float mass = 1.0f; */
   const float min_speed = Unit::GAUGE;
-  float vertical_speed = 0.;
+  float vertical_speed = .0;
   bool is_in_air = false;
   static constexpr int NO_OWNER = -1;
   int current_owner = NO_OWNER;

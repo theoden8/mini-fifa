@@ -232,6 +232,10 @@ struct Soccer {
     return players[playerId];
   }
 
+  Unit &get_unit(int unit_id) {
+    return (unit_id == Ball::NO_OWNER) ? ball.unit : get_player(unit_id).unit;
+  }
+
   int get_pass_destination(int playerId) {
     if(!is_active_player(playerId))return playerId;
     Team &team = get_team(playerId);
