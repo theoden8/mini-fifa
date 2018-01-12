@@ -11,10 +11,9 @@
 #include "Network.hpp"
 #include "Logger.hpp"
 
-namespace RemoteType {
-  class Server;
-  class Client;
-}
+enum class RemoteType {
+  SERVER, CLIENT
+};
 
 struct Intelligence {
   virtual void z_action() = 0;
@@ -75,10 +74,10 @@ namespace pkg {
   };
 };
 
-template <typename RemoteT> struct Remote : public Intelligence {};
+template <RemoteType RemoteT> struct Remote : public Intelligence {};
 
 template <>
-struct Remote<RemoteType::Server> : public Intelligence {
+struct Remote<RemoteType::SERVER> : public Intelligence {
   int id_;
   int no_actions = 0;
   Soccer &soccer;
@@ -93,12 +92,12 @@ struct Remote<RemoteType::Server> : public Intelligence {
     id_(id), soccer(soccer), socket(port), clients(clients)
   {
     server_thread = std::thread(
-      Remote<RemoteType::Server>::run,
+      Remote<RemoteType::SERVER>::run,
       this
     );
   }
 
-  static void run(Remote<RemoteType::Server> *server) {
+  static void run(Remote<RemoteType::SERVER> *server) {
     using sys_time_t = std::chrono::nanoseconds;
     Timer::time_t last_sent = Timer::time_start();
     const Timer::time_t send_diff = .1;
@@ -245,7 +244,7 @@ struct Remote<RemoteType::Server> : public Intelligence {
 };
 
 template <>
-struct Remote<RemoteType::Client> : public Intelligence {
+struct Remote<RemoteType::CLIENT> : public Intelligence {
   int id_;
   Soccer &soccer;
   net::Addr server_addr;
@@ -264,12 +263,12 @@ struct Remote<RemoteType::Client> : public Intelligence {
     socket(client_port)
   {
     listen_thread = std::thread(
-      Remote<RemoteType::Client>::listener_func,
+      Remote<RemoteType::CLIENT>::listener_func,
       this
     );
   }
 
-  static void listener_func(Remote<RemoteType::Client> *client) {
+  static void listener_func(Remote<RemoteType::CLIENT> *client) {
     Timer::time_t delay = 1.;
     while(!client->should_stop()) {
       net::Package<pkg::sync_struct> packet;
