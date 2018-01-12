@@ -20,6 +20,9 @@
   if(!(CONDITION)) { \
     throw std::runtime_error("\033[1;91merror\033[0m at " CODE_LOCATION CONDITION_TOSTR(CONDITION)); \
   }
+#define TERMINATE(...) \
+  Logger::Error(__VA_ARGS__);  \
+  throw std::runtime_error("\033[1;91mterminated\033[0m at " CODE_LOCATION);
 
 #ifndef NDEBUG
 

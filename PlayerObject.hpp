@@ -15,8 +15,10 @@ struct PlayerObject {
   glm::mat4 extra_rotate;
   Transformation transform;
 
-	Sprite<Model, class RedPlayer> *playerModelRed;
-	Sprite<Model, class BluePlayer> *playerModelBlue;
+  class RedPlayer; class BluePlayer;
+
+	Sprite<Model, RedPlayer> *playerModelRed;
+	Sprite<Model, BluePlayer> *playerModelBlue;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::ShaderProgram<
     gl::VertexShader,
@@ -26,16 +28,14 @@ struct PlayerObject {
 
   using ShaderProgram = decltype(program);
 
-  Unit::loc_t initial_position;
-  PlayerObject(std::pair<float, float> pos={0, 0}):
-    initial_position(pos.first, pos.second, 0),
+  PlayerObject():
     uTransform("transform"),
-    playerModelRed(Sprite<Model, class RedPlayer>::create("assets/ninja/ninja.3ds")),
-    playerModelBlue(Sprite<Model, class BluePlayer>::create("assets/ninja/ninja.3ds")),
+    playerModelRed(Sprite<Model, RedPlayer>::create("assets/ninja/ninja.3ds")),
+    playerModelBlue(Sprite<Model, BluePlayer>::create("assets/ninja/ninja.3ds")),
     program({"shaders/player.vert", "shaders/player.frag"})
   {
-    transform.SetScale(.01);
-    transform.SetPosition(initial_position.x, initial_position.y, initial_position.z);
+    transform.SetScale(.01, .006, .01);
+    transform.SetPosition(0, 0, 0);
     extra_rotate =
       glm::rotate(glm::radians(-90.f), glm::vec3(0, 0, 1))
       * glm::rotate(glm::radians(90.f), glm::vec3(1, 0, 0));

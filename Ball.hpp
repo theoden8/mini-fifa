@@ -24,14 +24,14 @@ struct Ball {
   /* const float gravity = 2.3; */
   /* const float mass = 1.0f; */
   const float min_speed = Unit::GAUGE;
-  float vertical_speed = 0.;
+  float vertical_speed = .0;
   bool is_in_air = false;
   static constexpr int NO_OWNER = -1;
   int current_owner = NO_OWNER;
   int last_touched = NO_OWNER;
 
   Ball():
-    unit(Unit::vec_t(0, 0, 0), M_PI * 4)
+    unit(Unit::loc_t(0, 0, 0), M_PI * 4)
   {
     reset_height();
   }
@@ -74,8 +74,8 @@ struct Ball {
           }
         } else {
           // update height
-          unit.height() += 10. * vertical_speed * timediff;
-          vertical_speed -= 10. * G * timediff;
+          unit.height() += 8. * vertical_speed * timediff;
+          vertical_speed -= 8. * G * timediff;
         }
       } else {
         unit.moving_speed -= GROUND_FRICTION * timediff;

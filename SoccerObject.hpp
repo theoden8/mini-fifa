@@ -13,25 +13,24 @@
 #include "Cursor.hpp"
 
 #include "Soccer.hpp"
+#include "Intelligence.hpp"
 
 struct SoccerObject {
   Soccer &soccer;
+  Intelligence &intelligence;
 
   std::vector<PlayerObject> playerObjs;
   Pitch pitch;
   Post post_red, post_blue;
   BallObject ballObj;
 
-  SoccerObject(Soccer &soccer):
+  SoccerObject(Soccer &soccer, Intelligence &intelligence):
     soccer(soccer),
-    playerObjs(),
+    intelligence(intelligence),
+    playerObjs(soccer.team1.size() + soccer.team2.size()),
     post_red(Soccer::Team::RED_TEAM),
     post_blue(Soccer::Team::BLUE_TEAM)
-  {
-    for(auto &p : soccer.players) {
-      playerObjs.push_back(PlayerObject({p.unit.pos.x, p.unit.pos.y}));
-    }
-  }
+  {}
 
   void init() {
     pitch.init();
@@ -51,23 +50,23 @@ struct SoccerObject {
   };
   CursorState cursorState = CursorState::DEFAULT;
   glm::vec2 cursorPoint;
-  void keyboard(int key, int playerId=0) {
-    if(key == GLFW_KEY_Z) {
-      soccer.z_action(soccer.ball.owner());
+  void keyboard(int key) {
+    if(key == GLFW_KEY_ESCAPE) {
+      if(cursorState != CursorState::DEFAULT) {
+        cursorState = CursorState::DEFAULT;
+      }
+    } else if(key == GLFW_KEY_Z) {
+      intelligence.z_action();
     } else if(key == GLFW_KEY_X) {
       cursorState = CursorState::X_AIM;
     } else if(key == GLFW_KEY_C) {
       cursorState = CursorState::C_AIM;
     } else if(key == GLFW_KEY_V) {
-      soccer.v_action(playerId);
+      intelligence.v_action();
     } else if(key == GLFW_KEY_F) {
       cursorState = CursorState::F_AIM;
     } else if(key == GLFW_KEY_S) {
-      soccer.s_action(playerId);
-    } else if(key == GLFW_KEY_ESCAPE) {
-      if(cursorState != CursorState::DEFAULT) {
-        cursorState = CursorState::DEFAULT;
-      }
+      intelligence.s_action();
     }
   }
 
@@ -95,11 +94,12 @@ struct SoccerObject {
   }
 
   void mouse_click(int button, int action, int playerId=0) {
+    std::lock_guard<std::mutex> guard(soccer.mtx);
     auto &p = soccer.get_player(playerId);
     glm::vec3 cpos(cursorPoint.x, cursorPoint.y, 0);
     if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
       if(cursorState == CursorState::DEFAULT) {
-        soccer.m_action(playerId, cpos);
+        intelligence.m_action(cpos);
       } else {
         cursorState = CursorState::DEFAULT;
       }
@@ -108,15 +108,15 @@ struct SoccerObject {
         case CursorState::DEFAULT:
         break;
         case CursorState::X_AIM:
-          soccer.x_action(playerId, p.unit.facing_angle(cpos));
+          intelligence.x_action(p.unit.facing_angle(cpos));
           cursorState = CursorState::DEFAULT;
         break;
         case CursorState::C_AIM:
-          soccer.c_action(playerId, cpos);
+          intelligence.c_action(cpos);
           cursorState = CursorState::DEFAULT;
         break;
         case CursorState::F_AIM:
-          soccer.f_action(playerId, p.unit.facing_angle(cpos));
+          intelligence.f_action(p.unit.facing_angle(cpos));
           cursorState = CursorState::DEFAULT;
         break;
       }
@@ -127,6 +127,7 @@ struct SoccerObject {
     pitch.display(cam);
     post_red.display(cam);
     post_blue.display(cam);
+    std::lock_guard<std::mutex> guard(soccer.mtx);
     ballObj.display(soccer.ball, cam);
 
     std::vector<int> indices(soccer.players.size());

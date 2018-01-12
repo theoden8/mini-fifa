@@ -222,7 +222,7 @@ public:
     int actual_length = 0;
     char programId_log[2048];
     glGetProgramInfoLog(programId, max_length, &actual_length, programId_log); GLERROR
-    Logger::Info("programId info log for GL index %u:\n%s", programId, programId_log);
+    Logger::Info("programId info log for GL index %u:\n%s\n", programId, programId_log);
   }
 
   void print_all() {
@@ -249,13 +249,11 @@ public:
           char long_name[64];
           sprintf(long_name, "%s[%d]", name, j);
           int location = glGetAttribLocation(programId, long_name);
-          Logger::Info("  %d) type:%s name:%s location:%d\n",
-                 i, GL_type_to_string(type), long_name, location);
+          Logger::Info("  %d) type:%s name:%s location:%d\n", i, GL_type_to_string(type), long_name, location);
         }
       } else {
         int location = glGetAttribLocation(programId, name);
-        Logger::Info("  %d) type:%s name:%s location:%d\n",
-               i, GL_type_to_string(type), name, location);
+        Logger::Info("  %d) type:%s name:%s location:%d\n", i, GL_type_to_string(type), name, location);
       }
     }
 
