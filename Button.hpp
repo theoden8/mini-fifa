@@ -41,8 +41,8 @@ struct Button {
     region(region),
     btnTx("btnTex"),
     uState("state"),
-    quadProgram({"btn_quad.vert", "btn_quad.frag"}),
-    textProgram({"btn_text.vert", "btn_text.frag"})
+    quadProgram({"shaders/btn_quad.vert", "shaders/btn_quad.frag"}),
+    textProgram({"shaders/btn_text.vert", "shaders/btn_text.frag"})
   {}
 
   void init() {
