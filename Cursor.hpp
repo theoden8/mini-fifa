@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "Transformation.hpp"
-#include "Camera.hpp"
 #include "ShaderUniform.hpp"
 #include "ShaderProgram.hpp"
 #include "Texture.hpp"
@@ -71,7 +70,7 @@ struct Cursor {
     return transform.GetPosition();
   }
 
-  void display(Camera &cam) {
+  void display() {
     glEnable(GL_BLEND); GLERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR

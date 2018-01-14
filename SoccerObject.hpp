@@ -17,14 +17,14 @@
 
 struct SoccerObject {
   Soccer &soccer;
-  Intelligence &intelligence;
+  Intelligence<IntelligenceType::ABSTRACT> &intelligence;
 
   std::vector<PlayerObject> playerObjs;
   Pitch pitch;
   Post post_red, post_blue;
   BallObject ballObj;
 
-  SoccerObject(Soccer &soccer, Intelligence &intelligence):
+  SoccerObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence):
     soccer(soccer),
     intelligence(intelligence),
     playerObjs(soccer.team1.size() + soccer.team2.size()),

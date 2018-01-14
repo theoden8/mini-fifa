@@ -11,11 +11,17 @@
 #include "Network.hpp"
 #include "Logger.hpp"
 
-enum class RemoteType {
-  SERVER, CLIENT
+enum class IntelligenceType {
+  ABSTRACT,
+  SERVER,
+  REMOTE,
+  COMPUTER
 };
 
-struct Intelligence {
+template <IntelligenceType IntelligenceT> struct Intelligence;
+
+template <>
+struct Intelligence <IntelligenceType::ABSTRACT> {
   virtual void z_action() = 0;
   virtual void x_action(float) = 0;
   virtual void c_action(glm::vec3) = 0;
@@ -26,12 +32,16 @@ struct Intelligence {
   virtual void idle(Timer::time_t) = 0;
 };
 
+using Server = Intelligence<IntelligenceType::SERVER>;
+using Remote = Intelligence<IntelligenceType::REMOTE>;
+using Computer = Intelligence<IntelligenceType::COMPUTER>;
+
 namespace pkg {
   // listen/send action
   enum class Action { NO_ACTION,Z,X,C,V,F,S,M };
   struct action_struct {
     Action a;
-    int id;
+    int8_t id;
     float dir;
     glm::vec3 dest;
   };
@@ -52,7 +62,7 @@ namespace pkg {
 
     Timer::time_t frame;
 
-    int no_actions;
+    int16_t no_actions;
     action_struct action = { .a=Action::NO_ACTION };
 
     constexpr bool has_action() const {
@@ -74,30 +84,28 @@ namespace pkg {
   };
 };
 
-template <RemoteType RemoteT> struct Remote : public Intelligence {};
-
 template <>
-struct Remote<RemoteType::SERVER> : public Intelligence {
-  int id_;
+struct Intelligence<IntelligenceType::SERVER> : public Intelligence<IntelligenceType::ABSTRACT> {
+  int8_t id_;
   int no_actions = 0;
   Soccer &soccer;
-  net::Socket socket;
+  net::Socket<net::SocketType::UDP> socket;
   std::thread server_thread;
   std::mutex q_actions_mtx;
   std::mutex finalize_mtx;
 
   std::vector<net::Addr> clients;
 
-  Remote(int id, Soccer &soccer, net::port_t port, std::vector<net::Addr> clients):
+  Intelligence(int id, Soccer &soccer, net::port_t port, std::vector<net::Addr> clients):
     id_(id), soccer(soccer), socket(port), clients(clients)
   {
     server_thread = std::thread(
-      Remote<RemoteType::SERVER>::run,
+      Server::run,
       this
     );
   }
 
-  static void run(Remote<RemoteType::SERVER> *server) {
+  static void run(Server *server) {
     using sys_time_t = std::chrono::nanoseconds;
     Timer::time_t last_sent = Timer::time_start();
     const Timer::time_t send_diff = .1;
@@ -188,9 +196,10 @@ struct Remote<RemoteType::SERVER> : public Intelligence {
     soccer.idle(curtime);
   }
 
-  ~Remote() {
-    stop();
-    server_thread.join();
+  ~Intelligence() {
+    if(!should_stop()) {
+      stop();
+    }
   }
 
   int id() const {
@@ -201,6 +210,7 @@ struct Remote<RemoteType::SERVER> : public Intelligence {
   void stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;
+    server_thread.join();
   }
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
@@ -244,38 +254,38 @@ struct Remote<RemoteType::SERVER> : public Intelligence {
 };
 
 template <>
-struct Remote<RemoteType::CLIENT> : public Intelligence {
-  int id_;
+struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<IntelligenceType::ABSTRACT> {
+  int8_t id_;
   Soccer &soccer;
   net::Addr server_addr;
-  net::Socket socket;
+  net::Socket<net::SocketType::UDP> socket;
   int no_actions = 0;
   Timer::time_t last_frame = Timer::time_start();
-  std::thread listen_thread;
+  std::thread client_thread;
   std::mutex frame_schedule_mtx;
   std::mutex finalize_mtx;
   std::mutex socket_mtx;
 
-  Remote(int id, Soccer &soccer, net::port_t client_port, net::Addr server_addr):
+  Intelligence(int id, Soccer &soccer, net::port_t client_port, net::Addr server_addr):
     id_(id),
     soccer(soccer),
     server_addr(server_addr),
     socket(client_port)
   {
-    listen_thread = std::thread(
-      Remote<RemoteType::CLIENT>::listener_func,
+    client_thread = std::thread(
+      Remote::listener_func,
       this
     );
   }
 
-  static void listener_func(Remote<RemoteType::CLIENT> *client) {
+  static void listener_func(Remote *client) {
     Timer::time_t delay = 1.;
     while(!client->should_stop()) {
-      net::Package<pkg::sync_struct> packet;
-      packet.data.no_actions = -1;
+      net::Package<pkg::sync_struct> package;
+      package.data.no_actions = -1;
       std::lock_guard<std::mutex> guard(client->socket_mtx);
-      if(client->socket.receive(packet)) {
-        pkg::sync_struct sync = packet.data;
+      if(client->socket.receive(package)) {
+        pkg::sync_struct sync = package.data;
         if(sync.no_actions < 0)continue;
         /* printf("Received frame sync: %f\n", sync.frame); */
         client->frame_schedule.push(sync);
@@ -402,23 +412,25 @@ struct Remote<RemoteType::CLIENT> : public Intelligence {
   void stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;
+    client_thread.join();
   }
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     return finalize;
   }
 
-  ~Remote() {
-    stop();
-    listen_thread.join();
+  ~Intelligence() {
+    if(!should_stop()) {
+      stop();
+    }
   }
 
   template <typename T>
   void send_action(const T &data) {
     printf("Client: sending action %d\n", data.a);
-    net::Package<T> packet(server_addr, data);
+    net::Package<T> package(server_addr, data);
     std::lock_guard<std::mutex> guard(socket_mtx);
-    socket.send(packet);
+    socket.send(package);
   }
 
   void z_action() {

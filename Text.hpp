@@ -13,12 +13,12 @@
 #include "Debug.hpp"
 #include "Font.hpp"
 
-class Text {
+struct Text {
   Font &font;
   std::string str = "";
 
   glm::vec2 pos = {0, 0};
-  glm::vec3 color = {1.f,1.f,1.f};
+  glm::vec3 clr = {1.f,1.f,1.f};
   glm::mat4 matrix;
   Transformation transform;
 
@@ -52,7 +52,7 @@ class Text {
   }
 
   glm::vec2 &position() { return pos; }
-  glm::vec3 &color() { return color; }
+  glm::vec3 &color() { return clr; }
 
   void init() {
     vao.init();
@@ -68,17 +68,17 @@ class Text {
 
   template <typename... ShaderTs>
   void display(gl::ShaderProgram<ShaderTs...> &program) {
-    program.use();
+    gl::ShaderProgram<ShaderTs...>::use(program);
 
     uTextColor.set_id(program.id());
-    uTextColor.set_data(color);
+    uTextColor.set_data(clr);
 
     matrix = transform.get_matrix();
     uTransform.set_id(program.id());
     uTransform.set_data(matrix);
 
     gl::Texture::set_active(0);
-    vao.bind();
+    gl::VertexArray::bind(vao);
     GLfloat x = pos.x, y = pos.y;
     for(char c : str) {
       Font::Character &ch = font.alphabet.at(c);
@@ -108,7 +108,7 @@ class Text {
     gl::VertexArray::unbind();
     gl::Texture::unbind();
 
-    gl::ShaderProgram<ShaderTs...>::unbind();
+    gl::ShaderProgram<ShaderTs...>::unuse();
   }
 
   void clear() {

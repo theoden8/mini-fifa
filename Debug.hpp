@@ -4,8 +4,13 @@
 #include <iostream>
 #include <string>
 
+#ifdef COMPILE_GLDEBUG
 #include "incgraphics.h"
+#endif
+
+#ifdef COMPILE_ALDEBUG
 #include "incaudio.h"
+#endif
 
 #define STR(x) #x
 #define TOSTR(x) STR(x)
@@ -26,8 +31,17 @@
 
 #ifndef NDEBUG
 
-#define GLERROR { GLenum ret = glGetError(); if(ret != GL_NO_ERROR) { explain_glerror(ret); std::cerr << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
-#define ALERROR { GLenum ret = alGetError(); if(ret != GL_NO_ERROR) { explain_alerror(ret); std::cerr << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
+#ifdef COMPILE_GLDEBUG
+  #define GLERROR { GLenum ret = glGetError(); if(ret != GL_NO_ERROR) { explain_glerror(ret); std::cerr << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
+#else
+  #define GLERROR
+#endif
+
+#ifdef COMPILE_ALDEBUG
+  #define ALERROR { GLenum ret = alGetError(); if(ret != GL_NO_ERROR) { explain_alerror(ret); std::cerr << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
+#else
+  #define ALERROR
+#endif
 
 #else
 
@@ -36,6 +50,7 @@
 
 #endif
 
+#ifdef COMPILE_GLDEBUG
 void explain_glerror(GLenum code) {
   std::string err;
   switch(code) {
@@ -70,6 +85,58 @@ void explain_glerror(GLenum code) {
   std::cerr << err << std::endl;
 }
 
+/* void log_gl_params() { */
+/* #ifndef NDEBUG */
+/*   GLenum params[] = { */
+/*     GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, */
+/*     GL_MAX_CUBE_MAP_TEXTURE_SIZE, */
+/*     GL_MAX_DRAW_BUFFERS, */
+/*     GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, */
+/*     GL_MAX_TEXTURE_IMAGE_UNITS, */
+/*     GL_MAX_TEXTURE_SIZE, */
+/*     GL_MAX_VARYING_FLOATS, */
+/*     GL_MAX_VERTEX_ATTRIBS, */
+/*     GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, */
+/*     GL_MAX_VERTEX_UNIFORM_COMPONENTS, */
+/*     GL_MAX_VIEWPORT_DIMS, */
+/*     GL_STEREO, */
+/*   }; */
+/*   const char* names[] = { */
+/*     "GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS", */
+/*     "GL_MAX_CUBE_MAP_TEXTURE_SIZE", */
+/*     "GL_MAX_DRAW_BUFFERS", */
+/*     "GL_MAX_FRAGMENT_UNIFORM_COMPONENTS", */
+/*     "GL_MAX_TEXTURE_IMAGE_UNITS", */
+/*     "GL_MAX_TEXTURE_SIZE", */
+/*     "GL_MAX_VARYING_FLOATS", */
+/*     "GL_MAX_VERTEX_ATTRIBS", */
+/*     "GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS", */
+/*     "GL_MAX_VERTEX_UNIFORM_COMPONENTS", */
+/*     "GL_MAX_VIEWPORT_DIMS", */
+/*     "GL_STEREO", */
+/*   }; */
+/*   Logger::Info("GL Context Params:\n"); */
+/*   char msg[256]; */
+/*   // integers - only works if the order is 0-10 integer return types */
+/*   for (int i = 0; i < 10; i++) { */
+/*     int v = 0; */
+/*     glGetIntegerv(params[i], &v); */
+/*     Logger::Info("%s %i\n", names[i], v); */
+/*   } */
+/*   // others */
+/*   int v[2]; */
+/*   v[0] = v[1] = 0; */
+/*   glGetIntegerv(params[10], v); */
+/*   Logger::Info("%s %i %i\n", names[10], v[0], v[1]); */
+/*   unsigned char s = 0; */
+/*   glGetBooleanv(params[11], &s); */
+/*   Logger::Info("%s %u\n", names[11], (unsigned int)s); */
+/*   Logger::Info("-----------------------------\n"); */
+/* #endif */
+/* } */
+#endif
+
+#ifdef COMPILE_ALDEBUG
 void explain_alerror(ALenum code) {
   std::string err;
   switch(code) {
@@ -78,3 +145,4 @@ void explain_alerror(ALenum code) {
   }
   std::cerr << "alerror: " << err << " (" << code << ")" << std::endl;
 }
+#endif

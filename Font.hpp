@@ -22,8 +22,10 @@ struct Font {
     {}
   };
   std::map<GLchar, Character> alphabet;
+  const char *filename;
 
-  Font()
+  Font(const char *filename):
+    filename(filename)
   {}
 
   static void setup() {
@@ -31,7 +33,7 @@ struct Font {
     ASSERT(!rc);
   }
 
-  void init(const char *filename) {
+  void init() {
     int rc = FT_New_Face(ft, filename, 0, &face);
     ASSERT(!rc);
     FT_Set_Pixel_Sizes(face, 0, 48);

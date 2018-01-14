@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdio>
+#include <climits>
 #include <map>
 #include <deque>
 
+#include "Logger.hpp"
 #include "Debug.hpp"
 
 struct Timer {
