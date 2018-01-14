@@ -39,7 +39,8 @@ struct Button {
     font(Sprite<Font, self_t>::create(FONT_FILENAME::c_str)),
     label(font->object),
     region(region),
-    btnTx("btnTex"),
+    attrVertex("vertex"),
+    btnTx("btnTx"),
     uState("state"),
     quadProgram({"shaders/btn_quad.vert", "shaders/btn_quad.frag"}),
     textProgram({"shaders/btn_text.vert", "shaders/btn_text.frag"})

@@ -1,7 +1,7 @@
 #include "Window.hpp"
 
 int main() {
-  Logger::Setup("prog.log");
+  Logger::Setup("minififa.log");
   Logger::MirrorLog(stderr);
   Window w;
   w.run();
