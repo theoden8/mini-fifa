@@ -7,8 +7,6 @@
 
 #include <mutex>
 
-#include "incaudio.h"
-#include "incgraphics.h"
 #include "Debug.hpp"
 
 class Logger {

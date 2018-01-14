@@ -20,7 +20,7 @@ set(CMAKE_CXX_FLAGS "-std=c++1z")
 add_executable(metaserver metaserver.cpp)
 
 set(exec client)
-file(GLOB SRCS ./main.cpp)
+set(SRCS ./minififa.cpp)
 add_executable(${exec} ${SRCS})
 # set_target_properties(${exec} PROPERTIES CXX_STANDARD_REQUIRED 17 CXX_EXTENSIONS OFF)
 # set_property(TARGET ${exec} PROPERTY CXX_STANDARD 14)
