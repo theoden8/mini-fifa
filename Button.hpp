@@ -1,11 +1,18 @@
 #pragma once
 
+#include <array>
+#include <string>
+
+#include "Transformation.hpp"
 #include "Region.hpp"
+#include "Camera.hpp"
 #include "Sprite.hpp"
-#include "Text.hpp"
-#include "ShaderUniform.hpp"
 #include "ShaderProgram.hpp"
+#include "Shader.hpp"
+#include "ShaderUniform.hpp"
+#include "ShaderAttrib.hpp"
 #include "Texture.hpp"
+#include "Text.hpp"
 
 template <typename BUTTON_FILENAME, typename FONT_FILENAME>
 struct Button {
@@ -22,11 +29,11 @@ struct Button {
   gl::ShaderProgram<
     gl::VertexShader,
     gl::FragmentShader
-  > quadProgram;
-  gl::ShaderProgram<
-    gl::VertexShader,
-    gl::FragmentShader
-  > textProgram;
+  > quadProgram, textProgram;
+  /* gl::ShaderProgram< */
+  /*   gl::VertexShader, */
+  /*   gl::FragmentShader */
+  /* > textProgram; */
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
 
   Region region;
@@ -37,13 +44,13 @@ struct Button {
 
   Button(Region region=Region(glm::vec2(-1,1), glm::vec2(-1,1))):
     font(Sprite<Font, self_t>::create(FONT_FILENAME::c_str)),
+    quadProgram({"shaders/btn_quad.vert", "shaders/btn_quad.frag"}),
+    textProgram({"shaders/btn_text.vert", "shaders/btn_text.frag"}),
     label(font->object),
     region(region),
     attrVertex("vertex"),
     btnTx("btnTx"),
-    uState("state"),
-    quadProgram({"shaders/btn_quad.vert", "shaders/btn_quad.frag"}),
-    textProgram({"shaders/btn_text.vert", "shaders/btn_text.frag"})
+    uState("state")
   {}
 
   void init() {

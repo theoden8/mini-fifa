@@ -70,9 +70,10 @@ struct Uniform {
   }
   bool is_active() {
     char name[81];
+    GLsizei length;
     GLint size;
     GLenum t;
-    glGetActiveUniform(progId, uniformId, 80, &size, &t, name); GLERROR
+    glGetActiveUniform(progId, uniformId, 80, &length, &size, &t, name); GLERROR
     return t == gltype && location == name;
   }
   void unset_id() {

@@ -439,12 +439,14 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   }
 
   void x_action(float dir) {
-    pkg::action_struct d = { .a=pkg::Action::X, .id=id_, .dir=dir };
+    pkg::action_struct d;// = { .a=pkg::Action::X, .id=id_, .dir=dir };
+    d.a=pkg::Action::X,d.id=id_,d.dir=dir;
     send_action(d);
   }
 
   void c_action(glm::vec3 dest) {
-    pkg::action_struct d = { .a=pkg::Action::C, .id=id_, .dest=dest };
+    pkg::action_struct d;// = { .a=pkg::Action::C, .id=id_, .dest=dest };
+    d.a=pkg::Action::C;d.id=id_;d.dest=dest;
     send_action(d);
   }
 
@@ -464,7 +466,8 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   }
 
   void m_action(glm::vec3 dest) {
-    pkg::action_struct d = { .a=pkg::Action::M, .id=id_, .dest=dest };
+    pkg::action_struct d;// = { .a=pkg::Action::M, .id=id_, .dest=dest };
+    d.a=pkg::Action::M,d.id=id_,d.dest=dest;
     send_action(d);
   }
 };

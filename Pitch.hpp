@@ -2,7 +2,6 @@
 
 #include <array>
 
-#include "Window.hpp"
 #include "Transformation.hpp"
 #include "Region.hpp"
 #include "Camera.hpp"

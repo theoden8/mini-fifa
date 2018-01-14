@@ -106,9 +106,10 @@ struct Attrib : GenericShaderAttrib {
 
   bool is_active(GLuint program_id) {
     char name[81];
+    GLsizei length;
     GLint size;
     GLenum t;
-    glGetActiveAttrib(program_id, vbo, 80, &size, &t, name); GLERROR
+    glGetActiveAttrib(program_id, vbo, 80, &length, &size, &t, name); GLERROR
     return t == a_cast_type<AttribT>::gltype && location == name;
   }
 

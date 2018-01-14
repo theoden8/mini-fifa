@@ -86,8 +86,17 @@ struct Lobby {
   }
 };
 
+struct LobbyActor {
+  bool is_active() {
+    return !should_stop();
+  }
+  virtual void stop() = 0;
+  virtual bool should_stop() = 0;
+  virtual Intelligence<IntelligenceType::ABSTRACT> make_intelligence(Soccer &soccer) = 0;
+};
+
 // server-side
-struct LobbyServer {
+struct LobbyServer : LobbyActor {
   Lobby &lobby;
 
   net::Addr host;
@@ -128,7 +137,7 @@ struct LobbyServer {
     }
   }
 
-  Server make_intelligence(Soccer &soccer) {
+  Intelligence<IntelligenceType::ABSTRACT> make_intelligence(Soccer &soccer) {
     std::lock_guard<std::mutex> guard(lobby.mtx);
     std::vector<net::Addr> clients;
     for(auto p : lobby.players) {
@@ -159,7 +168,7 @@ struct LobbyServer {
   }
 };
 
-struct LobbyClient {
+struct LobbyClient : LobbyActor {
   Lobby &lobby;
 
   net::Addr host;
@@ -222,7 +231,7 @@ struct LobbyClient {
     is_connected = false;
   }
 
-  Remote make_intelligence(Soccer &soccer) {
+  Intelligence<IntelligenceType::ABSTRACT> make_intelligence(Soccer &soccer) {
     return Remote(
       lobby.players[myaddr].ind,
       soccer,

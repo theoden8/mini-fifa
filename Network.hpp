@@ -41,14 +41,19 @@ struct Addr {
     ip(ntohl(saddr_in.sin_addr.s_addr)), port(ntohs(saddr_in.sin_port))
   {}
 
-  constexpr operator sockaddr_in() const {
-    return (sockaddr_in){
-      .sin_family = AF_INET,
-      .sin_addr = {
-        .s_addr = htonl(ip)
-      },
-      .sin_port = htons(port)
-    };
+  operator sockaddr_in() const {
+    sockaddr_in saddr;
+    saddr.sin_family = AF_INET;
+    saddr.sin_addr.s_addr = htonl(ip);
+    saddr.sin_port = htons(port);
+    return saddr;
+    /* return (sockaddr_in){ */
+    /*   .sin_family = AF_INET, */
+    /*   .sin_addr = { */
+    /*     .s_addr = htonl(ip) */
+    /*   }, */
+    /*   .sin_port = htons(port) */
+    /* }; */
   }
 
 	constexpr bool operator== (const Addr &other) const {

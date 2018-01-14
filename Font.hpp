@@ -41,12 +41,12 @@ struct Font {
     for(GLubyte c = 0; c < 128; ++c) {
       int rc = FT_Load_Char(face, c, FT_LOAD_RENDER);
       ASSERT(!rc);
-      alphabet.at(c) = Character(
+      alphabet.insert({c, Character(
         gl::Texture("font_texture"),
         glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
         glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
         GLuint(face->glyph->advance.x)
-      );
+      )});
       alphabet.at(c).tex.init(&face->glyph);
     }
     Logger::Info("Initialized font from file %s\n", filename);

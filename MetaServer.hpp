@@ -3,6 +3,8 @@
 #include "Timer.hpp"
 #include "Network.hpp"
 
+#include <cstring>
+
 #include <thread>
 #include <mutex>
 #include <set>
