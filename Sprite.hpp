@@ -33,6 +33,14 @@ struct Sprite {
     }
   }
 
+  T &operator*() {
+    return object;
+  }
+
+  T operator*() const {
+    return object;
+  }
+
   template <typename... Args>
   static void display(Args&&... args) {
     getInstance<T, X>()->object.display(args...);

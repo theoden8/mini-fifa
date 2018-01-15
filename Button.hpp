@@ -13,6 +13,7 @@
 #include "ShaderAttrib.hpp"
 #include "Texture.hpp"
 #include "Text.hpp"
+#include "StrConst.hpp"
 
 template <typename BUTTON_FILENAME, typename FONT_FILENAME>
 struct Button {
@@ -47,8 +48,8 @@ struct Button {
     label(font->object),
     btnTx("btn"),
     uState("state"),
-    quadProgram({"shaders/btn_quad.vert", "shaders/btn_quad.frag"}),
-    textProgram({"shaders/btn_text.vert", "shaders/btn_text.frag"}),
+    quadProgram({"shaders/btn_quad.vert"s, "shaders/btn_quad.frag"s}),
+    textProgram({"shaders/btn_text.vert"s, "shaders/btn_text.frag"s}),
     attrVertex("vertex"),
     region(region)
   {}

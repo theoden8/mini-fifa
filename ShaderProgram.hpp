@@ -108,7 +108,7 @@ public:
 
   template <typename... STRINGs>
   ShaderProgram(STRINGs&&... shader_filenames):
-    shaders(std::string(shader_filenames)...)
+    shaders(std::forward<STRINGs>(shader_filenames)...)
   {}
 
   GLuint id() const {

@@ -34,7 +34,7 @@ struct BallObject {
   BallObject():
     uTransform("transform"),
     uColor("color"),
-    program({"shaders/ball.vert", "shaders/ball.frag"}),
+    program({"shaders/ball.vert"s, "shaders/ball.frag"s}),
     ballTx("ballTx"),
     attrVertex("vpos"),
     attrTexcoord("vtex")

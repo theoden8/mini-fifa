@@ -16,6 +16,7 @@
 
 #include "Camera.hpp"
 #include "MetaServerObject.hpp"
+#include "LobbyObject.hpp"
 #include "GameObject.hpp"
 #include "Cursor.hpp"
 
@@ -35,6 +36,7 @@ protected:
 
   /* al::Audio audio; */
   MetaServerObject mObject;
+  LobbyObject lobbyObject;
   GameObject *gameObject = nullptr;
   Cursor cursor;
   /* std::tuple<Background, SoccerObject, Cursor> layers; */
@@ -119,6 +121,8 @@ public:
     glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window)) {
       if(mObject.is_active()) {
+      } else if(!lobbyObject.is_active()) {
+        // lobbyObject.set_actor(mObject.client.make_lobby_actor();
       }
       if(gameObject) {
         gameObject->set_winsize(width(), height());

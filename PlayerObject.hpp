@@ -5,7 +5,7 @@
 #include "Model.hpp"
 #include "Shadow.hpp"
 #include "Sprite.hpp"
-
+#include "StrConst.hpp"
 #include "Player.hpp"
 
 #include "File.hpp"
@@ -30,9 +30,9 @@ struct PlayerObject {
 
   PlayerObject():
     uTransform("transform"),
-    playerModelRed(Sprite<Model, RedPlayer>::create("assets/ninja/ninja.3ds")),
-    playerModelBlue(Sprite<Model, BluePlayer>::create("assets/ninja/ninja.3ds")),
-    program({"shaders/player.vert", "shaders/player.frag"})
+    playerModelRed(Sprite<Model, RedPlayer>::create("assets/ninja/ninja.3ds"s)),
+    playerModelBlue(Sprite<Model, BluePlayer>::create("assets/ninja/ninja.3ds"s)),
+    program({"shaders/player.vert"s, "shaders/player.frag"s})
   {
     transform.SetScale(.01, .006, .01);
     transform.SetPosition(0, 0, 0);
@@ -46,11 +46,11 @@ struct PlayerObject {
   void init() {
     program.compile_program();
     if(!playerModelRed->initialized) {
-      HACK::swap_files("assets/ninja/nskinbl.jpg", "assets/ninja/nskinrd.jpg");
+      HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
     }
     playerModelRed->init();
     if(!playerModelBlue->initialized) {
-      HACK::swap_files("assets/ninja/nskinbl.jpg", "assets/ninja/nskinrd.jpg");
+      HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
     }
     playerModelBlue->init();
     uTransform.set_id(program.id());

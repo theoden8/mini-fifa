@@ -87,25 +87,27 @@ struct Lobby {
 };
 
 struct LobbyActor {
+  Lobby &lobby;
+  LobbyActor(Lobby &lobby):
+    lobby(lobby)
+  {}
   bool is_active() {
     return !should_stop();
   }
   virtual void stop() = 0;
   virtual bool should_stop() = 0;
-  virtual Intelligence<IntelligenceType::ABSTRACT> make_intelligence(Soccer &soccer) = 0;
+  virtual Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) = 0;
 };
 
 // server-side
 struct LobbyServer : LobbyActor {
-  Lobby &lobby;
-
   net::Addr host;
   net::Socket<net::SocketType::UDP> socket;
   std::thread server_thread;
   std::mutex finalize_mtx;
 
   LobbyServer(Lobby &lobby, net::port_t port):
-    lobby(lobby),
+    LobbyActor(lobby),
     host(net::ip_from_ints(0, 0, 0, 0), port), socket(port)
   {
     lobby.add_participant(host, IntelligenceType::SERVER);
@@ -137,7 +139,7 @@ struct LobbyServer : LobbyActor {
     }
   }
 
-  Intelligence<IntelligenceType::ABSTRACT> make_intelligence(Soccer &soccer) {
+  Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) {
     std::lock_guard<std::mutex> guard(lobby.mtx);
     std::vector<net::Addr> clients;
     for(auto p : lobby.players) {
@@ -145,8 +147,7 @@ struct LobbyServer : LobbyActor {
         clients.push_back(p.first);
       }
     }
-    return Server(lobby.players[host].ind, soccer, host.port, clients);
-    TERMINATE("server not found\n");
+    return new Server(lobby.players[host].ind, soccer, host.port, clients);
   }
 
   bool finalize = false;
@@ -169,8 +170,6 @@ struct LobbyServer : LobbyActor {
 };
 
 struct LobbyClient : LobbyActor {
-  Lobby &lobby;
-
   net::Addr host;
   net::Socket<net::SocketType::UDP> socket;
   std::thread client_thread;
@@ -179,12 +178,12 @@ struct LobbyClient : LobbyActor {
   bool is_connected = false;
 
   LobbyClient(Lobby &lobby, net::port_t port):
-    lobby(lobby), socket(port)
+    LobbyActor(lobby), socket(port)
   {}
 
   // connect at construction
   LobbyClient(Lobby &lobby, net::port_t port, net::Addr addr):
-    lobby(lobby), socket(port)
+    LobbyActor(lobby), socket(port)
   {
     connect(addr);
   }
@@ -231,13 +230,14 @@ struct LobbyClient : LobbyActor {
     is_connected = false;
   }
 
-  Intelligence<IntelligenceType::ABSTRACT> make_intelligence(Soccer &soccer) {
-    return Remote(
-      lobby.players[myaddr].ind,
-      soccer,
-      socket.port(),
-      host
-    );
+  Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) {
+    return nullptr;
+    /* return new Remote( */
+    /*   lobby.players[myaddr].ind, */
+    /*   soccer, */
+    /*   socket.port(), */
+    /*   host */
+    /* ); */
   }
 
   ~LobbyClient() {

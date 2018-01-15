@@ -93,8 +93,8 @@ struct Text {
 
     gl::Texture::set_active(0);
     gl::VertexArray::bind(vao);
-    float x = -.5*width(), y = -.5*height();
-    /* printf("text: w=%f, h=%f\n", width(), height()); */
+    float x = 0, y = 0;
+    transform.MovePosition(-.5*width(), -.5*height(), 0);
     for(char c : str) {
       ASSERT(isascii(c));
       ASSERT(font.alphabet.find(c) != font.alphabet.end());
@@ -126,6 +126,7 @@ struct Text {
     gl::VertexArray::unbind();
     gl::Texture::unbind();
 
+    transform.MovePosition(.5*width(), .5*height(), 0);
     transform.Scale(1./xscale, 1./yscale, 1);
 
     gl::ShaderProgram<ShaderTs...>::unuse();

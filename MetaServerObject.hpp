@@ -57,8 +57,8 @@ struct MetaServerObject {
 
   void display() {
     if(!is_active())return;
-    button.setx(-1, 0);
-    button.sety(-1, -1+.2);
+    button.setx(-1, -.7);
+    button.sety(-1, -1+.1);
     glm::vec2 init_pos(button.region.x1(), button.region.y1());
     button_display("HOST", [&]() mutable {
       client.action_host("the game");
