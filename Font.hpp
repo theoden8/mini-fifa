@@ -10,6 +10,7 @@
 
 struct Font {
   static FT_Library ft;
+  static bool initialized;
   FT_Face face;
   struct Character {
     gl::Texture tex;
@@ -31,9 +32,11 @@ struct Font {
   static void setup() {
     int rc = FT_Init_FreeType(&ft);
     ASSERT(!rc);
+    initialized = true;
   }
 
   void init() {
+    ASSERT(initialized);
     int rc = FT_New_Face(ft, filename, 0, &face);
     ASSERT(!rc);
     FT_Set_Pixel_Sizes(face, 0, 48);
@@ -47,12 +50,14 @@ struct Font {
         glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
         GLuint(face->glyph->advance.x)
       )});
+      ASSERT(alphabet.find(c) != std::end(alphabet));
       alphabet.at(c).tex.init(&face->glyph);
     }
     Logger::Info("Initialized font from file %s\n", filename);
   }
 
   void clear() {
+    ASSERT(initialized);
     FT_Done_Face(face);
     for(auto &it : alphabet) {
       it.second.tex.clear();
@@ -61,6 +66,8 @@ struct Font {
 
   static void cleanup() {
     FT_Done_FreeType(ft);
+    initialized = false;
   }
 };
 FT_Library Font::ft;
+bool Font::initialized = false;

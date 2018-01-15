@@ -11,6 +11,6 @@ void main(void) {
   if(res > .5) {
     frag_color = vec4(textcolor, 1.0);
   } else {
-    frag_color = vec4(1.0, 1.0, 1.0, 0.0);
+    frag_color = vec4(0.0, 0.0, 0.0, 0.0);
   }
 }

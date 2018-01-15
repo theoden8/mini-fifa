@@ -11,7 +11,7 @@ struct MetaServerObject {
   MetaServerClient client;
 
   C_STRING(font_name, "assets/Verdana.ttf");
-  C_STRING(texture_name, "assets/grass.png");
+  C_STRING(texture_name, "assets/button.png");
   Button<texture_name, font_name> button;
 
   template <typename... Ts>
@@ -20,11 +20,12 @@ struct MetaServerObject {
   {}
 
   bool is_active() {
-    return client.should_stop();
+    return !client.should_stop();
   }
 
   void init() {
     button.init();
+    client.start();
   }
 
   void mouse(float m_x, float m_y) {
@@ -56,17 +57,20 @@ struct MetaServerObject {
 
   void display() {
     if(!is_active())return;
+    button.setx(-1, 0);
+    button.sety(-1, -1+.2);
     glm::vec2 init_pos(button.region.x1(), button.region.y1());
     button_display("HOST", [&]() mutable {
-      client.action_host("gamename");
+      client.action_host("the game");
+      client.stop();
     });
-    button.region.ys += button.label.height();
-    for(auto &game : client.gamelist.games) {
-      button_display(game.second.c_str(), [&]() {
-        // join the game
-      });
-      button.region.ys += button.label.height();
-    }
+    button.region.ys += button.label.height() * 2;
+    /* for(auto &game : client.gamelist.games) { */
+    /*   button_display(game.second.c_str(), [&]() { */
+    /*     // join the game */
+    /*   }); */
+    /*   button.region.ys += button.label.height(); */
+    /* } */
     button.region.xs -= button.region.x1() - init_pos.x;
     button.region.ys -= button.region.y1() - init_pos.y;
   }

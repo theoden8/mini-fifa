@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cctype>
 #include <string>
 #include <glm/glm.hpp>
 
@@ -18,7 +19,7 @@ struct Text {
   std::string str = "";
 
   glm::vec2 pos = {0, 0};
-  glm::vec3 clr = {1.f,1.f,1.f};
+  glm::vec3 color = {1.f,1.f,1.f};
   glm::mat4 matrix;
   Transformation transform;
 
@@ -26,7 +27,9 @@ struct Text {
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::VertexArray vao;
   gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC4> vbo;
-  size_t width_ = 0, height_ = 0;
+  float width_ = 0, height_ = 0;
+
+  using ShaderAttrib = decltype(vbo);
 
   Text(Font &font):
     uTransform("transform"),
@@ -34,53 +37,67 @@ struct Text {
     font(font)
   {
     transform.Scale(1.f);
-    transform.SetRotation(0, 0, 1, 0.f);
     transform.SetPosition(0, 0, 0);
   }
 
-  size_t width() const { return width_; }
-  size_t height() const { return height_; }
+  float width() const { return width_ * transform.GetScale().x; }
+  float height() const { return height_ * transform.GetScale().y; }
 
-  void set_text(std::string &&s) {
+  float yscale = 1./1024;
+  float xscale = yscale;
+
+  void set_text(std::string s) {
     str = s;
     width_ = height_ = 0;
-    for(const char *c = str.c_str(); *c != '\0'; ++c) {
-      Font::Character &ch = font.alphabet.at(*c);
+    for(int i = 0; i < s.length(); ++i) {
+      char c = s[i];
+      ASSERT(isascii(c));
+      ASSERT(font.alphabet.find(c) != font.alphabet.end());
+      Font::Character &ch = font.alphabet.at(c);
       width_ += ch.size.x + ch.bearing.x,
       height_ += ch.size.y - ch.bearing.y;
+      if(i < s.length() - 1) {
+        width_ += ch.advance >> 6;
+      }
     }
   }
 
-  glm::vec2 &position() { return pos; }
-  glm::vec3 &color() { return clr; }
-
   void init() {
-    vao.init();
-    vao.bind();
-    vbo.init();
-    vbo.bind();
+    gl::VertexArray::init(vao);
+    gl::VertexArray::bind(vao);
+    ShaderAttrib::init(vbo);
+    ShaderAttrib::bind(vbo);
     vbo.allocate<GL_DYNAMIC_DRAW>(6, nullptr);
     vao.enable(vbo);
     vao.set_access(vbo);
-    decltype(vbo)::unbind();
+    ShaderAttrib::unbind();
     gl::VertexArray::unbind();
   }
 
   template <typename... ShaderTs>
   void display(gl::ShaderProgram<ShaderTs...> &program) {
+    glEnable(GL_BLEND); GLERROR
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
+
     gl::ShaderProgram<ShaderTs...>::use(program);
 
     uTextColor.set_id(program.id());
-    uTextColor.set_data(clr);
+    uTextColor.set_data(color);
 
+    transform.Scale(xscale, yscale, 1);
+    transform.SetPosition(pos.x, -pos.y, 0);
     matrix = transform.get_matrix();
     uTransform.set_id(program.id());
     uTransform.set_data(matrix);
 
     gl::Texture::set_active(0);
     gl::VertexArray::bind(vao);
-    GLfloat x = pos.x, y = pos.y;
+    float x = -.5*width(), y = -.5*height();
+    /* printf("text: w=%f, h=%f\n", width(), height()); */
     for(char c : str) {
+      ASSERT(isascii(c));
+      ASSERT(font.alphabet.find(c) != font.alphabet.end());
       Font::Character &ch = font.alphabet.at(c);
       GLfloat
         posx = x + ch.bearing.x,
@@ -97,22 +114,27 @@ struct Text {
         { posx + w, posy,       1.0, 1.0 },
         { posx + w, posy + h,   1.0, 0.0 },
       };
-      ch.tex.bind();
+      ch.tex.uSampler.set_id(program.id());
+      gl::Texture::bind(ch.tex);
       ch.tex.set_data(0);
-      vbo.bind();
+      ShaderAttrib::bind(vbo);
       glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); GLERROR
-      decltype(vbo)::unbind();
+      ShaderAttrib::unbind();
       glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
       x += (ch.advance >> 6);
     }
     gl::VertexArray::unbind();
     gl::Texture::unbind();
 
+    transform.Scale(1./xscale, 1./yscale, 1);
+
     gl::ShaderProgram<ShaderTs...>::unuse();
+
+    glDisable(GL_BLEND); GLERROR
   }
 
   void clear() {
-    vbo.clear();
-    vao.clear();
+    ShaderAttrib::clear(vbo);
+    gl::VertexArray::clear(vao);
   }
 };

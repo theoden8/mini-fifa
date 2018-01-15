@@ -47,6 +47,8 @@ struct MetaServer {
   GameList gamelist;
   net::Socket<net::SocketType::UDP> socket;
 
+  Timer timer;
+
   std::set<net::Addr> users;
 
   MetaServer(net::port_t port=5678):
@@ -62,6 +64,7 @@ struct MetaServer {
         switch(package.data.action) {
           case pkg::MetaServerAction::HELLO:
             if(users.find(package.addr) != std::end(users)) {
+              Logger::Info("added user ip:%u port:%hu\n", package.addr.ip, package.addr.port);
               users.insert(package.addr);
             }
           break;
@@ -137,6 +140,7 @@ struct MetaServerClient {
   bool try_refresh(Timer::time_t curtime) {
     timer.set_time(curtime);
     if(timer.timed_out(SEND_HELLO)) {
+      printf("sending hello to metaserver\n");
       timer.set_event(SEND_HELLO);
       pkg::metaserver_hello_struct hello = { .action = pkg::MetaServerAction::HELLO, };
       send_action(hello);
@@ -196,14 +200,14 @@ struct MetaServerClient {
 
   void start() {
     ASSERT(should_stop());
-    finalize = true;
+    finalize = false;
     user_thread = std::thread(
       MetaServerClient::run,
       this
     );
   }
 
-  bool finalize = false;
+  bool finalize = true;
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     return finalize;
