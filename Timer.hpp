@@ -4,6 +4,7 @@
 #include <climits>
 #include <map>
 #include <deque>
+#include <chrono>
 
 #include "Logger.hpp"
 #include "Debug.hpp"
@@ -15,6 +16,14 @@ struct Timer {
 
   static constexpr time_t time_start() {
     return .0;
+  }
+
+  static time_t system_time() {
+    static std::mutex mtx;
+    static auto systime_start = std::chrono::system_clock::now();
+    std::lock_guard<std::mutex> guard(mtx);
+    auto systime_now = std::chrono::system_clock::now();
+    return 1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(systime_now - systime_start).count();
   }
 
   time_t prev_time = time_start();

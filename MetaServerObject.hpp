@@ -62,7 +62,6 @@ struct MetaServerObject {
     glm::vec2 init_pos(button.region.x1(), button.region.y1());
     button_display("HOST", [&]() mutable {
       client.action_host("the game");
-      client.stop();
     });
     button.region.ys += button.label.height() * 2;
     /* for(auto &game : client.gamelist.games) { */

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include <algorithm>
 #include <queue>
 #include <thread>
 #include <mutex>
@@ -30,23 +31,24 @@ struct Intelligence <IntelligenceType::ABSTRACT> {
   virtual void s_action() = 0;
   virtual void m_action(glm::vec3) = 0;
   virtual void idle(Timer::time_t) = 0;
+  virtual bool should_stop() = 0;
+  virtual void stop() = 0;
+  virtual ~Intelligence()
+  {}
 };
 
-using Server = Intelligence<IntelligenceType::SERVER>;
-using Remote = Intelligence<IntelligenceType::REMOTE>;
-using Computer = Intelligence<IntelligenceType::COMPUTER>;
+using SoccerServer = Intelligence<IntelligenceType::SERVER>;
+using SoccerRemote = Intelligence<IntelligenceType::REMOTE>;
+using SoccerComputer = Intelligence<IntelligenceType::COMPUTER>;
 
 namespace pkg {
   // listen/send action
-  enum class Action { NO_ACTION,Z,X,C,V,F,S,M };
+  enum class Action : uint8_t { NO_ACTION,Z,X,C,V,F,S,M };
   struct action_struct {
     Action a;
     int8_t id;
     float dir;
     glm::vec3 dest;
-  };
-
-  struct action_struct_response {
   };
 
   // send/listen to unit sync
@@ -62,8 +64,10 @@ namespace pkg {
 
     Timer::time_t frame;
 
-    int16_t no_actions;
-    action_struct action = { .a=Action::NO_ACTION };
+    uint16_t no_actions;
+    action_struct action = {
+      .a=Action::NO_ACTION
+    };
 
     constexpr bool has_action() const {
       return action.a != Action::NO_ACTION;
@@ -91,7 +95,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
   Soccer &soccer;
   net::Socket<net::SocketType::UDP> socket;
   std::thread server_thread;
-  std::mutex q_actions_mtx;
+  std::mutex no_actions_mtx;
   std::mutex finalize_mtx;
 
   std::vector<net::Addr> clients;
@@ -100,72 +104,53 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
     id_(id), soccer(soccer), socket(port), clients(clients)
   {
     server_thread = std::thread(
-      Server::run,
+      SoccerServer::run,
       this
     );
   }
 
-  static void run(Server *server) {
-    using sys_time_t = std::chrono::nanoseconds;
-    Timer::time_t last_sent = Timer::time_start();
-    const Timer::time_t send_diff = .1;
-    auto server_time_start = std::chrono::system_clock::now();
-    while(!server->should_stop()) {
-      auto server_time_now = std::chrono::system_clock::now();
-      Timer::time_t server_time = 1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(server_time_now - server_time_start).count();
-      if(last_sent == 0 || server_time - last_sent > send_diff) {
-        server->send_sync();
-        last_sent = server_time;
-      }
-      net::Package<pkg::action_struct> package;
-      package.data.a = pkg::Action::NO_ACTION;
-      if(server->socket.receive(package)) {
-        pkg::action_struct action = package.data;
-        if(action.a == pkg::Action::NO_ACTION)continue;
-        printf("Received action %d\n", action.a);
-        // lock soccer
-        {
-          std::lock_guard<std::mutex> guard(server->soccer.mtx);
-          switch(action.a) {
-            case pkg::Action::Z: server->soccer.z_action(action.id); break;
-            case pkg::Action::X: server->soccer.x_action(action.id, action.dir); break;
-            case pkg::Action::C: server->soccer.c_action(action.id, action.dest); break;
-            case pkg::Action::V: server->soccer.v_action(action.id); break;
-            case pkg::Action::F: server->soccer.f_action(action.id, action.dir); break;
-            case pkg::Action::S: server->soccer.s_action(action.id); break;
-            case pkg::Action::M: server->soccer.m_action(action.id, action.dest); break;
-            case pkg::Action::NO_ACTION:break;
-          }
+  static void run(SoccerServer *server) {
+    constexpr int EVENT_SYNC = 1;
+    std::mutex socket_mtx;
+    Timer timer;
+    timer.set_time(Timer::system_time());
+    timer.set_timeout(EVENT_SYNC, .1);
+    server->socket.listen(socket_mtx, [&]() {
+      // send sync data for random unit showing that no action occured until a
+      // certain time point
+      Timer::time_t server_time = Timer::system_time();
+      timer.set_time(server_time);
+      if(timer.timed_out(EVENT_SYNC)) {
+        timer.set_event(EVENT_SYNC);
+        std::lock_guard<std::mutex> guard(server->soccer.mtx);
+        int no_ids = server->soccer.team1.size() + server->soccer.team2.size() + 1;
+        int8_t unit_id = (rand() % no_ids) - 1;
+        for(const auto &addr : server->clients) {
+          std::lock_guard<std::mutex> guard(socket_mtx);
+          server->socket.send(net::make_package(addr, server->get_sync_data(unit_id)));
         }
-        // lock no_actions
+      }
+    }, [&](const net::Blob &blob) {
+      // act on receivinga package
+      if(std::find(server->clients.begin(), server->clients.end(), blob.addr) == std::end(server->clients)) {
+        return server->should_stop();
+      }
+      // if this package seems to be action, perform action and send responses
+      blob.try_visit_as<pkg::action_struct>([&](const auto action) {
+        server->perform_action(action);
         {
-          std::lock_guard<std::mutex> guard(server->q_actions_mtx);
+          std::lock_guard<std::mutex> guard(server->no_actions_mtx);
           ++server->no_actions;
         }
-        // lock soccer again
-        pkg::sync_struct sync = server->get_sync_data(action.id);
-        sync.action = action;
-        for(const auto &addr : server->clients) {
-          net::Package<pkg::sync_struct> package(addr, sync);
-          server->socket.send(package);
+        {
+          std::lock_guard<std::mutex> guard(server->soccer.mtx);
+          for(const auto &addr : server->clients) {
+            server->socket.send(net::make_package(addr, server->get_sync_data(action.id)));
+          }
         }
-      }
-    }
-  }
-
-  void send_sync() {
-    int unit_id;
-    {
-      std::lock_guard<std::mutex> guard(soccer.mtx);
-      int no_ids = soccer.team1.size() + soccer.team2.size() + 1;
-      unit_id = (rand() % no_ids) - 1;
-    }
-    pkg::sync_struct data = get_sync_data(unit_id);
-    for(const auto &addr : clients) {
-      /* printf("sending sync data for unit %f\n", data.frame); */
-      net::Package<pkg::sync_struct> package(addr, data);
-      socket.send(package);
-    }
+      });
+      return server->should_stop();
+    });
   }
 
   pkg::sync_struct get_sync_data(int unit_id=Ball::NO_OWNER) {
@@ -186,20 +171,27 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
     usd.angle = unit.facing;
     usd.angle_dest = unit.facing_dest;
     {
-      std::lock_guard<std::mutex> guard(q_actions_mtx);
+      std::lock_guard<std::mutex> guard(no_actions_mtx);
       usd.no_actions = no_actions;
     }
     return usd;
   }
 
-  void idle(Timer::time_t curtime) {
-    soccer.idle(curtime);
+  void perform_action(pkg::action_struct action) {
+    std::lock_guard<std::mutex> guard(soccer.mtx);
+    switch(action.a) {
+      case pkg::Action::Z: soccer.z_action(action.id); break;
+      case pkg::Action::X: soccer.x_action(action.id, action.dir); break;
+      case pkg::Action::C: soccer.c_action(action.id, action.dest); break;
+      case pkg::Action::V: soccer.v_action(action.id); break;
+      case pkg::Action::F: soccer.f_action(action.id, action.dir); break;
+      case pkg::Action::S: soccer.s_action(action.id); break;
+      case pkg::Action::M: soccer.m_action(action.id, action.dest); break;
+    }
   }
 
-  ~Intelligence() {
-    if(!should_stop()) {
-      stop();
-    }
+  void idle(Timer::time_t curtime) {
+    soccer.idle(curtime);
   }
 
   int id() const {
@@ -273,29 +265,27 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
     socket(client_port)
   {
     client_thread = std::thread(
-      Remote::listener_func,
+      SoccerRemote::run,
       this
     );
   }
 
-  static void listener_func(Remote *client) {
+  static void run(SoccerRemote *client) {
     Timer::time_t delay = 1.;
-    while(!client->should_stop()) {
-      net::Package<pkg::sync_struct> package;
-      package.data.no_actions = -1;
-      std::lock_guard<std::mutex> guard(client->socket_mtx);
-      if(client->socket.receive(package)) {
-        pkg::sync_struct sync = package.data;
-        if(sync.no_actions < 0)continue;
-        /* printf("Received frame sync: %f\n", sync.frame); */
-        client->frame_schedule.push(sync);
-        {
-          std::lock_guard<std::mutex> guard(client->soccer.mtx);
-          Timer::time_t current_time = client->soccer.timer.current_time;
-          delay = current_time - sync.frame;
-        }
+    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) {
+      bool ret = client->should_stop();
+      if(blob.addr != client->server_addr) {
+        return client->should_stop();
       }
-    }
+      blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) {
+        std::lock_guard<std::mutex> guard(client->frame_schedule_mtx);
+        client->frame_schedule.push(sync);
+        std::lock_guard<std::mutex> sguard(client->soccer.mtx);
+        Timer::time_t current_time = client->soccer.timer.current_time;
+        delay = current_time - sync.frame;
+      });
+      return client->should_stop();
+    });
   }
 
   std::priority_queue<
@@ -350,7 +340,6 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
       case pkg::Action::F:soccer.f_action(event.action.id, event.action.dir);break;
       case pkg::Action::S:soccer.s_action(event.action.id);break;
       case pkg::Action::M:soccer.m_action(event.action.id, event.action.dest);break;
-      case pkg::Action::NO_ACTION:break;
     }
     ++no_actions;
   }
@@ -419,23 +408,18 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
     return finalize;
   }
 
-  ~Intelligence() {
-    if(!should_stop()) {
-      stop();
-    }
-  }
-
   template <typename T>
   void send_action(const T &data) {
     printf("Client: sending action %d\n", data.a);
-    net::Package<T> package(server_addr, data);
     std::lock_guard<std::mutex> guard(socket_mtx);
-    socket.send(package);
+    socket.send(net::make_package(server_addr, data));
   }
 
   void z_action() {
-    pkg::action_struct d = { .a=pkg::Action::Z, .id=id_ };
-    send_action(d);
+    send_action((pkg::action_struct){
+      .a = pkg::Action::Z,
+      .id = id_
+    });
   }
 
   void x_action(float dir) {

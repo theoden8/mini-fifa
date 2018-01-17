@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cassert>
+#include <cstring>
+#include <cstdint>
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
@@ -12,9 +16,15 @@
 #include <iostream>
 #include <string>
 #include <map>
+#include <vector>
+#include <optional>
+#include <type_traits>
+#include <mutex>
 
+#ifndef TERMINATE
 #include "Debug.hpp"
 #include "Logger.hpp"
+#endif
 
 namespace net {
 
@@ -22,7 +32,7 @@ typedef uint64_t ip_t;
 typedef uint16_t port_t;
 
 ip_t ip_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
-  return (a << 24) | (b << 16) | (c << 8) | (d << 8);
+  return ((a << 24) | (b << 16) | (c << 8) | (d << 0));
 }
 
 struct Addr {
@@ -65,6 +75,11 @@ struct Addr {
   }
 
   bool operator<(const Addr &other) const { return ip < other.ip; }
+
+  std::string to_str() const {
+    sockaddr_in saddr = (*this);
+    return inet_ntoa(saddr.sin_addr) + std::string(":") + std::to_string(port);
+  }
 };
 
 template <typename T>
@@ -74,11 +89,81 @@ struct Package {
 
 	Package():
     addr(), data()
+  {
+    static_assert(std::is_standard_layout_v<T>);
+  }
+
+	Package(const Addr &addr, const T data):
+    addr(addr), data(data)
+  {
+    static_assert(std::is_standard_layout_v<T>);
+  }
+};
+
+template <typename T>
+decltype(auto) make_package(const net::Addr addr, const T data) {
+  return Package<T>(addr, data);
+}
+
+struct Blob {
+  Addr addr;
+  std::vector<uint8_t> data_;
+
+  Blob():
+    addr(), data_()
   {}
 
-	Package(const Addr &addr, const T &data):
-    addr(addr), data(data)
-  {}
+  template <typename T>
+  Blob(Package<T> package):
+    addr(package.addr), data_(sizeof(T))
+  {
+    memcpy(data(), package.data, sizeof(T));
+  }
+
+  size_t size() const {
+    return data_.size();
+  }
+
+  void resize(size_t new_size) {
+    data_.resize(new_size);
+  }
+
+  void *data() {
+    return data_.data();
+  }
+
+  const void *data() const {
+    return data_.data();
+  }
+
+/*   template <typename T> */
+/*   operator Package<T>() { */
+/*     std::cout << "implicit conversion" << std::endl; */
+/*     ASSERT(sizeof(T) == size()); */
+/*     Package<T> packet; */
+/*     packet.addr = addr; */
+/*     memcpy(&packet.data, data(), sizeof(T)); */
+/*     std::cout << "origin " << addr.to_str() << std::endl; */
+/*     std::cout << "copied " << packet.addr.to_str() << std::endl; */
+/*   } */
+
+  template <typename T, typename F, typename CF>
+  bool try_visit_as(F &&func, CF &&cond) const {
+    if(!cond(*this)) {
+      return false;
+    }
+    T t;
+    memcpy(&t, data(), sizeof(T));
+    func(t);
+    return true;
+  }
+
+  template <typename T, typename F>
+  bool try_visit_as(F &&func) const {
+    return try_visit_as<T>(std::forward<F>(func), [&](const Blob &blob) {
+      return blob.size() == sizeof(T);
+    });
+  }
 };
 
 enum class SocketType {
@@ -99,10 +184,11 @@ public:
   {
     handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(handle_ <= 0) {
+      perror("error");
       TERMINATE("Can't create socket\n");
     }
 
-    sockaddr_in address = Addr(INADDR_ANY, htons(port_));
+    sockaddr_in address = Addr(INADDR_ANY, port_);
 
     if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) {
       perror("error");
@@ -121,8 +207,9 @@ public:
   }
 
   template <typename T>
-	void send(const Package<T> &package) const {
+	void send(const Package<T> package) const {
     if(sizeof(package.data) > MAX_PACKET_SIZE) {
+      perror("error");
       TERMINATE("Package too big");
     }
 
@@ -131,30 +218,54 @@ public:
     int sent_bytes = sendto(handle_, &package.data, sizeof(T), 0, (sockaddr *) &address, sizeof(sockaddr_in));
 
     if(sent_bytes != sizeof(T)) {
+      std::cout << package.addr.to_str() << std::endl;
+      perror("error");
       TERMINATE("Can't send packet\n");
     }
 
     /* std::cerr << "Send: " << send.text << std::endl; */
   }
 
-  template <typename T>
-	bool receive(Package<T> &package) const {
-    sockaddr_in from;
-    socklen_t from_length = sizeof(from);
+	std::optional<Blob> receive() const {
+    sockaddr_in saddr_from;
+    socklen_t saddr_from_length = sizeof(saddr_from);
 
-    int received_bytes = recvfrom(handle_, &package.data, sizeof(T), 0, (sockaddr *) &from, &from_length);
+    Blob blob;
+    blob.resize(MAX_PACKET_SIZE);
 
-    if(received_bytes < sizeof(T)) {
-      return false;
+    int received_bytes = recvfrom(handle_, blob.data(), MAX_PACKET_SIZE, 0, (sockaddr *)&saddr_from, &saddr_from_length);
+
+    if(received_bytes <= 0) {
+      return std::optional<Blob>();
     }
 
-    package.addr = Addr(from);
+    blob.resize(received_bytes);
+    blob.addr = Addr(saddr_from);
+    std::cout << blob.addr.to_str() << std::endl;
 
-    return true;
+    return blob;
   }
 
 	port_t port() const {
     return port_;
+  }
+
+  template <typename G, typename F>
+  void listen(std::mutex &mtx, G &&idle, F &&func) {
+    std::optional<Blob> opt_blob;
+    bool cond = 1;
+    while(cond) {
+      idle();
+      std::lock_guard<std::mutex> guard(mtx);
+      if((opt_blob = receive()).has_value()) {
+        cond = func(*opt_blob);
+      }
+    }
+  }
+
+  template <typename F>
+  void listen(std::mutex &mtx, F &&func) {
+    listen(mtx, [](){}, std::forward<F>(func));
   }
 };
 
@@ -195,10 +306,12 @@ class Socket<SocketType::TCP_SERVER> {
     }
 
     template <typename T>
-    void send(const Package<T> &package) {
+    void send(Package<T> &package) {
       if(!is_open()) {
         TERMINATE("Can't send packet: connection is not established\n");
       }
+
+      package.addr = client;
 
       int sent_bytes = write(handle_, &package.data, sizeof(T));
 
@@ -221,6 +334,7 @@ class Socket<SocketType::TCP_SERVER> {
       }
 
       package.addr = client;
+      return true;
     }
 
     void close_connection() {
@@ -240,12 +354,12 @@ public:
 	Socket(port_t port):
     port_(port)
   {
-    handle_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    handle_ = socket(AF_INET, SOCK_STREAM, 0);
     if(handle_ <= 0) {
       TERMINATE("Can't create socket\n");
     }
 
-    sockaddr_in address = Addr(INADDR_ANY, htons(port_));
+    sockaddr_in address = Addr(INADDR_ANY, port_);
 
     if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) {
       perror("error");
@@ -259,6 +373,7 @@ public:
     }
 
     listen(handle_, 5);
+    if(errno)perror("error:");
   }
 
   ~Socket() {
@@ -270,6 +385,27 @@ public:
     while(!conn.try_connect())
       ;
     clients.insert(std::make_pair(conn.client, conn));
+  }
+
+  template <typename T>
+  void send_all(net::Package<T> &package) {
+    for(auto c : clients) {
+      auto &conn = c.second;
+      conn.send(package);
+    }
+  }
+
+  template <typename T, typename F>
+  bool receive_all(net::Package<T> &package, F checker) {
+    for(auto c : clients) {
+      auto &conn = c.second;
+      if(conn.receive(package)) {
+        if(checker(package.data)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
 	port_t port() const {
@@ -292,7 +428,7 @@ public:
       TERMINATE("Can't create socket\n");
     }
 
-    sockaddr_in address = Addr(INADDR_ANY, htons(port_));
+    sockaddr_in address = Addr(INADDR_ANY, port_);
 
     if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) {
       perror("error");
@@ -329,7 +465,7 @@ public:
   }
 
   template <typename T>
-  bool receive(const Package<T> &package) {
+  bool receive(Package<T> &package) {
     int received_bytes = read(handle_, &package.data, sizeof(T));
     if(received_bytes < sizeof(T)) {
       return false;

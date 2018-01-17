@@ -2,6 +2,7 @@
 
 #include "Timer.hpp"
 #include "Network.hpp"
+#include "Lobby.hpp"
 
 #include <cstring>
 
@@ -13,19 +14,18 @@
 
 namespace pkg {
   enum class MetaServerAction {
-    NO_ACTION,
     HELLO,
     HOST_GAME,
     UNHOST_GAME
   };
 
   struct metaserver_hello_struct {
-    MetaServerAction action = MetaServerAction::NO_ACTION;
+    MetaServerAction action;
     char name[30];
   };
 
   struct metaserver_response_struct {
-    MetaServerAction action = MetaServerAction::NO_ACTION;
+    MetaServerAction action;
     net::Addr host;
     char name[30];
   };
@@ -57,28 +57,28 @@ struct MetaServer {
   {}
 
   void run() {
-    while(1) {
-      net::Package<pkg::metaserver_hello_struct> package;
-      if(socket.receive(package)) {
-        if(package.data.action == pkg::MetaServerAction::NO_ACTION)continue;
-        switch(package.data.action) {
+    std::mutex mtx;
+    socket.listen(mtx, [&](const net::Blob &blob) {
+      blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) {
+        switch(hello.action) {
           case pkg::MetaServerAction::HELLO:
-            if(users.find(package.addr) != std::end(users)) {
-              Logger::Info("added user ip:%u port:%hu\n", package.addr.ip, package.addr.port);
-              users.insert(package.addr);
+            if(users.find(blob.addr) != std::end(users)) {
+              Logger::Info("added user %s\n", blob.addr.to_str().c_str());
+              users.insert(blob.addr);
             }
           break;
           case pkg::MetaServerAction::HOST_GAME:
-            package.data.name[29] = '\0';
-            register_host(package.addr, package.data.name);
+            hello.name[29] = '\0';
+            register_host(blob.addr, hello.name);
           break;
           case pkg::MetaServerAction::UNHOST_GAME:
-            package.data.name[29] = '\0';
-            unregister_host(package.addr);
-          case pkg::MetaServerAction::NO_ACTION:break;
+            hello.name[29] = '\0';
+            unregister_host(blob.addr);
+          break;
         }
-      }
-    }
+      });
+      return true;
+    });
   }
 
   void register_host(net::Addr host, std::string name) {
@@ -116,6 +116,12 @@ struct MetaServerClient {
   Timer timer;
   static constexpr int SEND_HELLO = 1;
 
+  struct LobbyMaker {
+    enum class type { SERVER, CLIENT };
+    type ltype = type::SERVER;
+    net::Addr host;
+  } lobbyMaker;
+
   std::thread user_thread;
   std::mutex socket_mtx;
   std::mutex finalize_mtx;
@@ -128,42 +134,33 @@ struct MetaServerClient {
   }
 
   static void run(MetaServerClient *client) {
-    auto server_time_start = std::chrono::system_clock::now();
-    while(!client->should_stop()) {
-      auto server_time_now = std::chrono::system_clock::now();
-      Timer::time_t server_time = 1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(server_time_now - server_time_start).count();
-      client->try_refresh(server_time);
-      client->try_receive();
-    }
-  }
-
-  bool try_refresh(Timer::time_t curtime) {
-    timer.set_time(curtime);
-    if(timer.timed_out(SEND_HELLO)) {
-      printf("sending hello to metaserver\n");
-      timer.set_event(SEND_HELLO);
-      pkg::metaserver_hello_struct hello = { .action = pkg::MetaServerAction::HELLO, };
-      send_action(hello);
-      return true;
-    }
-    return false;
-  }
-
-  bool try_receive() {
-    std::lock_guard<std::mutex> guard(socket_mtx);
-    net::Package<pkg::metaserver_response_struct> package;
-    if(socket.receive(package)) {
-      if(package.data.action == pkg::MetaServerAction::NO_ACTION)return false;
-      if(package.addr != metaserver)return false;
-      switch(package.data.action) {
-        case pkg::MetaServerAction::HOST_GAME:register_host(package.data.host, package.data.name);break;
-        case pkg::MetaServerAction::UNHOST_GAME:unregister_host(package.data.host);break;
-        case pkg::MetaServerAction::HELLO:break;
-        case pkg::MetaServerAction::NO_ACTION:break;
+    constexpr int EVENT_REFRESH = 1;
+    client->timer.set_timeout(EVENT_REFRESH, .4);
+    client->socket.listen(client->socket_mtx, [&]() {
+      auto t = Timer::system_time();
+      client->timer.set_time(t);
+      if(client->timer.timed_out(EVENT_REFRESH)) {
+        client->timer.set_event(EVENT_REFRESH);
+        std::lock_guard<std::mutex> guard(client->socket_mtx);
+        printf("sending hello to metaserver\n");
+        client->send_action((pkg::metaserver_hello_struct){
+          .action = pkg::MetaServerAction::HELLO
+        });
       }
-      return true;
-    }
-    return false;
+    },
+    [&](const net::Blob &blob) {
+      if(blob.addr != client->metaserver) {
+        return client->should_stop();
+      }
+      blob.try_visit_as<pkg::metaserver_response_struct>([&](const auto &response) {
+        switch(response.action) {
+          case pkg::MetaServerAction::HOST_GAME:client->register_host(response.host, response.name);break;
+          case pkg::MetaServerAction::UNHOST_GAME:client->unregister_host(response.host);break;
+          case pkg::MetaServerAction::HELLO:break;
+        }
+      });
+      return client->should_stop();
+    });
   }
 
   void register_host(net::Addr host, std::string name) {
@@ -196,6 +193,11 @@ struct MetaServerClient {
     std::lock_guard<std::mutex> guard(socket_mtx);
     net::Package<pkg::metaserver_hello_struct> package(metaserver, hello);
     socket.send(package);
+  }
+
+  LobbyActor *make_lobby() {
+    // not implemented
+    return nullptr;
   }
 
   void start() {

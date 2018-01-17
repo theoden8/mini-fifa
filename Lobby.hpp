@@ -18,7 +18,7 @@ namespace pkg {
   };
 
   struct hello_struct {
-    HelloAction a = HelloAction::NOTHING;
+    HelloAction a;
   };
 
   struct lobbysync_struct {
@@ -49,6 +49,10 @@ struct Lobby {
   {}
 
   int team1=0, team2=0;
+
+  void reset() {
+    players.clear();
+  }
 
   void add_participant(net::Addr addr, IntelligenceType itype=IntelligenceType::REMOTE) {
     std::lock_guard<std::mutex> guard(mtx);
@@ -90,13 +94,17 @@ struct LobbyActor {
   Lobby &lobby;
   LobbyActor(Lobby &lobby):
     lobby(lobby)
-  {}
+  {
+    lobby.reset();
+  }
   bool is_active() {
     return !should_stop();
   }
   virtual void stop() = 0;
   virtual bool should_stop() = 0;
   virtual Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) = 0;
+  virtual ~LobbyActor()
+  {}
 };
 
 // server-side
@@ -104,9 +112,10 @@ struct LobbyServer : LobbyActor {
   net::Addr host;
   net::Socket<net::SocketType::UDP> socket;
   std::thread server_thread;
+  std::mutex socket_mtx;
   std::mutex finalize_mtx;
 
-  LobbyServer(Lobby &lobby, net::port_t port):
+  LobbyServer(Lobby &lobby, net::port_t port=4567):
     LobbyActor(lobby),
     host(net::ip_from_ints(0, 0, 0, 0), port), socket(port)
   {
@@ -115,28 +124,54 @@ struct LobbyServer : LobbyActor {
   }
 
   static void run(LobbyServer *server) {
-    using sys_time_t = std::chrono::nanoseconds;
-    auto server_time_start = std::chrono::system_clock::now();
-    while(!server->should_stop()) {
-      net::Package<pkg::hello_struct> package;
-      if(server->socket.receive(package)) {
-        auto &hello = package.data;
-        if(hello.a != pkg::HelloAction::NOTHING)continue;
+    Timer timer;
+    timer.set_time(Timer::system_time());
+    server->socket.listen(server->socket_mtx, [&](const net::Blob &blob) {
+      blob.try_visit_as<pkg::hello_struct>([&](const auto &hello) {
+        if(hello.a != pkg::HelloAction::CONNECT) {
+          bool found = false;
+          for(auto &p: server->lobby.players) {
+            if(p.first == blob.addr) {
+              found = true;
+              break;
+            }
+          }
+          if(!found) {
+            return !server->should_stop();
+          }
+        }
         switch(hello.a) {
-          case pkg::HelloAction::CONNECT:server->lobby.add_participant(package.addr);break;
-          case pkg::HelloAction::DISCONNECT:server->lobby.remove_participant(package.addr);break;
+          case pkg::HelloAction::CONNECT:server->lobby.add_participant(blob.addr);break;
+          case pkg::HelloAction::DISCONNECT:server->lobby.remove_participant(blob.addr);break;
           case pkg::HelloAction::NOTHING:break;
         }
-        // send information about the new member to everyone
-        auto server_time_now = std::chrono::system_clock::now();
-        Timer::time_t server_time = 1e-9 * std::chrono::duration_cast<std::chrono::nanoseconds>(server_time_now - server_time_start).count();
-        pkg::lobbysync_struct data = { .a = hello.a, .time = server_time, .address = package.addr };
+        Timer::time_t server_time = Timer::system_time();
         for(auto &p : server->lobby.players) {
-          net::Package<pkg::lobbysync_struct> spackage(p.first, data);
-          server->socket.send(spackage);
+          auto addr = p.first;
+          server->socket.send(net::make_package(addr, (pkg::lobbysync_struct){
+            .a = hello.a,
+            .time = server_time,
+            .address = blob.addr
+          }));
         }
-      }
-    }
+      });
+      return !server->should_stop();
+    });
+  }
+
+  bool finalize = false;
+  void stop() {
+    action_unhost();
+    std::lock_guard<std::mutex> guard(finalize_mtx);
+    finalize = true;
+    server_thread.join();
+  }
+  bool should_stop() {
+    std::lock_guard<std::mutex> guard(finalize_mtx);
+    return finalize;
+  }
+
+  void action_unhost() {
   }
 
   Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) {
@@ -147,25 +182,7 @@ struct LobbyServer : LobbyActor {
         clients.push_back(p.first);
       }
     }
-    return new Server(lobby.players[host].ind, soccer, host.port, clients);
-  }
-
-  bool finalize = false;
-  void stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
-    server_thread.join();
-  }
-  bool should_stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    return finalize;
-  }
-
-  ~LobbyServer() {
-    if(!should_stop()) {
-      stop();
-      server_thread.join();
-    }
+    return new SoccerServer(lobby.players[host].ind, soccer, host.port, clients);
   }
 };
 
@@ -177,12 +194,8 @@ struct LobbyClient : LobbyActor {
   std::mutex socket_mtx;
   bool is_connected = false;
 
-  LobbyClient(Lobby &lobby, net::port_t port):
-    LobbyActor(lobby), socket(port)
-  {}
-
   // connect at construction
-  LobbyClient(Lobby &lobby, net::port_t port, net::Addr addr):
+  LobbyClient(Lobby &lobby, net::Addr addr, net::port_t port=4567):
     LobbyActor(lobby), socket(port)
   {
     connect(addr);
@@ -190,12 +203,14 @@ struct LobbyClient : LobbyActor {
 
   void send_action(pkg::hello_struct hello) {
     std::lock_guard<std::mutex> guard(socket_mtx);
-    net::Package<pkg::hello_struct> package(host, hello);
-    socket.send(package);
+    socket.send(net::make_package(host, hello));
   }
 
   bool finalize = false;
   void stop() {
+    if(is_connected) {
+      action_quit();
+    }
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;
     client_thread.join();
@@ -205,9 +220,19 @@ struct LobbyClient : LobbyActor {
     return finalize;
   }
 
+  std::priority_queue<pkg::lobbysync_struct> lobby_actions;
+  std::mutex lsync_mtx;
   static void run(LobbyClient *client) {
-    while(!client->should_stop()) {
-    }
+    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) {
+      if(blob.addr != client->host) {
+        return !client->should_stop();
+      }
+      blob.try_visit_as<pkg::lobbysync_struct>([&](const auto lsync) {
+        std::lock_guard<std::mutex> guard(client->lsync_mtx);
+        client->lobby_actions.push(lsync);
+      });
+      return !client->should_stop();
+    });
   }
 
   void connect(net::Addr addr) {
@@ -223,26 +248,18 @@ struct LobbyClient : LobbyActor {
     );
   }
 
-  void disconnect() {
+  void action_quit() {
     pkg::hello_struct hello = { .a = pkg::HelloAction::DISCONNECT };
     send_action(hello);
-    stop();
-    is_connected = false;
   }
 
   Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) {
     return nullptr;
-    /* return new Remote( */
+    /* return new SoccerRemote( */
     /*   lobby.players[myaddr].ind, */
     /*   soccer, */
     /*   socket.port(), */
     /*   host */
     /* ); */
-  }
-
-  ~LobbyClient() {
-    if(is_connected) {
-      disconnect();
-    }
   }
 };
