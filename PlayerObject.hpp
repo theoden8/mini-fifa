@@ -46,11 +46,11 @@ struct PlayerObject {
   void init() {
     program.compile_program();
     if(!playerModelRed->initialized) {
-      HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
+      sys::HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
     }
     playerModelRed->init();
     if(!playerModelBlue->initialized) {
-      HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
+      sys::HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
     }
     playerModelBlue->init();
     uTransform.set_id(program.id());

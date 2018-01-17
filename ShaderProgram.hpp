@@ -170,6 +170,10 @@ public:
     use(id());
   }
 
+  static void dispatch(size_t x, size_t y, size_t z) {
+    glDispatchCompute(x, y, z); GLERROR
+  }
+
   static void unuse() {
     glUseProgram(0); GLERROR
   }

@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+namespace sys {
 namespace HACK {
   void rename_file(const char *a, const char *b) {
     int err = rename(a, b);
@@ -77,3 +78,4 @@ public:
     return text;
   }
 };
+}

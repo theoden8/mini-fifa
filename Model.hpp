@@ -182,8 +182,8 @@ unsigned int TextureFromFile(const char *path, const std::string &directory, boo
 	glGenTextures(1, &textureID); GLERROR
 
 	int width, height, nrComponents;
-  File fp(filename.c_str());
-  img::Image *image = img::load_image(fp);
+  sys::File file(filename.c_str());
+  img::Image *image = img::load_image(file);
 	GLenum format;
 
 	glBindTexture(GL_TEXTURE_2D, textureID); GLERROR

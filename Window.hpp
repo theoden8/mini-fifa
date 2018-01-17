@@ -99,7 +99,7 @@ public:
     }
   }
   void run() {
-    Font::setup();
+    ui::Font::setup();
     start();
     cObject.init();
 
@@ -114,7 +114,7 @@ public:
     }
     cObject.clear();
     glfwTerminate(); GLERROR
-    Font::cleanup();
+    ui::Font::cleanup();
   }
   /* void display() { */
     /* glEnable(GL_DEPTH_CLAMP); GLERROR */

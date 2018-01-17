@@ -12,7 +12,7 @@ struct MetaServerObject {
 
   C_STRING(font_name, "assets/Verdana.ttf");
   C_STRING(texture_name, "assets/button.png");
-  Button<texture_name, font_name> button;
+  ui::Button<texture_name, font_name> button;
 
   MetaServerObject(MetaServerClient &mclient):
     mclient(mclient)

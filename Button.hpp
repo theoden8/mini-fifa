@@ -15,11 +15,12 @@
 #include "Text.hpp"
 #include "StrConst.hpp"
 
+namespace ui {
 template <typename BUTTON_FILENAME, typename FONT_FILENAME>
 struct Button {
   using self_t = Button<BUTTON_FILENAME, FONT_FILENAME>;
-  Sprite<Font, self_t> *font;
-  Text label;
+  Sprite<ui::Font, self_t> *font;
+  ui::Text label;
   gl::Texture btnTx;
   gl::VertexArray vao;
   static constexpr int DEFAULT_STATE = 0;
@@ -44,7 +45,7 @@ struct Button {
   using ShaderProgramText = decltype(textProgram);
 
   Button(Region region=Region(glm::vec2(-1,1), glm::vec2(-1,1))):
-    font(Sprite<Font, self_t>::create(FONT_FILENAME::c_str)),
+    font(Sprite<ui::Font, self_t>::create(FONT_FILENAME::c_str)),
     label(font->object),
     btnTx("btn"),
     uState("state"),
@@ -163,3 +164,4 @@ struct Button {
     font->clear();
   }
 };
+}

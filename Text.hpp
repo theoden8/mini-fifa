@@ -14,6 +14,7 @@
 #include "Debug.hpp"
 #include "Font.hpp"
 
+namespace ui {
 struct Text {
   Font &font;
   std::string str = "";
@@ -139,3 +140,4 @@ struct Text {
     gl::VertexArray::clear(vao);
   }
 };
+}

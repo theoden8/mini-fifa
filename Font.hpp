@@ -8,6 +8,7 @@
 #include "Logger.hpp"
 #include "Texture.hpp"
 
+namespace ui {
 struct Font {
   static FT_Library ft;
   static bool initialized;
@@ -71,3 +72,4 @@ struct Font {
 };
 FT_Library Font::ft;
 bool Font::initialized = false;
+}

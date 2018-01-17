@@ -9,11 +9,11 @@ struct LobbyObject {
 
   C_STRING(btn_texture, "assets/button.png");
   C_STRING(btn_font, "assets/Verdana.ttf");
-  Button<btn_texture, btn_font> exit_button;
+  ui::Button<btn_texture, btn_font> exit_button;
 
   C_STRING(infobar_texture, "assets/grass.png");
   C_STRING(infobar_font, "assets/Verdana.ttf");
-  Button<infobar_texture, infobar_font> infobar;
+  ui::Button<infobar_texture, infobar_font> infobar;
 
   LobbyObject()
   {}
