@@ -33,7 +33,6 @@ protected:
   size_t width_, height_;
 
   ClientObject cObject;
-  Client client;
 
   void start() {
     init_glfw();
@@ -102,13 +101,13 @@ public:
   void run() {
     Font::setup();
     start();
-    cClient.init();
+    cObject.init();
 
     Timer::time_t current_time = .0;
     glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window)) {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
-      cObject.display(width(), height());
+      cObject.display(window, width(), height());
       mouse();
       glfwPollEvents(); GLERROR
       glfwSwapBuffers(window); GLERROR

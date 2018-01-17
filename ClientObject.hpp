@@ -15,12 +15,13 @@ struct ClientObject {
   MetaServerObject mObject;
 
   ClientObject(net::Addr metaserver):
-    mObject(metaserver),
+    client(metaserver),
+    mObject(client.mclient),
     lObject()
   {}
 
   void init() {
-    mObject.mclient.start_mclient();
+    client.start_mclient();
     mObject.init();
     lObject.init();
     gObject = nullptr; // need to set/unset actors!
@@ -65,7 +66,7 @@ struct ClientObject {
       }
     } else if(client.is_active_lobby()) {
       if(!lObject.is_active()) {
-        lObject.set_active(client.l_actor);
+        lObject.set_actor(*client.l_actor);
       }
       if(gObject != nullptr) {
         gObject->clear();

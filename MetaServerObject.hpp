@@ -8,15 +8,14 @@
 #include "StrConst.hpp"
 
 struct MetaServerObject {
-  MetaServerClient mclient;
+  MetaServerClient &mclient;
 
   C_STRING(font_name, "assets/Verdana.ttf");
   C_STRING(texture_name, "assets/button.png");
   Button<texture_name, font_name> button;
 
-  template <typename... Ts>
-  MetaServerObject(Ts... args):
-    mclient(args...)
+  MetaServerObject(MetaServerClient &mclient):
+    mclient(mclient)
   {}
 
   bool is_active() {

@@ -3,7 +3,7 @@
 int main() {
   Logger::Setup("minififa.log");
   Logger::MirrorLog(stderr);
-  Window w;
+  Window w(net::Addr(net::ip_from_ints(127, 0, 0, 1), net::port_t(5678)));
   w.run();
   /* Soccer server_soccer; */
   /* Soccer client_soccer; */
