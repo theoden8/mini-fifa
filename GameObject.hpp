@@ -17,6 +17,8 @@ struct GameObject {
   size_t w_width;
   size_t w_height;
 
+  Timer::time_t current_time = 0.;
+
   GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, Cursor &cursor):
     background(),
     soccerObject(soccer, intelligence),
@@ -51,8 +53,8 @@ struct GameObject {
     soccerObject.mouse_click(button, action);
   }
 
-  void idle(Timer::time_t curtime) {
-    soccerObject.intelligence.idle(curtime);
+  void idle() {
+    soccerObject.intelligence.idle(current_time);
   }
 
   void display() {

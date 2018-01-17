@@ -21,7 +21,7 @@ class Logger {
     filename(filename)
   {
     #ifndef NDEBUG
-      truncate(this->filename.c_str(), 0);
+      /* truncate(this->filename.c_str(), 0); */
       file = fopen(this->filename.c_str(), "w");
       ASSERT(file != nullptr);
     #endif
@@ -46,6 +46,7 @@ class Logger {
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, (std::string() + prefix + fmt).c_str(), args);
+      fflush(file);
     #endif
   }
   static Logger *instance;

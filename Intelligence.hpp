@@ -115,7 +115,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
     Timer timer;
     timer.set_time(Timer::system_time());
     timer.set_timeout(EVENT_SYNC, .1);
-    server->socket.listen(socket_mtx, [&]() {
+    server->socket.listen(socket_mtx, [&]() mutable {
       // send sync data for random unit showing that no action occured until a
       // certain time point
       Timer::time_t server_time = Timer::system_time();
@@ -136,7 +136,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
         return server->should_stop();
       }
       // if this package seems to be action, perform action and send responses
-      blob.try_visit_as<pkg::action_struct>([&](const auto action) {
+      blob.try_visit_as<pkg::action_struct>([&](const auto action) mutable {
         server->perform_action(action);
         {
           std::lock_guard<std::mutex> guard(server->no_actions_mtx);
@@ -272,12 +272,12 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
 
   static void run(SoccerRemote *client) {
     Timer::time_t delay = 1.;
-    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) {
+    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) mutable {
       bool ret = client->should_stop();
       if(blob.addr != client->server_addr) {
         return client->should_stop();
       }
-      blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) {
+      blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) mutable {
         std::lock_guard<std::mutex> guard(client->frame_schedule_mtx);
         client->frame_schedule.push(sync);
         std::lock_guard<std::mutex> sguard(client->soccer.mtx);

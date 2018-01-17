@@ -8,7 +8,7 @@
 #include "StrConst.hpp"
 
 struct MetaServerObject {
-  MetaServerClient client;
+  MetaServerClient mclient;
 
   C_STRING(font_name, "assets/Verdana.ttf");
   C_STRING(texture_name, "assets/button.png");
@@ -16,16 +16,16 @@ struct MetaServerObject {
 
   template <typename... Ts>
   MetaServerObject(Ts... args):
-    client(args...)
+    mclient(args...)
   {}
 
   bool is_active() {
-    return !client.should_stop();
+    return !mclient.should_stop();
   }
 
   void init() {
     button.init();
-    client.start();
+    mclient.start();
   }
 
   void mouse(float m_x, float m_y) {
@@ -61,11 +61,11 @@ struct MetaServerObject {
     button.sety(-1, -1+.1);
     glm::vec2 init_pos(button.region.x1(), button.region.y1());
     button_display("HOST", [&]() mutable {
-      client.action_host("the game");
+      mclient.action_host("the game");
     });
     button.region.ys += button.label.height() * 2;
-    /* for(auto &game : client.gamelist.games) { */
-    /*   button_display(game.second.c_str(), [&]() { */
+    /* for(auto &game : mclient.gamelist.games) { */
+    /*   button_display(game.first.to_str() + " : " + game.second.c_str(), [&]() { */
     /*     // join the game */
     /*   }); */
     /*   button.region.ys += button.label.height(); */

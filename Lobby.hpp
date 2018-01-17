@@ -13,7 +13,7 @@
 #include "Intelligence.hpp"
 
 namespace pkg {
-  enum class HelloAction {
+  enum class HelloAction : int8_t {
     CONNECT, DISCONNECT, NOTHING
   };
 
@@ -126,8 +126,8 @@ struct LobbyServer : LobbyActor {
   static void run(LobbyServer *server) {
     Timer timer;
     timer.set_time(Timer::system_time());
-    server->socket.listen(server->socket_mtx, [&](const net::Blob &blob) {
-      blob.try_visit_as<pkg::hello_struct>([&](const auto &hello) {
+    server->socket.listen(server->socket_mtx, [&](const net::Blob &blob) mutable {
+      blob.try_visit_as<pkg::hello_struct>([&](const auto &hello) mutable {
         if(hello.a != pkg::HelloAction::CONNECT) {
           bool found = false;
           for(auto &p: server->lobby.players) {
@@ -172,6 +172,12 @@ struct LobbyServer : LobbyActor {
   }
 
   void action_unhost() {
+    for(auto &p : lobby.players) {
+      std::lock_guard<std::mutex> guard(socket_mtx);
+      socket.send(net::make_package(p.first, (pkg::lobbysync_struct){
+        .a = pkg::HelloAction::DISCONNECT
+      }));
+    }
   }
 
   Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) {
@@ -223,11 +229,14 @@ struct LobbyClient : LobbyActor {
   std::priority_queue<pkg::lobbysync_struct> lobby_actions;
   std::mutex lsync_mtx;
   static void run(LobbyClient *client) {
-    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) {
+    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) mutable {
       if(blob.addr != client->host) {
         return !client->should_stop();
       }
-      blob.try_visit_as<pkg::lobbysync_struct>([&](const auto lsync) {
+      blob.try_visit_as<pkg::lobbysync_struct>([&](const auto lsync) mutable {
+        if(lsync.a == pkg::HelloAction::DISCONNECT) {
+          return;
+        }
         std::lock_guard<std::mutex> guard(client->lsync_mtx);
         client->lobby_actions.push(lsync);
       });

@@ -1,24 +1,22 @@
 #pragma once
 
+#include <cstdlib>
+#include <unistd.h>
+
 #include <vector>
 #include <tuple>
 #include <string>
 #include <map>
-#include <cstdlib>
-#include <unistd.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "incgraphics.h"
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "Logger.hpp"
 #include "Debug.hpp"
 
-#include "Camera.hpp"
-#include "MetaServerObject.hpp"
-#include "LobbyObject.hpp"
-#include "GameObject.hpp"
-#include "Cursor.hpp"
+#include "ClientObject.hpp"
 
 namespace glfw {
   void error_callback(int error, const char* description);
@@ -34,18 +32,13 @@ class Window {
 protected:
   size_t width_, height_;
 
-  /* al::Audio audio; */
-  MetaServerObject mObject;
-  LobbyObject lobbyObject;
-  GameObject *gameObject = nullptr;
-  Cursor cursor;
-  /* std::tuple<Background, SoccerObject, Cursor> layers; */
+  ClientObject cObject;
+  Client client;
 
   void start() {
     init_glfw();
     init_glew();
     init_controls();
-    /* audio.Init(); */
     /* gl_version(); */
   }
   void init_glfw() {
@@ -87,10 +80,9 @@ protected:
   const GLFWvidmode *vidmode = nullptr;
 public:
   GLFWwindow *window = nullptr;
-  Window():
+  Window(net::Addr metaserver):
     width_(0), height_(0),
-    mObject(net::Addr(net::ip_t(INADDR_ANY), net::port_t(5678)), net::port_t(5679)),
-    cursor()
+    cObject(metaserver)
   {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }
@@ -110,47 +102,18 @@ public:
   void run() {
     Font::setup();
     start();
-    mObject.init();
-    if(gameObject) {
-      gameObject->init();
-    }
-    cursor.init();
+    cClient.init();
 
-    /* audio.play(); */
     Timer::time_t current_time = .0;
     glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window)) {
-      if(mObject.is_active()) {
-      } else if(!lobbyObject.is_active()) {
-        // lobbyObject.set_actor(mObject.client.make_lobby_actor();
-      }
-      if(gameObject) {
-        gameObject->set_winsize(width(), height());
-        gameObject->keyboard(window);
-      }
-      idle_mouse();
-      if(gameObject) {
-        gameObject->idle(current_time);
-        current_time += 1./60;
-      }
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
-      if(mObject.is_active()) {
-        mObject.display();
-      } else if(gameObject) {
-        gameObject->display();
-      }
-      cursor.display();
+      cObject.display(width(), height());
+      mouse();
       glfwPollEvents(); GLERROR
       glfwSwapBuffers(window); GLERROR
-      /* current_time = glfwGetTime(); */
     }
-    /* audio.stop(); */
-    mObject.clear();
-    if(gameObject) {
-      gameObject->clear();
-      delete gameObject;
-    }
-    cursor.clear();
+    cObject.clear();
     glfwTerminate(); GLERROR
     Font::cleanup();
   }
@@ -168,40 +131,24 @@ public:
   /* } */
   void resize(float new_width, float new_height) {
     width_ = new_width, height_ = new_height;
-    if(gameObject) {
-      gameObject->set_winsize(width(), height());
-    }
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
     if(action == GLFW_PRESS) {
-      if(mObject.is_active()) {
-      } else if(gameObject) {
-        gameObject->keypress(key);
-      }
+      cObject.keypress(key);
     }
     if(action == GLFW_RELEASE) {
     }
   }
-  void idle_mouse() {
+  void mouse() {
     double m_x, m_y;
     glfwGetCursorPos(window, &m_x, &m_y);
     m_x /= width(), m_y /= height();
-    if(mObject.is_active()) {
-      mObject.mouse(m_x, m_y);
-    } else if(gameObject) {
-      gameObject->mouse(m_x, m_y);
-    }
-    cursor.mouse(m_x, m_y);
+    cObject.mouse(m_x, m_y);
   }
   void mouse_click(double x, double y, int button, int action, int mods) {
     double m_x = x/width(), m_y = y/height();
-    if(mObject.is_active()) {
-      mObject.mouse(m_x, m_y);
-      mObject.mouse_click(button, action);
-    } else if(gameObject) {
-      gameObject->mouse(m_x, m_y);
-      gameObject->mouse_click(button, action);
-    }
+    cObject.mouse(m_x, m_y);
+    cObject.mouse_click(button, action);
   }
   void mouse_scroll(double xoffset, double yoffset) {
   }

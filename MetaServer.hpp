@@ -58,8 +58,8 @@ struct MetaServer {
 
   void run() {
     std::mutex mtx;
-    socket.listen(mtx, [&](const net::Blob &blob) {
-      blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) {
+    socket.listen(mtx, [&](const net::Blob &blob) mutable {
+      blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) mutable {
         switch(hello.action) {
           case pkg::MetaServerAction::HELLO:
             if(users.find(blob.addr) != std::end(users)) {
@@ -136,7 +136,7 @@ struct MetaServerClient {
   static void run(MetaServerClient *client) {
     constexpr int EVENT_REFRESH = 1;
     client->timer.set_timeout(EVENT_REFRESH, .4);
-    client->socket.listen(client->socket_mtx, [&]() {
+    client->socket.listen(client->socket_mtx, [&]() mutable {
       auto t = Timer::system_time();
       client->timer.set_time(t);
       if(client->timer.timed_out(EVENT_REFRESH)) {
@@ -152,7 +152,7 @@ struct MetaServerClient {
       if(blob.addr != client->metaserver) {
         return client->should_stop();
       }
-      blob.try_visit_as<pkg::metaserver_response_struct>([&](const auto &response) {
+      blob.try_visit_as<pkg::metaserver_response_struct>([&](const auto &response) mutable {
         switch(response.action) {
           case pkg::MetaServerAction::HOST_GAME:client->register_host(response.host, response.name);break;
           case pkg::MetaServerAction::UNHOST_GAME:client->unregister_host(response.host);break;
