@@ -110,15 +110,19 @@ struct LobbyActor {
 // server-side
 struct LobbyServer : LobbyActor {
   net::Addr host;
+  net::Addr metaserver;
   net::Socket<net::SocketType::UDP> socket;
   std::thread server_thread;
   std::mutex socket_mtx;
   std::mutex finalize_mtx;
 
-  LobbyServer(Lobby &lobby, net::port_t port=4567):
+  LobbyServer(Lobby &lobby, net::Addr metaserver, net::port_t port=4567):
     LobbyActor(lobby),
-    host(net::ip_from_ints(0, 0, 0, 0), port), socket(port)
+    host(net::ip_from_ints(0, 0, 0, 0), port),
+    socket(port),
+    metaserver(metaserver)
   {
+    Logger::Info("lserver: started\n");
     lobby.add_participant(host, IntelligenceType::SERVER);
     server_thread = std::thread(LobbyServer::run, this);
   }
@@ -161,6 +165,7 @@ struct LobbyServer : LobbyActor {
 
   bool finalize = false;
   void stop() {
+    Logger::Info("lserver: finished\n");
     action_unhost();
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;
@@ -174,6 +179,7 @@ struct LobbyServer : LobbyActor {
   void action_unhost() {
     for(auto &p : lobby.players) {
       std::lock_guard<std::mutex> guard(socket_mtx);
+      Logger::Info("lserver: action unhost\n");
       socket.send(net::make_package(p.first, (pkg::lobbysync_struct){
         .a = pkg::HelloAction::DISCONNECT
       }));
@@ -212,20 +218,6 @@ struct LobbyClient : LobbyActor {
     socket.send(net::make_package(host, hello));
   }
 
-  bool finalize = false;
-  void stop() {
-    if(is_connected) {
-      action_quit();
-    }
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
-    client_thread.join();
-  }
-  bool should_stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    return finalize;
-  }
-
   std::priority_queue<pkg::lobbysync_struct> lobby_actions;
   std::mutex lsync_mtx;
   static void run(LobbyClient *client) {
@@ -245,19 +237,33 @@ struct LobbyClient : LobbyActor {
   }
 
   void connect(net::Addr addr) {
+    Logger::Info("lclient: started\n");
     ASSERT(!is_connected);
     host = addr;
     finalize = false;
     is_connected = true;
     pkg::hello_struct hello = { .a = pkg::HelloAction::CONNECT };
     send_action(hello);
-    client_thread = std::thread(
-      LobbyClient::run,
-      this
-    );
+    client_thread = std::thread(LobbyClient::run, this);
+  }
+
+  bool finalize = false;
+  void stop() {
+    Logger::Info("lclient: finished\n");
+    if(is_connected) {
+      action_quit();
+    }
+    std::lock_guard<std::mutex> guard(finalize_mtx);
+    finalize = true;
+    client_thread.join();
+  }
+  bool should_stop() {
+    std::lock_guard<std::mutex> guard(finalize_mtx);
+    return finalize;
   }
 
   void action_quit() {
+    Logger::Info("lclient: sending action quit\n");
     pkg::hello_struct hello = { .a = pkg::HelloAction::DISCONNECT };
     send_action(hello);
   }

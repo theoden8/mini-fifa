@@ -50,6 +50,7 @@ struct MetaServer {
   Timer timer;
 
   std::set<net::Addr> users;
+  Timer user_timer;
 
   MetaServer(net::port_t port=5678):
     gamelist(),
@@ -58,27 +59,62 @@ struct MetaServer {
 
   void run() {
     std::mutex mtx;
-    socket.listen(mtx, [&](const net::Blob &blob) mutable {
-      blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) mutable {
-        switch(hello.action) {
-          case pkg::MetaServerAction::HELLO:
-            if(users.find(blob.addr) != std::end(users)) {
-              Logger::Info("added user %s\n", blob.addr.to_str().c_str());
-              users.insert(blob.addr);
+    constexpr Timer::key_t CHECK_STATUSES = 1;
+    timer.set_timeout(CHECK_STATUSES, 5.);
+    Logger::Info("mserver: started at port %hu\n", socket.port());
+    socket.listen(mtx,
+      [&]() {
+        timer.set_time(Timer::system_time());
+        if(timer.timed_out(CHECK_STATUSES)) {
+          Logger::Info("mserver: cleaning up inactive users\n");
+          timer.set_event(CHECK_STATUSES);
+          for(auto &u : users) {
+            if(user_timer.timed_out(Timer::key_t(u.ip))) {
+              Logger::Info("mserver: removing user %s\n", u.to_str().c_str());
+              users.erase(u);
+              user_timer.erase(Timer::key_t(u.ip));
             }
-          break;
-          case pkg::MetaServerAction::HOST_GAME:
-            hello.name[29] = '\0';
-            register_host(blob.addr, hello.name);
-          break;
-          case pkg::MetaServerAction::UNHOST_GAME:
-            hello.name[29] = '\0';
-            unregister_host(blob.addr);
-          break;
+          }
         }
-      });
-      return true;
+      },
+      [&](const net::Blob &blob) mutable {
+        Logger::Info("mserver: received package from %s\n", blob.addr.to_str().c_str());
+        blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) mutable {
+          bool found = users.find(blob.addr) != std::end(users);
+          Logger::Info("mserver: recognized as hello package, found=%d\n", found);
+          user_timer.set_time(Timer::system_time());
+          if(found) {
+            user_timer.set_event(Timer::key_t(blob.addr.ip));
+          }
+          switch(hello.action) {
+            case pkg::MetaServerAction::HELLO:
+              if(!found) {
+                // add user
+                Logger::Info("mserver: added user %s\n", blob.addr.to_str().c_str());
+                user_timer.set_event(Timer::key_t(blob.addr.ip));
+                user_timer.set_timeout(Timer::key_t(blob.addr.ip), 2.);
+                users.insert(blob.addr);
+              }
+            break;
+            case pkg::MetaServerAction::HOST_GAME:
+              if(found) {
+                hello.name[29] = '\0';
+                Logger::Info("mserver: hosting game name=''");
+                register_host(blob.addr, hello.name);
+              }
+            break;
+            case pkg::MetaServerAction::UNHOST_GAME:
+              if(found) {
+                hello.name[29] = '\0';
+                Logger::Info("mserver: unhosting game");
+                unregister_host(blob.addr);
+              }
+            break;
+          }
+        });
+        return feof(stdin);
     });
+    Logger::Info("mserver: finisned\n");
   }
 
   void register_host(net::Addr host, std::string name) {
@@ -137,12 +173,11 @@ struct MetaServerClient {
     constexpr int EVENT_REFRESH = 1;
     client->timer.set_timeout(EVENT_REFRESH, .4);
     client->socket.listen(client->socket_mtx, [&]() mutable {
-      auto t = Timer::system_time();
-      client->timer.set_time(t);
+      client->timer.set_time(Timer::system_time());
       if(client->timer.timed_out(EVENT_REFRESH)) {
         client->timer.set_event(EVENT_REFRESH);
         std::lock_guard<std::mutex> guard(client->socket_mtx);
-        printf("sending hello to metaserver\n");
+        Logger::Info("mclient: sending hello\n");
         client->send_action((pkg::metaserver_hello_struct){
           .action = pkg::MetaServerAction::HELLO
         });
@@ -179,6 +214,7 @@ struct MetaServerClient {
     };
     for(int i = 0; i < std::min<int>(gamename.length(), 30); ++i)data.name[i]=gamename[i];
     data.name[29] = '\0';
+    Logger::Info("mclient: sending action host name='%s'\n", data.name);
     send_action(data);
   }
 
@@ -186,6 +222,7 @@ struct MetaServerClient {
     pkg::metaserver_hello_struct data = {
       .action = pkg::MetaServerAction::UNHOST_GAME
     };
+    Logger::Info("mclient: sending action unhost game\n");
     send_action(data);
   }
 
@@ -196,11 +233,16 @@ struct MetaServerClient {
   }
 
   LobbyActor *make_lobby() {
-    // not implemented
-    return nullptr;
+    Lobby *lobby = new Lobby();
+    if(lobbyMaker.ltype == LobbyMaker::type::SERVER) {
+      return new LobbyServer(*lobby, metaserver);
+    } else if(lobbyMaker.ltype == LobbyMaker::type::CLIENT) {
+      return new LobbyClient(*lobby, lobbyMaker.host);
+    }
   }
 
   void start() {
+    Logger::Info("mclient: started, mserver=%s\n", metaserver.to_str().c_str());
     ASSERT(should_stop());
     finalize = false;
     user_thread = std::thread(
@@ -219,5 +261,12 @@ struct MetaServerClient {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;
     user_thread.join();
+    Logger::Info("mclient: finished\n");
+  }
+
+  ~MetaServerClient() {
+    if(should_stop()) {
+      stop();
+    }
   }
 };

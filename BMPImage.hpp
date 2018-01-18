@@ -4,6 +4,7 @@
 #include "Debug.hpp"
 #include "Logger.hpp"
 
+// https://stackoverflow.com/a/20596072/4811285
 namespace img {
 struct BMPImage : public Image {
   BMPImage(const char *filename):

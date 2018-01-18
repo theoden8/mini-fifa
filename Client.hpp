@@ -7,7 +7,7 @@
 
 struct Client {
   MetaServerClient mclient;
-  Lobby lobby;
+  Lobby *lobby = nullptr;
   LobbyActor *l_actor = nullptr;
   Soccer *soccer = nullptr;
   Intelligence<IntelligenceType::ABSTRACT> *intelligence = nullptr;
@@ -21,7 +21,7 @@ struct Client {
   }
 
   bool is_active_lobby() {
-    return l_actor != nullptr;
+    return lobby != nullptr && l_actor != nullptr;
   }
 
   bool is_active_game() {
@@ -41,11 +41,15 @@ struct Client {
   void start_lobby() {
     ASSERT(!is_active_lobby());
     l_actor = mclient.make_lobby();
+    lobby = &l_actor->lobby;
   }
   void stop_lobby() {
     ASSERT(is_active_lobby());
     l_actor->stop();
     delete l_actor;
+    l_actor = nullptr;
+    delete lobby;
+    lobby = nullptr;
   }
 
   void start_game() {
@@ -79,5 +83,21 @@ struct Client {
   void action_quit_game() {
     stop_game();
     start_mclient();
+  }
+
+  // scope functions
+  void start() {
+    start_mclient();
+  }
+  void stop() {
+    if(is_active_game()) {
+      stop_game();
+    }
+    if(is_active_lobby()) {
+      stop_lobby();
+    }
+    if(is_active_mclient()) {
+      mclient.stop();
+    }
   }
 };

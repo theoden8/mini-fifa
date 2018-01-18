@@ -24,7 +24,6 @@ struct MetaServerObject {
 
   void init() {
     button.init();
-    mclient.start();
   }
 
   void mouse(float m_x, float m_y) {

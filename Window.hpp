@@ -101,6 +101,7 @@ public:
   void run() {
     ui::Font::setup();
     start();
+    cObject.client.start();
     cObject.init();
 
     Timer::time_t current_time = .0;
@@ -115,6 +116,7 @@ public:
     cObject.clear();
     glfwTerminate(); GLERROR
     ui::Font::cleanup();
+    cObject.client.stop();
   }
   /* void display() { */
     /* glEnable(GL_DEPTH_CLAMP); GLERROR */

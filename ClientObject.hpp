@@ -21,7 +21,6 @@ struct ClientObject {
   {}
 
   void init() {
-    client.start_mclient();
     mObject.init();
     lObject.init();
     gObject = nullptr; // need to set/unset actors!
