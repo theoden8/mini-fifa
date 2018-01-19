@@ -19,20 +19,20 @@ namespace pkg {
     CONNECT, DISCONNECT, NOTHING
   };
 
-  struct hello_struct {
+  struct lobby_hello_struct {
     HelloAction a;
   };
 
-  struct lobbysync_struct {
+  struct lobby_sync_struct {
     HelloAction a = HelloAction::NOTHING;
     Timer::time_t time;
     net::Addr address;
 
-    constexpr bool operator<(const lobbysync_struct &other) const {
+    constexpr bool operator<(const lobby_sync_struct &other) const {
       return time < other.time;
     }
 
-    constexpr bool operator>(const lobbysync_struct &other) const {
+    constexpr bool operator>(const lobby_sync_struct &other) const {
       return time > other.time;
     }
   };
@@ -154,7 +154,7 @@ struct LobbyServer : LobbyActor {
         return !server->should_stop();
       },
       [&](const net::Blob &blob) mutable {
-        blob.try_visit_as<pkg::hello_struct>([&](const auto &hello) mutable {
+        blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto &hello) mutable {
           if(hello.a != pkg::HelloAction::CONNECT) {
             bool found = false;
             std::lock_guard<std::mutex> guard(server->lobby.mtx);
@@ -180,7 +180,7 @@ struct LobbyServer : LobbyActor {
           for(auto &p : server->lobby.players) {
             auto addr = p.first;
             if(addr == server->host())continue;
-            server->socket.send(net::make_package(addr, (pkg::lobbysync_struct){
+            server->socket.send(net::make_package(addr, (pkg::lobby_sync_struct){
               .a = hello.a,
               .time = server_time,
               .address = blob.addr
@@ -220,7 +220,7 @@ struct LobbyServer : LobbyActor {
     for(auto &p : lobby.players) {
       auto &addr = p.first;
       if(addr == host())continue;
-      socket.send(net::make_package(addr, (pkg::lobbysync_struct){
+      socket.send(net::make_package(addr, (pkg::lobby_sync_struct){
         .a = pkg::HelloAction::DISCONNECT
       }));
     }
@@ -252,12 +252,12 @@ struct LobbyClient : LobbyActor {
     socket(socket)
   {}
 
-  void send_action(pkg::hello_struct hello) {
+  void send_action(pkg::lobby_hello_struct hello) {
     std::lock_guard<std::mutex> guard(socket_mtx);
     socket.send(net::make_package(host, hello));
   }
 
-  std::priority_queue<pkg::lobbysync_struct> lobby_actions;
+  std::priority_queue<pkg::lobby_sync_struct> lobby_actions;
   std::mutex lsync_mtx;
   static void run(LobbyClient *client) {
     client->socket.listen(client->socket_mtx,
@@ -268,7 +268,7 @@ struct LobbyClient : LobbyActor {
         if(blob.addr != client->host) {
           return !client->should_stop();
         }
-        blob.try_visit_as<pkg::lobbysync_struct>([&](const auto lsync) mutable {
+        blob.try_visit_as<pkg::lobby_sync_struct>([&](const auto lsync) mutable {
           if(lsync.a == pkg::HelloAction::DISCONNECT) {
             return;
           }
@@ -284,7 +284,7 @@ struct LobbyClient : LobbyActor {
     ASSERT(should_stop());
     Logger::Info("lclient: started\n");
     finalize = false;
-    send_action((pkg::hello_struct){
+    send_action((pkg::lobby_hello_struct){
       .a = pkg::HelloAction::CONNECT
     });
     client_thread = std::thread(LobbyClient::run, this);
@@ -308,7 +308,7 @@ struct LobbyClient : LobbyActor {
 
   void action_quit() {
     Logger::Info("lclient: sending action quit\n");
-    pkg::hello_struct hello = { .a = pkg::HelloAction::DISCONNECT };
+    pkg::lobby_hello_struct hello = { .a = pkg::HelloAction::DISCONNECT };
     send_action(hello);
   }
 

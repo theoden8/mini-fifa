@@ -22,6 +22,10 @@ namespace pkg {
 
   struct metaserver_hello_struct {
     MetaServerAction action;
+  };
+
+  struct metaserver_gaction_struct {
+    MetaServerAction action;
     char name[30];
   };
 
@@ -92,33 +96,39 @@ struct MetaServer {
       },
       [&](const net::Blob &blob) mutable {
         Logger::Info("mserver: received package from %s\n", blob.addr.to_str().c_str());
+        bool found = users.find(blob.addr) != std::end(users);
+        user_timer.set_time(Timer::system_time());
+        if(found) {
+          user_timer.set_event(Timer::key_t(blob.addr.ip));
+        }
+        static_assert(sizeof(pkg::metaserver_hello_struct) != sizeof(pkg::metaserver_gaction_struct));
+        // received hello package
         blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) mutable {
-          bool found = users.find(blob.addr) != std::end(users);
           Logger::Info("mserver: recognized as hello package, found=%d\n", found);
-          user_timer.set_time(Timer::system_time());
-          if(found) {
+          ASSERT(hello.action == pkg::MetaServerAction::HELLO);
+          if(!found) {
+            // add user
+            Logger::Info("mserver: added user %s\n", blob.addr.to_str().c_str());
             user_timer.set_event(Timer::key_t(blob.addr.ip));
+            user_timer.set_timeout(Timer::key_t(blob.addr.ip), 2.);
+            users.insert(blob.addr);
           }
-          switch(hello.action) {
-            case pkg::MetaServerAction::HELLO:
-              if(!found) {
-                // add user
-                Logger::Info("mserver: added user %s\n", blob.addr.to_str().c_str());
-                user_timer.set_event(Timer::key_t(blob.addr.ip));
-                user_timer.set_timeout(Timer::key_t(blob.addr.ip), 2.);
-                users.insert(blob.addr);
-              }
-            break;
+        });
+        // received hosting action
+        blob.try_visit_as<pkg::metaserver_gaction_struct>([&](auto gaction) mutable {
+          Logger::Info("mserver: recognized as gamename struct\n");
+          switch(gaction.action) {
+            case pkg::MetaServerAction::HELLO:break;
             case pkg::MetaServerAction::HOST_GAME:
               if(found) {
-                hello.name[29] = '\0';
-                Logger::Info("mserver: hosting game name='%s'\n", hello.name);
-                register_host(blob.addr, hello.name);
+                gaction.name[29] = '\0';
+                Logger::Info("mserver: hosting game name='%s'\n", gaction.name);
+                register_host(blob.addr, gaction.name);
               }
             break;
             case pkg::MetaServerAction::UNHOST_GAME:
               if(found) {
-                hello.name[29] = '\0';
+                gaction.name[29] = '\0';
                 Logger::Info("mserver: unhosting game\n");
                 unregister_host(blob.addr);
               }
@@ -253,7 +263,7 @@ struct MetaServerClient {
 
   void action_host(std::string gamename) {
     char name[30];
-    pkg::metaserver_hello_struct data = {
+    pkg::metaserver_gaction_struct data = {
       .action = pkg::MetaServerAction::HOST_GAME
     };
     memcpy(data.name, gamename.c_str(), std::min<int>(gamename.length() + 1, 30));
@@ -265,15 +275,15 @@ struct MetaServerClient {
   void action_unhost() {
     Logger::Info("mclient: sending action unhost game\n");
     set_state(State::DEFAULT);
-    send_action((pkg::metaserver_hello_struct){
+    send_action((pkg::metaserver_gaction_struct){
       .action = pkg::MetaServerAction::UNHOST_GAME
     });
   }
 
-  void send_action(pkg::metaserver_hello_struct hello) {
+  template <typename DataT>
+  void send_action(DataT data) {
     std::lock_guard<std::mutex> guard(socket_mtx);
-    net::Package<pkg::metaserver_hello_struct> package(metaserver, hello);
-    socket.send(package);
+    socket.send(net::make_package(metaserver, data));
   }
 
   LobbyActor *make_lobby() {

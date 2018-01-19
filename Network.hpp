@@ -9,6 +9,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <netinet/ip_icmp.h>
+#include <sys/select.h>
+
 #include <netdb.h>
 #include <arpa/inet.h>
 
@@ -167,14 +170,53 @@ struct Blob {
 };
 
 enum class SocketType {
-  TCP_SERVER, TCP_CLIENT, UDP
+  TCP_SERVER, TCP_CLIENT, UDP, ICMP
 };
 
 template <SocketType Proto> class Socket;
 
+// https://stackoverflow.com/a/20105379/4811285
+/* template <> */
+/* class Socket<SocketType::ICMP> { */
+/*   int sequence = 0; */
+/*   int handle_; */
+/*   port_t port; */
+/* public: */
+/*   Socket(port_t port): */
+/*     port_(port) */
+/*   { */
+/*     handle_ = socket(PF_INET, SOCK_DGRAM, IPPROTO_ICMP); */
+/*     if(handle_ <= 0) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't create socket\n"); */
+/*     } */
+
+/*     icmphdr icmp_hdr; */
+/*     memset(&icmp_hdr, 0, sizeof(icmphdr)); */
+/*     icmp_hdr.type = ICMP_ECHO; */
+/*     icmp_hdr.un.echo.id = 1234; // arbitrary id */
+/*     sockaddr_in address = Addr(INADDR_ANY, port_); */
+
+/*     if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't bind socket\n"); */
+/*     } */
+
+/*     int nonBlocking = 1; */
+/*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't set non-blocking socket\n"); */
+/*     } */
+/*   } */
+
+/*   ~Socket() { */
+/*     close(handle_); */
+/*   } */
+/* }; */
+
 template <>
 class Socket<SocketType::UDP> {
-	static const int MAX_PACKET_SIZE = 256;
+	static constexpr int MAX_PACKET_SIZE = 256;
 
 	int handle_;
 	port_t port_;
@@ -271,214 +313,214 @@ public:
   }
 };
 
-template <>
-class Socket<SocketType::TCP_SERVER> {
-	static const int MAX_PACKET_SIZE = 256;
+/* template <> */
+/* class Socket<SocketType::TCP_SERVER> { */
+/* 	static const int MAX_PACKET_SIZE = 256; */
 
-	int handle_;
-	port_t port_;
+/* 	int handle_; */
+/* 	port_t port_; */
 
-  struct Connection {
-    Socket<SocketType::TCP_SERVER> &socket;
-    int handle_ = -1;
-    Addr client;
+/*   struct Connection { */
+/*     Socket<SocketType::TCP_SERVER> &socket; */
+/*     int handle_ = -1; */
+/*     Addr client; */
 
-    Connection(Socket<SocketType::TCP_SERVER> &socket):
-      socket(socket)
-    {}
+/*     Connection(Socket<SocketType::TCP_SERVER> &socket): */
+/*       socket(socket) */
+/*     {} */
 
-    bool try_connect() {
-      sockaddr_in cl_saddr;
-      socklen_t bytes = sizeof(sockaddr_in);
-      handle_ = accept(socket.handle_, (sockaddr *)&cl_saddr, &bytes);
-      if(errno == EWOULDBLOCK) {
-        errno = 0;
-        return false;;
-      }
-      if(handle_ <= 0) {
-        perror("error");
-        TERMINATE("Can't accept connection\n");
-      }
-      client = Addr(cl_saddr);
-      return true;
-    }
+/*     bool try_connect() { */
+/*       sockaddr_in cl_saddr; */
+/*       socklen_t bytes = sizeof(sockaddr_in); */
+/*       handle_ = accept(socket.handle_, (sockaddr *)&cl_saddr, &bytes); */
+/*       if(errno == EWOULDBLOCK) { */
+/*         errno = 0; */
+/*         return false;; */
+/*       } */
+/*       if(handle_ <= 0) { */
+/*         perror("error"); */
+/*         TERMINATE("Can't accept connection\n"); */
+/*       } */
+/*       client = Addr(cl_saddr); */
+/*       return true; */
+/*     } */
 
-    bool is_open() {
-      return handle_ != -1;
-    }
+/*     bool is_open() { */
+/*       return handle_ != -1; */
+/*     } */
 
-    template <typename T>
-    void send(Package<T> &package) {
-      if(!is_open()) {
-        TERMINATE("Can't send packet: connection is not established\n");
-      }
+/*     template <typename T> */
+/*     void send(Package<T> &package) { */
+/*       if(!is_open()) { */
+/*         TERMINATE("Can't send packet: connection is not established\n"); */
+/*       } */
 
-      package.addr = client;
+/*       package.addr = client; */
 
-      int sent_bytes = write(handle_, &package.data, sizeof(T));
+/*       int sent_bytes = write(handle_, &package.data, sizeof(T)); */
 
-      if(sent_bytes != sizeof(T)) {
-        perror("error");
-        TERMINATE("Can't send packet: invalid number of bytes");
-      }
-    }
+/*       if(sent_bytes != sizeof(T)) { */
+/*         perror("error"); */
+/*         TERMINATE("Can't send packet: invalid number of bytes"); */
+/*       } */
+/*     } */
 
-    template <typename T>
-    bool receive(Package <T> &package) {
-      if(!is_open()) {
-        TERMINATE("Can't send packaet: connection is not established\n");
-      }
+/*     template <typename T> */
+/*     bool receive(Package <T> &package) { */
+/*       if(!is_open()) { */
+/*         TERMINATE("Can't send packaet: connection is not established\n"); */
+/*       } */
 
-      int received_bytes = read(handle_, &package.data, sizeof(T));
+/*       int received_bytes = read(handle_, &package.data, sizeof(T)); */
 
-      if(received_bytes != sizeof(T)) {
-        return false;
-      }
+/*       if(received_bytes != sizeof(T)) { */
+/*         return false; */
+/*       } */
 
-      package.addr = client;
-      return true;
-    }
+/*       package.addr = client; */
+/*       return true; */
+/*     } */
 
-    void close_connection() {
-      close(handle_);
-      handle_ = -1;
-    }
+/*     void close_connection() { */
+/*       close(handle_); */
+/*       handle_ = -1; */
+/*     } */
 
-    ~Connection() {
-      if(is_open()) {
-        close_connection();
-      }
-    }
-  };
+/*     ~Connection() { */
+/*       if(is_open()) { */
+/*         close_connection(); */
+/*       } */
+/*     } */
+/*   }; */
 
-  std::map<net::Addr, Connection> clients;
-public:
-	Socket(port_t port):
-    port_(port)
-  {
-    handle_ = socket(AF_INET, SOCK_STREAM, 0);
-    if(handle_ <= 0) {
-      TERMINATE("Can't create socket\n");
-    }
+/*   std::map<net::Addr, Connection> clients; */
+/* public: */
+/* 	Socket(port_t port): */
+/*     port_(port) */
+/*   { */
+/*     handle_ = socket(AF_INET, SOCK_STREAM, 0); */
+/*     if(handle_ <= 0) { */
+/*       TERMINATE("Can't create socket\n"); */
+/*     } */
 
-    sockaddr_in address = Addr(INADDR_ANY, port_);
+/*     sockaddr_in address = Addr(INADDR_ANY, port_); */
 
-    if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) {
-      perror("error");
-      TERMINATE("Can't bind socket\n");
-    }
+/*     if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't bind socket\n"); */
+/*     } */
 
-    int nonBlocking = 1;
-    if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) {
-      perror("error");
-      TERMINATE("Can't set non-blocking socket\n");
-    }
+/*     int nonBlocking = 1; */
+/*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't set non-blocking socket\n"); */
+/*     } */
 
-    listen(handle_, 5);
-    if(errno)perror("error:");
-  }
+/*     listen(handle_, 5); */
+/*     if(errno)perror("error:"); */
+/*   } */
 
-  ~Socket() {
-    close(handle_);
-  }
+/*   ~Socket() { */
+/*     close(handle_); */
+/*   } */
 
-  void wait_for_connection() {
-    Connection conn(*this);
-    while(!conn.try_connect())
-      ;
-    clients.insert(std::make_pair(conn.client, conn));
-  }
+/*   void wait_for_connection() { */
+/*     Connection conn(*this); */
+/*     while(!conn.try_connect()) */
+/*       ; */
+/*     clients.insert(std::make_pair(conn.client, conn)); */
+/*   } */
 
-  template <typename T>
-  void send_all(net::Package<T> &package) {
-    for(auto c : clients) {
-      auto &conn = c.second;
-      conn.send(package);
-    }
-  }
+/*   template <typename T> */
+/*   void send_all(net::Package<T> &package) { */
+/*     for(auto c : clients) { */
+/*       auto &conn = c.second; */
+/*       conn.send(package); */
+/*     } */
+/*   } */
 
-  template <typename T, typename F>
-  bool receive_all(net::Package<T> &package, F checker) {
-    for(auto c : clients) {
-      auto &conn = c.second;
-      if(conn.receive(package)) {
-        if(checker(package.data)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+/*   template <typename T, typename F> */
+/*   bool receive_all(net::Package<T> &package, F checker) { */
+/*     for(auto c : clients) { */
+/*       auto &conn = c.second; */
+/*       if(conn.receive(package)) { */
+/*         if(checker(package.data)) { */
+/*           return true; */
+/*         } */
+/*       } */
+/*     } */
+/*     return false; */
+/*   } */
 
-	port_t port() const {
-    return port_;
-  }
-};
+/* 	port_t port() const { */
+/*     return port_; */
+/*   } */
+/* }; */
 
-template <>
-class Socket<SocketType::TCP_CLIENT> {
-  int handle_;
-  port_t port_;
-public:
-  Addr server;
+/* template <> */
+/* class Socket<SocketType::TCP_CLIENT> { */
+/*   int handle_; */
+/*   port_t port_; */
+/* public: */
+/*   Addr server; */
 
-  Socket(port_t port):
-    port_(port)
-  {
-    handle_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(handle_ <= 0) {
-      TERMINATE("Can't create socket\n");
-    }
+/*   Socket(port_t port): */
+/*     port_(port) */
+/*   { */
+/*     handle_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); */
+/*     if(handle_ <= 0) { */
+/*       TERMINATE("Can't create socket\n"); */
+/*     } */
 
-    sockaddr_in address = Addr(INADDR_ANY, port_);
+/*     sockaddr_in address = Addr(INADDR_ANY, port_); */
 
-    if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) {
-      perror("error");
-      TERMINATE("Can't bind socket\n");
-    }
+/*     if(bind(handle_, (const sockaddr *)&address, sizeof(sockaddr_in)) < 0) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't bind socket\n"); */
+/*     } */
 
-    int nonBlocking = 1;
-    if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) {
-      perror("error");
-      TERMINATE("Can't set non-blocking socket\n");
-    }
-  }
+/*     int nonBlocking = 1; */
+/*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't set non-blocking socket\n"); */
+/*     } */
+/*   } */
 
-  ~Socket() {
-    close(handle_);
-  }
+/*   ~Socket() { */
+/*     close(handle_); */
+/*   } */
 
-  bool try_connect(Addr addr) {
-    server = addr;
-    if(connect(handle_, (sockaddr *)&server, sizeof(server)) < 0) {
-      perror("error");
-      return false;
-    }
-    return true;
-  }
+/*   bool try_connect(Addr addr) { */
+/*     server = addr; */
+/*     if(connect(handle_, (sockaddr *)&server, sizeof(server)) < 0) { */
+/*       perror("error"); */
+/*       return false; */
+/*     } */
+/*     return true; */
+/*   } */
 
-  template <typename T>
-  void send(const Package<T> &package) {
-    int sent_bytes = write(handle_, &package.data, sizeof(T));
-    if(sent_bytes < sizeof(T)) {
-      perror("error");
-      TERMINATE("Can't sent package: sent less bytes\n");
-    }
-  }
+/*   template <typename T> */
+/*   void send(const Package<T> &package) { */
+/*     int sent_bytes = write(handle_, &package.data, sizeof(T)); */
+/*     if(sent_bytes < sizeof(T)) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't sent package: sent less bytes\n"); */
+/*     } */
+/*   } */
 
-  template <typename T>
-  bool receive(Package<T> &package) {
-    int received_bytes = read(handle_, &package.data, sizeof(T));
-    if(received_bytes < sizeof(T)) {
-      return false;
-    }
-    package.addr = server;
-    return true;
-  }
+/*   template <typename T> */
+/*   bool receive(Package<T> &package) { */
+/*     int received_bytes = read(handle_, &package.data, sizeof(T)); */
+/*     if(received_bytes < sizeof(T)) { */
+/*       return false; */
+/*     } */
+/*     package.addr = server; */
+/*     return true; */
+/*   } */
 
-	port_t port() const {
-    return port_;
-  }
-};
+/* 	port_t port() const { */
+/*     return port_; */
+/*   } */
+/* }; */
 
 }
