@@ -208,9 +208,9 @@ public:
 
   template <typename T>
 	void send(const Package<T> package) const {
-    if(sizeof(package.data) > MAX_PACKET_SIZE) {
+    if(sizeof(T) > MAX_PACKET_SIZE) {
       perror("error");
-      TERMINATE("Package too big");
+      TERMINATE("The packet to be sent is too big\n");
     }
 
     sockaddr_in address = package.addr;
@@ -251,12 +251,14 @@ public:
   }
 
   template <typename G, typename F>
-  void listen(std::mutex &mtx, G &&idle, F &&func) {
+  void listen(std::mutex &socket_mtx, G &&idle, F &&func) {
     std::optional<Blob> opt_blob;
     bool cond = 1;
     while(cond) {
-      idle();
-      std::lock_guard<std::mutex> guard(mtx);
+      if(!idle()) {
+        break;
+      }
+      std::lock_guard<std::mutex> guard(socket_mtx);
       if((opt_blob = receive()).has_value()) {
         cond = func(*opt_blob);
       }
@@ -264,8 +266,8 @@ public:
   }
 
   template <typename F>
-  void listen(std::mutex &mtx, F &&func) {
-    listen(mtx, [](){}, std::forward<F>(func));
+  void listen(std::mutex &socket_mtx, F &&func) {
+    listen(socket_mtx, [](){return true;}, std::forward<F>(func));
   }
 };
 

@@ -76,21 +76,27 @@ struct Button {
     uState.set_id(quadProgram.id());
   }
 
-  void setx(float l, float r) { region.xs = glm::vec2(l, r); }
-  void sety(float t, float b) { region.ys = glm::vec2(t, b); }
+  void setx(float l, float r) {
+    if(l > r)std::swap(l, r);
+    region.xs = glm::vec2(l, r);
+  }
+  void sety(float t, float b) {
+    if(t > b)std::swap(t, b);
+    region.ys = glm::vec2(t, b);
+  }
 
   void mouse(float m_x, float m_y) {
-    m_x = 2 * m_x - 1;
-    m_y = 2 * m_y - 1;
+    float s_x = 2 * m_x - 1;
+    float s_y = 2 * m_y - 1;
     /* printf("button mouse: %f %f\n", m_x, m_y); */
     /* printf("xs: %f %f\n", region.x1(), region.x2()); */
     /* printf("ys: %f %f\n", region.y1(), region.y2()); */
     /* printf("contains: %d\n", region.contains(m_x, m_y)); */
     /* printf("contains x: %d\n", region.x1() <= m_x && m_x <= region.x2()); */
     /* printf("contains y: %d\n", region.y1() <= m_y && m_y <= region.y2()); */
-    if(state == DEFAULT_STATE && region.contains(m_x, m_y)) {
+    if(state == DEFAULT_STATE && region.contains(s_x, s_y)) {
       state = POINTED_STATE;
-    } else if(state == POINTED_STATE && !region.contains(m_x, m_y)) {
+    } else if(state == POINTED_STATE && !region.contains(s_x, s_y)) {
       state = DEFAULT_STATE;
     }
   }
@@ -119,6 +125,7 @@ struct Button {
   void action_on_click(F func) {
     if(clicked) {
       func();
+      clicked = false;
     }
   }
 

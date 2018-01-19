@@ -19,7 +19,7 @@ struct MetaServerObject {
   {}
 
   bool is_active() {
-    return !mclient.should_stop();
+    return !mclient.should_stop() && !mclient.has_hosted();
   }
 
   void init() {

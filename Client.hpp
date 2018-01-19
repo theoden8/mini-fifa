@@ -26,12 +26,13 @@ struct Client {
 
   bool is_active_game() {
     ASSERT(((soccer == nullptr) ? 1 : 0) == ((intelligence == nullptr) ? 1 : 0));
-    return soccer == nullptr;
+    return soccer != nullptr && intelligence != nullptr;
   }
 
   void start_mclient() {
     ASSERT(!is_active_mclient());
     mclient.start();
+    Logger::Info("started mclient\n");
   }
   void stop_mclient() {
     ASSERT(is_active_mclient());
@@ -42,6 +43,7 @@ struct Client {
     ASSERT(!is_active_lobby());
     l_actor = mclient.make_lobby();
     lobby = &l_actor->lobby;
+    l_actor->start();
   }
   void stop_lobby() {
     ASSERT(is_active_lobby());
@@ -61,26 +63,34 @@ struct Client {
     ASSERT(is_active_game());
     intelligence->stop();
     delete intelligence;
+    intelligence = nullptr;
     delete soccer;
+    soccer = nullptr;
   }
 
 // actions
   void action_host_game() {
+    Logger::Info("client: action host game\n");
     stop_mclient();
     start_lobby();
   }
 
   void action_start_game() {
+    Logger::Info("client: action start game\n");
     start_game();
     stop_lobby();
+    intelligence->start();
   }
 
   void action_quit_lobby() {
+    Logger::Info("client: action unhost game\n");
     stop_lobby();
     start_mclient();
+    mclient.action_unhost();
   }
 
   void action_quit_game() {
+    Logger::Info("client: action leave game\n");
     stop_game();
     start_mclient();
   }

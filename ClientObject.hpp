@@ -36,9 +36,11 @@ struct ClientObject {
   void mouse(float m_x, float m_y) {
     if(mObject.is_active()) {
       mObject.mouse(m_x, m_y);
-    } else if(lObject.is_active()) {
+    }
+    if(lObject.is_active()) {
       lObject.mouse(m_x, m_y);
-    } else if(gObject != nullptr) {
+    }
+    if(gObject != nullptr) {
       gObject->mouse(m_x, m_y);
     }
     cursor.mouse(m_x, m_y);
@@ -55,37 +57,33 @@ struct ClientObject {
   }
 
   void update_states() {
-    if(client.is_active_mclient()) {
-      if(lObject.is_active()) {
-        lObject.unset_actor();
-      }
-      if(gObject != nullptr) {
-        gObject->clear();
-        delete gObject;
-      }
-    } else if(client.is_active_lobby()) {
-      if(!lObject.is_active()) {
-        lObject.set_actor(*client.l_actor);
-      }
-      if(gObject != nullptr) {
-        gObject->clear();
-        delete gObject;
-      }
-    } else if(client.is_active_game()) {
-      if(lObject.is_active()) {
-        lObject.unset_actor();
-      } else if(gObject == nullptr) {
-        gObject = new GameObject(*client.soccer, *client.intelligence, cursor);
-        gObject->init();
-      }
+    // perform actions
+    if(client.is_active_mclient() && client.mclient.has_hosted() && !client.is_active_lobby() && !client.is_active_game()) {
+      client.action_host_game();
     }
+    if(client.is_active_lobby() && client.l_actor->has_quit()) {
+      client.action_quit_lobby();
+    } else if(client.is_active_lobby() && client.l_actor->has_started()) {
+      client.action_start_game();
+    }
+    // set lObject
+    lObject.lobbyActor = client.l_actor;
+    // set gObject
+    if(gObject == nullptr && client.is_active_game()) {
+      gObject = new GameObject(*client.soccer, *client.intelligence, cursor);
+      gObject->init();
+    } else if(gObject != nullptr && !client.is_active_game()) {
+      gObject->clear();
+      delete gObject;
+    }
+    ASSERT(!(lObject.is_active() && gObject != nullptr));
   }
 
   void display(GLFWwindow *window, size_t width, size_t height) {
     update_states();
-    if(client.is_active_mclient()) {
+    if(mObject.is_active()) {
       mObject.display();
-    } else if(client.is_active_lobby()) {
+    } else if(lObject.is_active()) {
       lObject.display();
     } else if(client.is_active_game()) {
       gObject->set_winsize(width, height);

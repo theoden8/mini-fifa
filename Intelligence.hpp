@@ -31,6 +31,7 @@ struct Intelligence <IntelligenceType::ABSTRACT> {
   virtual void s_action() = 0;
   virtual void m_action(glm::vec3) = 0;
   virtual void idle(Timer::time_t) = 0;
+  virtual void start() = 0;
   virtual bool should_stop() = 0;
   virtual void stop() = 0;
   virtual ~Intelligence()
@@ -100,14 +101,10 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
 
   std::vector<net::Addr> clients;
 
-  Intelligence(int id, Soccer &soccer, net::port_t port, std::vector<net::Addr> clients):
-    id_(id), soccer(soccer), socket(port), clients(clients)
-  {
-    server_thread = std::thread(
-      SoccerServer::run,
-      this
-    );
-  }
+  Intelligence(int id, Soccer &soccer, net::Socket<net::SocketType::UDP> &socket, std::vector<net::Addr> clients):
+    id_(id), soccer(soccer),
+    socket(socket), clients(clients)
+  {}
 
   static void run(SoccerServer *server) {
     constexpr int EVENT_SYNC = 1;
@@ -115,42 +112,46 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
     Timer timer;
     timer.set_time(Timer::system_time());
     timer.set_timeout(EVENT_SYNC, .1);
-    server->socket.listen(socket_mtx, [&]() mutable {
-      // send sync data for random unit showing that no action occured until a
-      // certain time point
-      Timer::time_t server_time = Timer::system_time();
-      timer.set_time(server_time);
-      if(timer.timed_out(EVENT_SYNC)) {
-        timer.set_event(EVENT_SYNC);
-        std::lock_guard<std::mutex> guard(server->soccer.mtx);
-        int no_ids = server->soccer.team1.size() + server->soccer.team2.size() + 1;
-        int8_t unit_id = (rand() % no_ids) - 1;
-        for(const auto &addr : server->clients) {
-          std::lock_guard<std::mutex> guard(socket_mtx);
-          server->socket.send(net::make_package(addr, server->get_sync_data(unit_id)));
-        }
-      }
-    }, [&](const net::Blob &blob) {
-      // act on receivinga package
-      if(std::find(server->clients.begin(), server->clients.end(), blob.addr) == std::end(server->clients)) {
-        return server->should_stop();
-      }
-      // if this package seems to be action, perform action and send responses
-      blob.try_visit_as<pkg::action_struct>([&](const auto action) mutable {
-        server->perform_action(action);
-        {
-          std::lock_guard<std::mutex> guard(server->no_actions_mtx);
-          ++server->no_actions;
-        }
-        {
+    server->socket.listen(socket_mtx,
+      [&]() mutable {
+        // send sync data for random unit showing that no action occured until a
+        // certain time point
+        Timer::time_t server_time = Timer::system_time();
+        timer.set_time(server_time);
+        if(timer.timed_out(EVENT_SYNC)) {
+          timer.set_event(EVENT_SYNC);
           std::lock_guard<std::mutex> guard(server->soccer.mtx);
+          int no_ids = server->soccer.team1.size() + server->soccer.team2.size() + 1;
+          int8_t unit_id = (rand() % no_ids) - 1;
           for(const auto &addr : server->clients) {
-            server->socket.send(net::make_package(addr, server->get_sync_data(action.id)));
+            std::lock_guard<std::mutex> guard(socket_mtx);
+            server->socket.send(net::make_package(addr, server->get_sync_data(unit_id)));
           }
         }
-      });
-      return server->should_stop();
-    });
+        return !server->should_stop();
+      },
+      [&](const net::Blob &blob) {
+        // act on receivinga package
+        if(std::find(server->clients.begin(), server->clients.end(), blob.addr) == std::end(server->clients)) {
+          return !server->should_stop();
+        }
+        // if this package seems to be action, perform action and send responses
+        blob.try_visit_as<pkg::action_struct>([&](const auto action) mutable {
+          server->perform_action(action);
+          {
+            std::lock_guard<std::mutex> guard(server->no_actions_mtx);
+            ++server->no_actions;
+          }
+          {
+            std::lock_guard<std::mutex> guard(server->soccer.mtx);
+            for(const auto &addr : server->clients) {
+              server->socket.send(net::make_package(addr, server->get_sync_data(action.id)));
+            }
+          }
+        });
+        return !server->should_stop();
+      }
+    );
   }
 
   pkg::sync_struct get_sync_data(int unit_id=Ball::NO_OWNER) {
@@ -198,7 +199,13 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
     return id_;
   }
 
-  bool finalize = false;
+  bool finalize = true;
+  void start() {
+    Logger::Info("intelligence: started iserver\n");
+    ASSERT(should_stop());
+    finalize = false;
+    server_thread = std::thread(SoccerServer::run, this);
+  }
   void stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;
@@ -258,34 +265,34 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   std::mutex finalize_mtx;
   std::mutex socket_mtx;
 
-  Intelligence(int id, Soccer &soccer, net::port_t client_port, net::Addr server_addr):
+  Intelligence(int id, Soccer &soccer, net::Socket<net::SocketType::UDP> &socket, net::Addr server_addr):
     id_(id),
     soccer(soccer),
     server_addr(server_addr),
-    socket(client_port)
-  {
-    client_thread = std::thread(
-      SoccerRemote::run,
-      this
-    );
-  }
+    socket(socket)
+  {}
 
   static void run(SoccerRemote *client) {
     Timer::time_t delay = 1.;
-    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) mutable {
-      bool ret = client->should_stop();
-      if(blob.addr != client->server_addr) {
-        return client->should_stop();
+    client->socket.listen(client->socket_mtx,
+      [&]() mutable {
+        return !client->should_stop();
+      },
+      [&](const net::Blob &blob) mutable {
+        bool ret = client->should_stop();
+        if(blob.addr != client->server_addr) {
+          return !client->should_stop();
+        }
+        blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) mutable {
+          std::lock_guard<std::mutex> guard(client->frame_schedule_mtx);
+          client->frame_schedule.push(sync);
+          std::lock_guard<std::mutex> sguard(client->soccer.mtx);
+          Timer::time_t current_time = client->soccer.timer.current_time;
+          delay = current_time - sync.frame;
+        });
+        return !client->should_stop();
       }
-      blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) mutable {
-        std::lock_guard<std::mutex> guard(client->frame_schedule_mtx);
-        client->frame_schedule.push(sync);
-        std::lock_guard<std::mutex> sguard(client->soccer.mtx);
-        Timer::time_t current_time = client->soccer.timer.current_time;
-        delay = current_time - sync.frame;
-      });
-      return client->should_stop();
-    });
+    );
   }
 
   std::priority_queue<
@@ -397,7 +404,13 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
     frames.push(curtime);
   }
 
-  bool finalize = false;
+  bool finalize = true;
+  void start() {
+    Logger::Info("intelligence: started iclient\n");
+    ASSERT(should_stop());
+    finalize = false;
+    client_thread = std::thread(SoccerRemote::run, this);
+  }
   void stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
     finalize = true;

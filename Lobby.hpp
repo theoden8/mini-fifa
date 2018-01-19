@@ -4,6 +4,7 @@
 #include "Logger.hpp"
 
 #include <cstdint>
+
 #include <map>
 #include <thread>
 #include <mutex>
@@ -56,13 +57,13 @@ struct Lobby {
 
   void add_participant(net::Addr addr, IntelligenceType itype=IntelligenceType::REMOTE) {
     std::lock_guard<std::mutex> guard(mtx);
-    bool team = (team1 > team2) ? Soccer::Team::RED_TEAM : Soccer::Team::BLUE_TEAM;
+    bool team = (team1 >= team2) ? Soccer::Team::RED_TEAM : Soccer::Team::BLUE_TEAM;
     players.insert({addr, Participant({
       .ind=int8_t(players.size()),
       .itype=itype,
       .team=team
     })});
-    ++(team?team1:team2);
+    ++(!team?team1:team2);
   }
 
   void remove_participant(net::Addr addr) {
@@ -100,11 +101,38 @@ struct LobbyActor {
   bool is_active() {
     return !should_stop();
   }
+  virtual void start() = 0;
   virtual void stop() = 0;
   virtual bool should_stop() = 0;
   virtual Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) = 0;
   virtual ~LobbyActor()
   {}
+
+  std::mutex state_mtx;
+  enum class State {
+    DEFAULT, STARTED, QUIT
+  };
+  State state_ = State::DEFAULT;
+  void set_state(State state) {
+    std::lock_guard<std::mutex> guard(state_mtx);
+    state_ = state;
+  }
+  State state() {
+    std::lock_guard<std::mutex> guard(state_mtx);
+    return state_;
+  }
+  void action_leave() {
+    set_state(State::QUIT);
+  }
+  void action_start() {
+    set_state(State::STARTED);
+  }
+  bool has_quit() {
+    return state() == State::QUIT;
+  }
+  bool has_started() {
+    return state() == State::STARTED;
+  }
 };
 
 // server-side
@@ -121,55 +149,68 @@ struct LobbyServer : LobbyActor {
     host(net::ip_from_ints(0, 0, 0, 0), port),
     socket(port),
     metaserver(metaserver)
-  {
-    Logger::Info("lserver: started\n");
-    lobby.add_participant(host, IntelligenceType::SERVER);
-    server_thread = std::thread(LobbyServer::run, this);
-  }
+  {}
 
   static void run(LobbyServer *server) {
     Timer timer;
     timer.set_time(Timer::system_time());
-    server->socket.listen(server->socket_mtx, [&](const net::Blob &blob) mutable {
-      blob.try_visit_as<pkg::hello_struct>([&](const auto &hello) mutable {
-        if(hello.a != pkg::HelloAction::CONNECT) {
-          bool found = false;
-          for(auto &p: server->lobby.players) {
-            if(p.first == blob.addr) {
-              found = true;
-              break;
+    server->socket.listen(server->socket_mtx,
+      [&]() mutable {
+        return !server->should_stop();
+      },
+      [&](const net::Blob &blob) mutable {
+        blob.try_visit_as<pkg::hello_struct>([&](const auto &hello) mutable {
+          if(hello.a != pkg::HelloAction::CONNECT) {
+            bool found = false;
+            std::lock_guard<std::mutex> guard(server->lobby.mtx);
+            for(auto &p: server->lobby.players) {
+              if(p.first == blob.addr) {
+                found = true;
+                break;
+              }
+            }
+            if(!found) {
+              return !server->should_stop();
             }
           }
-          if(!found) {
-            return !server->should_stop();
+          {
+            std::lock_guard<std::mutex> guard(server->lobby.mtx);
+            switch(hello.a) {
+              case pkg::HelloAction::CONNECT:server->lobby.add_participant(blob.addr);break;
+              case pkg::HelloAction::DISCONNECT:server->lobby.remove_participant(blob.addr);break;
+              case pkg::HelloAction::NOTHING:break;
+            }
           }
-        }
-        switch(hello.a) {
-          case pkg::HelloAction::CONNECT:server->lobby.add_participant(blob.addr);break;
-          case pkg::HelloAction::DISCONNECT:server->lobby.remove_participant(blob.addr);break;
-          case pkg::HelloAction::NOTHING:break;
-        }
-        Timer::time_t server_time = Timer::system_time();
-        for(auto &p : server->lobby.players) {
-          auto addr = p.first;
-          server->socket.send(net::make_package(addr, (pkg::lobbysync_struct){
-            .a = hello.a,
-            .time = server_time,
-            .address = blob.addr
-          }));
-        }
-      });
-      return !server->should_stop();
-    });
+          Timer::time_t server_time = Timer::system_time();
+          for(auto &p : server->lobby.players) {
+            auto addr = p.first;
+            server->socket.send(net::make_package(addr, (pkg::lobbysync_struct){
+              .a = hello.a,
+              .time = server_time,
+              .address = blob.addr
+            }));
+          }
+        });
+        return !server->should_stop();
+      }
+    );
   }
 
   bool finalize = false;
+  void start() {
+    Logger::Info("lserver: started\n");
+    lobby.add_participant(host, IntelligenceType::SERVER);
+    finalize = false;
+    server_thread = std::thread(LobbyServer::run, this);
+  }
   void stop() {
-    Logger::Info("lserver: finished\n");
     action_unhost();
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
+    {
+      std::lock_guard<std::mutex> guard(finalize_mtx);
+      finalize = true;
+    }
     server_thread.join();
+    Logger::Info("lserver: finished\n");
   }
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
@@ -177,8 +218,8 @@ struct LobbyServer : LobbyActor {
   }
 
   void action_unhost() {
+    std::lock_guard<std::mutex> guard(lobby.mtx);
     for(auto &p : lobby.players) {
-      std::lock_guard<std::mutex> guard(socket_mtx);
       Logger::Info("lserver: action unhost\n");
       socket.send(net::make_package(p.first, (pkg::lobbysync_struct){
         .a = pkg::HelloAction::DISCONNECT
@@ -194,7 +235,7 @@ struct LobbyServer : LobbyActor {
         clients.push_back(p.first);
       }
     }
-    return new SoccerServer(lobby.players[host].ind, soccer, host.port, clients);
+    return new SoccerServer(lobby.players[host].ind, soccer, socket, clients);
   }
 };
 
@@ -204,14 +245,11 @@ struct LobbyClient : LobbyActor {
   std::thread client_thread;
   std::mutex finalize_mtx;
   std::mutex socket_mtx;
-  bool is_connected = false;
 
   // connect at construction
-  LobbyClient(Lobby &lobby, net::Addr addr, net::port_t port=4567):
-    LobbyActor(lobby), socket(port)
-  {
-    connect(addr);
-  }
+  LobbyClient(Lobby &lobby, net::Addr host, net::port_t port=4567):
+    LobbyActor(lobby), socket(port), host(host)
+  {}
 
   void send_action(pkg::hello_struct hello) {
     std::lock_guard<std::mutex> guard(socket_mtx);
@@ -221,41 +259,47 @@ struct LobbyClient : LobbyActor {
   std::priority_queue<pkg::lobbysync_struct> lobby_actions;
   std::mutex lsync_mtx;
   static void run(LobbyClient *client) {
-    client->socket.listen(client->socket_mtx, [&](const net::Blob &blob) mutable {
-      if(blob.addr != client->host) {
+    client->socket.listen(client->socket_mtx,
+      [&]() mutable {
+        return !client->should_stop();
+      },
+      [&](const net::Blob &blob) mutable {
+        if(blob.addr != client->host) {
+          return !client->should_stop();
+        }
+        blob.try_visit_as<pkg::lobbysync_struct>([&](const auto lsync) mutable {
+          if(lsync.a == pkg::HelloAction::DISCONNECT) {
+            return;
+          }
+          std::lock_guard<std::mutex> guard(client->lsync_mtx);
+          client->lobby_actions.push(lsync);
+        });
         return !client->should_stop();
       }
-      blob.try_visit_as<pkg::lobbysync_struct>([&](const auto lsync) mutable {
-        if(lsync.a == pkg::HelloAction::DISCONNECT) {
-          return;
-        }
-        std::lock_guard<std::mutex> guard(client->lsync_mtx);
-        client->lobby_actions.push(lsync);
-      });
-      return !client->should_stop();
-    });
+    );
   }
 
-  void connect(net::Addr addr) {
+  void start() {
+    ASSERT(should_stop());
     Logger::Info("lclient: started\n");
-    ASSERT(!is_connected);
-    host = addr;
     finalize = false;
-    is_connected = true;
-    pkg::hello_struct hello = { .a = pkg::HelloAction::CONNECT };
-    send_action(hello);
+    send_action((pkg::hello_struct){
+      .a = pkg::HelloAction::CONNECT
+    });
     client_thread = std::thread(LobbyClient::run, this);
   }
 
   bool finalize = false;
   void stop() {
-    Logger::Info("lclient: finished\n");
-    if(is_connected) {
+    if(!should_stop()) {
       action_quit();
     }
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
+    {
+      std::lock_guard<std::mutex> guard(finalize_mtx);
+      finalize = true;
+    }
     client_thread.join();
+    Logger::Info("lclient: finished\n");
   }
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);

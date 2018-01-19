@@ -4,6 +4,7 @@
 #include "Network.hpp"
 #include "Lobby.hpp"
 
+#include <cstdint>
 #include <cstring>
 
 #include <thread>
@@ -13,7 +14,7 @@
 #include <string>
 
 namespace pkg {
-  enum class MetaServerAction {
+  enum class MetaServerAction : int8_t {
     HELLO,
     HOST_GAME,
     UNHOST_GAME
@@ -27,6 +28,7 @@ namespace pkg {
   struct metaserver_response_struct {
     MetaServerAction action;
     net::Addr host;
+    bool you = false;
     char name[30];
   };
 }
@@ -68,14 +70,19 @@ struct MetaServer {
         if(timer.timed_out(CHECK_STATUSES)) {
           Logger::Info("mserver: cleaning up inactive users\n");
           timer.set_event(CHECK_STATUSES);
+          std::string s = "";
           for(auto &u : users) {
             if(user_timer.timed_out(Timer::key_t(u.ip))) {
               Logger::Info("mserver: removing user %s\n", u.to_str().c_str());
               users.erase(u);
               user_timer.erase(Timer::key_t(u.ip));
+            } else {
+              s += u.to_str() + " ";
             }
           }
+          Logger::Info("mserver: users [ %s]\n", s.c_str());
         }
+        return !feof(stdin);
       },
       [&](const net::Blob &blob) mutable {
         Logger::Info("mserver: received package from %s\n", blob.addr.to_str().c_str());
@@ -99,33 +106,35 @@ struct MetaServer {
             case pkg::MetaServerAction::HOST_GAME:
               if(found) {
                 hello.name[29] = '\0';
-                Logger::Info("mserver: hosting game name=''");
+                Logger::Info("mserver: hosting game name='%s'\n", hello.name);
                 register_host(blob.addr, hello.name);
               }
             break;
             case pkg::MetaServerAction::UNHOST_GAME:
               if(found) {
                 hello.name[29] = '\0';
-                Logger::Info("mserver: unhosting game");
+                Logger::Info("mserver: unhosting game\n");
                 unregister_host(blob.addr);
               }
             break;
           }
         });
-        return feof(stdin);
+        return !feof(stdin);
     });
     Logger::Info("mserver: finisned\n");
   }
 
   void register_host(net::Addr host, std::string name) {
-    ASSERT(name.length() < 80);
+    ASSERT(name.length() < 30);
     gamelist.add_game(host, name);
     pkg::metaserver_response_struct response = {
       .action = pkg::MetaServerAction::HOST_GAME,
       .host = host
     };
     strcpy(response.name, name.c_str());
+    Logger::Info("mserver: sending action host host=%s name=%s\n", host.to_str().c_str(), name.c_str());
     for(auto &addr : users) {
+      response.you = (host == addr);
       net::Package<pkg::metaserver_response_struct> package(addr, response);
       socket.send(package);
     }
@@ -133,13 +142,13 @@ struct MetaServer {
 
   void unregister_host(net::Addr host) {
     gamelist.delete_game(host);
-    pkg::metaserver_response_struct response = {
-      .action = pkg::MetaServerAction::UNHOST_GAME,
-      .host = host
-    };
+    Logger::Info("mserver: sending action unhost host=%s\n", host.to_str().c_str());
     for(auto &addr : users) {
-      net::Package<pkg::metaserver_response_struct> package(addr, response);
-      socket.send(package);
+      socket.send(net::make_package(addr, (pkg::metaserver_response_struct){
+        .action = pkg::MetaServerAction::UNHOST_GAME,
+        .host = host,
+        .you = (host == addr)
+      }));
     }
   }
 };
@@ -148,9 +157,6 @@ struct MetaServerClient {
   GameList gamelist;
   net::Addr metaserver;
   net::Socket<net::SocketType::UDP> socket;
-
-  Timer timer;
-  static constexpr int SEND_HELLO = 1;
 
   struct LobbyMaker {
     enum class type { SERVER, CLIENT };
@@ -164,46 +170,64 @@ struct MetaServerClient {
 
   MetaServerClient(net::Addr metaserver, net::port_t port=5679):
     metaserver(metaserver), socket(port)
-  {
-    timer.set_time(.0);
-    timer.set_timeout(SEND_HELLO, .5);
-  }
+  {}
 
   static void run(MetaServerClient *client) {
+    Timer timer;
     constexpr int EVENT_REFRESH = 1;
-    client->timer.set_timeout(EVENT_REFRESH, .4);
-    client->socket.listen(client->socket_mtx, [&]() mutable {
-      client->timer.set_time(Timer::system_time());
-      if(client->timer.timed_out(EVENT_REFRESH)) {
-        client->timer.set_event(EVENT_REFRESH);
-        std::lock_guard<std::mutex> guard(client->socket_mtx);
-        Logger::Info("mclient: sending hello\n");
-        client->send_action((pkg::metaserver_hello_struct){
-          .action = pkg::MetaServerAction::HELLO
-        });
-      }
-    },
-    [&](const net::Blob &blob) {
-      if(blob.addr != client->metaserver) {
-        return client->should_stop();
-      }
-      blob.try_visit_as<pkg::metaserver_response_struct>([&](const auto &response) mutable {
-        switch(response.action) {
-          case pkg::MetaServerAction::HOST_GAME:client->register_host(response.host, response.name);break;
-          case pkg::MetaServerAction::UNHOST_GAME:client->unregister_host(response.host);break;
-          case pkg::MetaServerAction::HELLO:break;
+    timer.set_timeout(EVENT_REFRESH, Timer::time_t(1.));
+    client->socket.listen(client->socket_mtx,
+      [&]() mutable {
+        usleep(1e6 / 24.);
+        timer.set_time(Timer::system_time());
+        if(timer.timed_out(EVENT_REFRESH)) {
+          timer.set_event(EVENT_REFRESH);
+          Logger::Info("mclient: sending hello\n");
+          client->send_action((pkg::metaserver_hello_struct){
+            .action = pkg::MetaServerAction::HELLO
+          });
         }
-      });
-      return client->should_stop();
-    });
+        return !client->should_stop();
+      },
+      [&](const net::Blob &blob) {
+        if(blob.addr != client->metaserver) {
+          return !client->should_stop();
+        }
+        blob.try_visit_as<pkg::metaserver_response_struct>([&](const auto &response) mutable {
+          switch(response.action) {
+            case pkg::MetaServerAction::HELLO:break;
+            case pkg::MetaServerAction::HOST_GAME:
+              client->register_host(response.host, response.name);
+              if(response.you) {
+                std::lock_guard<std::mutex> guard(client->state_mtx);
+                client->state_hosted = true;
+              }
+            break;
+            case pkg::MetaServerAction::UNHOST_GAME:
+              client->unregister_host(response.host);
+            break;
+          }
+        });
+        return !client->should_stop();
+      }
+    );
+  }
+
+  std::mutex state_mtx;
+  bool state_hosted = false;
+  bool has_hosted() {
+    std::lock_guard<std::mutex> guard(state_mtx);
+    return state_hosted;
   }
 
   void register_host(net::Addr host, std::string name) {
     ASSERT(name.length() < 80);
+    Logger::Info("mclient: register game host=%s name=%s\n", host.to_str().c_str(), name.c_str());
     gamelist.add_game(host, name);
   }
 
   void unregister_host(net::Addr host) {
+    Logger::Info("mclient: unregister game host=%s\n", host.to_str().c_str());
     gamelist.delete_game(host);
   }
 
@@ -219,11 +243,14 @@ struct MetaServerClient {
   }
 
   void action_unhost() {
-    pkg::metaserver_hello_struct data = {
-      .action = pkg::MetaServerAction::UNHOST_GAME
-    };
     Logger::Info("mclient: sending action unhost game\n");
-    send_action(data);
+    {
+      std::lock_guard<std::mutex> guard(state_mtx);
+      state_hosted = false;
+    }
+    send_action((pkg::metaserver_hello_struct){
+      .action = pkg::MetaServerAction::UNHOST_GAME
+    });
   }
 
   void send_action(pkg::metaserver_hello_struct hello) {
@@ -258,8 +285,10 @@ struct MetaServerClient {
   }
 
   void stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
+    {
+      std::lock_guard<std::mutex> guard(finalize_mtx);
+      finalize = true;
+    }
     user_thread.join();
     Logger::Info("mclient: finished\n");
   }
