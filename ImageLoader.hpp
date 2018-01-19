@@ -18,7 +18,7 @@
 
 namespace img {
 
-Image *load_image(File &file) {
+Image *load_image(sys::File &file) {
   Logger::Info("Loading image file '%s'\n", file.name().c_str());
   Image *image = nullptr;
   if(!file.exists()) {

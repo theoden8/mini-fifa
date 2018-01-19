@@ -107,8 +107,8 @@ public:
   }
 
   template <typename... STRINGs>
-  ShaderProgram(STRINGs... shader_filenames):
-    shaders(shader_filenames...)
+  ShaderProgram(STRINGs&&... shader_filenames):
+    shaders(std::forward<STRINGs>(shader_filenames)...)
   {}
 
   GLuint id() const {
@@ -168,6 +168,10 @@ public:
 
   void use() {
     use(id());
+  }
+
+  static void dispatch(size_t x, size_t y, size_t z) {
+    glDispatchCompute(x, y, z); GLERROR
   }
 
   static void unuse() {

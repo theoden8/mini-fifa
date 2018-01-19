@@ -43,7 +43,7 @@ struct Texture {
     /* init(); return; */
     /* long c=clock(); */
     Logger::Info("Loading texture '%s'\n", filename.c_str());
-    File file(filename.c_str());
+    sys::File file(filename.c_str());
     /* c=clock(); */
     img::Image *image = img::load_image(file);
     /* Logger::Info("load image '%s': %ld\n", filename.c_str(), clock()-c); */

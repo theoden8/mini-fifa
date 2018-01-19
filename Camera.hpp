@@ -15,8 +15,6 @@ struct Camera {
   Camera()
   {}
 
-  void init() {}
-
   void update(float ratio) {
     /* cameraPos = cameraTarget + glm::vec3(0, std::cos(glm::radians(angle)), std::sin(glm::radians(angle))); */
     cameraPos = cameraTarget + glm::vec3(0, std::cos(glm::radians(angle)), std::sin(glm::radians(angle)));
@@ -117,8 +115,5 @@ struct Camera {
 
   decltype(auto) get_matrix() {
     return projection * view;
-  }
-
-  void clear() {
   }
 };

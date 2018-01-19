@@ -15,10 +15,13 @@ else()
     message(WARNING "You are using unsupported compiler, and will probably have to change the source code.")
 endif()
 
-set(exec prog)
-file(GLOB SRCS ./*.cpp)
-add_executable(${exec} ${SRCS})
 set(CMAKE_CXX_FLAGS "-std=c++1z")
+
+add_executable(metaserver metaserver.cpp)
+
+set(exec minififa)
+set(SRCS ./minififa.cpp)
+add_executable(${exec} ${SRCS})
 # set_target_properties(${exec} PROPERTIES CXX_STANDARD_REQUIRED 17 CXX_EXTENSIONS OFF)
 # set_property(TARGET ${exec} PROPERTY CXX_STANDARD 14)
 
@@ -46,6 +49,7 @@ endif(GLM_FOUND)
 
 find_package(OpenGL REQUIRED)
 if(OPENGL_FOUND)
+  add_definitions(-DCOMPILE_GLDEBUG)
   message("using ${OPENGL_LIBRARIES} ${OPENGL_INCLUDE_DIRS}")
   include_directories(${OPENGL_INCLUDE_DIRS})
   target_link_libraries(${exec} ${OPENGL_LIBRARIES})
@@ -93,6 +97,7 @@ endif(FREETYPE_FOUND)
 
 # find_package(OpenAL REQUIRED)
 # if(OPENAL_FOUND)
+#   add_definitions(-DCOMPILE_ALDEBUG)
 #   message("using ${OPENAL_LIBRARY} ${OPENAL_INCLUDE_DIR}")
 #   include_directories(${OPENAL_INCLUDE_DIR})
 #   target_link_libraries(${exec} ${OPENAL_LIBRARY})

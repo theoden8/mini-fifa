@@ -49,7 +49,7 @@ struct Transformation {
   }
 
   glm::vec4 GetPosition() const {
-    return translation * glm::vec4(1.0f);
+    return translation * glm::vec4(1.f);
   }
 
   void Rotate(float x, float y, float z, float deg) {
@@ -80,5 +80,9 @@ struct Transformation {
   void SetScale(float sx, float sy, float sz) {
     scaling = glm::scale(glm::vec3(sx, sy, sz));
     has_changed = true;
+  }
+
+  glm::vec3 GetScale() const {
+    return glm::vec3(scaling * glm::vec4(1.f));
   }
 };

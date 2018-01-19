@@ -35,7 +35,7 @@ constexpr GLenum get_gl_shader_constant() {
 
 template <ShaderType ShaderT>
 struct Shader {
-  File file;
+  sys::File file;
   GLuint shaderId = 0;
 
   Shader(std::string filename):
@@ -64,10 +64,6 @@ struct Shader {
     glShaderSource(shaderId, 1, &source_code, nullptr); GLERROR
     glCompileShader(shaderId); GLERROR
     free(source_code);
-  }
-  template <typename = std::enable_if<ShaderT == ShaderType::COMPUTE>>
-  void dispatch(size_t x, size_t y, size_t z) {
-    glDispatchCompute(x,y,z); GLERROR
   }
   void clear() {
     glDeleteShader(shaderId); GLERROR

@@ -1,53 +1,43 @@
 #pragma once
 
+#include <cstdlib>
+#include <unistd.h>
+
 #include <vector>
 #include <tuple>
 #include <string>
 #include <map>
-#include <cstdlib>
-#include <unistd.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "incgraphics.h"
 
-#include "Tuple.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "Logger.hpp"
 #include "Debug.hpp"
 
-#include "Camera.hpp"
-#include "Background.hpp"
-#include "SoccerObject.hpp"
-#include "Cursor.hpp"
+#include "ClientObject.hpp"
 
 namespace glfw {
-void error_callback(int error, const char* description);
-void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-void size_callback(GLFWwindow *window, int new_width, int new_height);
-void mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
-void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
+  void error_callback(int error, const char* description);
+  void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+  void size_callback(GLFWwindow *window, int new_width, int new_height);
+  void mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
+  void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 }
 
-class Window;
-
-std::map <GLFWwindow *, Window *> window_reference;
+std::map <GLFWwindow *, void *> window_reference;
 
 class Window {
 protected:
   size_t width_, height_;
 
-  /* al::Audio audio; */
-  Camera cam;
-  Soccer &soccer;
-  Intelligence &intelligence;
-  std::tuple<Background, SoccerObject, Cursor> layers;
-  /* std::tuple<Background, Player> layers; */
+  ClientObject cObject;
 
   void start() {
     init_glfw();
     init_glew();
     init_controls();
-    /* audio.Init(); */
     /* gl_version(); */
   }
   void init_glfw() {
@@ -89,12 +79,9 @@ protected:
   const GLFWvidmode *vidmode = nullptr;
 public:
   GLFWwindow *window = nullptr;
-  Window(Soccer &soccer, Intelligence &intelligence):
-    width_(0),
-    height_(0),
-    soccer(soccer),
-    intelligence(intelligence),
-    layers(Background(), SoccerObject(soccer, intelligence), Cursor())
+  Window(Client &client):
+    width_(0), height_(0),
+    cObject(client)
   {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }
@@ -111,35 +98,25 @@ public:
       Logger::Info("\t%s\n", glGetStringi(GL_EXTENSIONS, i));
     }
   }
-  void run(Intelligence &iserver) {
+  void run() {
     start();
-    cam.init();
-    Tuple::for_each(layers, [&](auto &lyr) mutable {
-      lyr.init();
-    });
-    cam.update(float(width()) / float(height()));
+    ui::Font::setup();
+    cObject.init();
 
-    /* audio.play(); */
     Timer::time_t current_time = .0;
     glfwSwapInterval(2); GLERROR
-    while(!glfwWindowShouldClose(window)) {
-      cam.keyboard(window, double(width())/height());
-      idle_mouse();
-      iserver.idle(current_time);
-      intelligence.idle(current_time);
-      display();
-      /* current_time += 1./60; */
-      current_time = glfwGetTime();
+    while(!glfwWindowShouldClose(window) && cObject.is_active()) {
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
+      cObject.display(window, width(), height());
+      mouse();
+      glfwPollEvents(); GLERROR
+      glfwSwapBuffers(window); GLERROR
     }
-    /* audio.stop(); */
-    Tuple::for_each(layers, [&](auto &lyr) {
-      lyr.clear();
-    });
-    cam.clear();
+    cObject.clear();
+    ui::Font::cleanup();
     glfwTerminate(); GLERROR
   }
-  void display() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
+  /* void display() { */
     /* glEnable(GL_DEPTH_CLAMP); GLERROR */
     /* glEnable(GL_DEPTH_TEST); GLERROR */
     /* glDepthFunc(GL_LESS); GLERROR */
@@ -150,39 +127,33 @@ public:
     /* glEnable(GL_CULL_FACE); GLERROR */
     /* glCullFace(GL_FRONT); GLERROR */
     /* glFrontFace(GL_CW); GLERROR */
-
-    Tuple::for_each(layers, [&](auto &lyr) mutable {
-      lyr.display(cam);
-    });
-    glfwPollEvents(); GLERROR
-    glfwSwapBuffers(window); GLERROR
-  }
+  /* } */
   void resize(float new_width, float new_height) {
     width_ = new_width, height_ = new_height;
-    cam.update(float(width_)/height_);
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
     if(action == GLFW_PRESS) {
-      std::get<1>(layers).keyboard(key);
-    }
-    if(action == GLFW_RELEASE) {
+      cObject.keypress(key, mods);
     }
   }
-  void idle_mouse() {
+  void mouse() {
     double m_x, m_y;
     glfwGetCursorPos(window, &m_x, &m_y);
     m_x /= width(), m_y /= height();
-    cam.mouse(m_x, m_y);
-    std::get<1>(layers).set_cursor(std::get<2>(layers), m_x, m_y, width(), height(), cam);
-    std::get<2>(layers).mouse(m_x, m_y);
+    cObject.mouse(m_x, m_y);
   }
   void mouse_click(double x, double y, int button, int action, int mods) {
-    std::get<1>(layers).set_cursor(std::get<2>(layers), x/width(), y/height(), width(), height(), cam);
-    std::get<1>(layers).mouse_click(button, action);
+    double m_x = x/width(), m_y = y/height();
+    cObject.mouse(m_x, m_y);
+    cObject.mouse_click(button, action);
   }
   void mouse_scroll(double xoffset, double yoffset) {
   }
 };
+
+static Window &get_window(GLFWwindow *window) {
+  return *((Window *)(window_reference[window]));
+}
 
 namespace glfw {
 void error_callback(int error, const char* description) {
@@ -191,18 +162,18 @@ void error_callback(int error, const char* description) {
 #endif
 }
 void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-  window_reference[window]->keyboard_event(key, scancode, action, mods);
+  get_window(window).keyboard_event(key, scancode, action, mods);
 }
 void size_callback(GLFWwindow *window, int new_width, int new_height) {
-  window_reference[window]->resize((float)new_width, (float)new_height);
+  get_window(window).resize((float)new_width, (float)new_height);
 }
 void mouse_button_callback(GLFWwindow *window, int button, int action, int mods) {
   double m_x, m_y;
   glfwGetCursorPos(window, &m_x, &m_y);
-  window_reference[window]->mouse_click(m_x, m_y, button, action, mods);
+  get_window(window).mouse_click(m_x, m_y, button, action, mods);
 }
 void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
-  window_reference[window]->mouse_scroll(xoffset, yoffset);
+  get_window(window).mouse_scroll(xoffset, yoffset);
 }
 
 }
