@@ -25,8 +25,12 @@ struct GameObject {
     cursor(cursor)
   {}
 
+  bool is_active() {
+    return !soccerObject.intelligence.has_quit();
+  }
+
   void init() {
-    cam.init();
+    Logger::Info("gobject: intiialized\n");
     background.init();
     soccerObject.init();
   }
@@ -40,8 +44,8 @@ struct GameObject {
     cam.keyboard(window, double(w_width)/w_height);
   }
 
-  void keypress(int key) {
-    soccerObject.keyboard(key);
+  void keypress(int key, int mods) {
+    soccerObject.keypress(key, mods);
   }
 
   void mouse(double m_x, double m_y) {
@@ -58,12 +62,13 @@ struct GameObject {
   }
 
   void display() {
+    if(!is_active())return;
     background.display(cam);
     soccerObject.display(cam);
   }
 
   void clear() {
-    cam.clear();
+    Logger::Info("gobject: clearance\n");
     background.clear();
     soccerObject.clear();
   }

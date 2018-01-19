@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include <algorithm>
+#include <set>
 #include <queue>
 #include <thread>
 #include <mutex>
@@ -36,6 +37,26 @@ struct Intelligence <IntelligenceType::ABSTRACT> {
   virtual void stop() = 0;
   virtual ~Intelligence()
   {}
+
+  enum class State {
+    DEFAULT, QUIT
+  };
+  State state_ = State::DEFAULT;
+  std::mutex state_mtx;
+  void set_state(State state) {
+    std::lock_guard<std::mutex> guard(state_mtx);
+    state_ = state;
+  }
+  State state() {
+    std::lock_guard<std::mutex> guard(state_mtx);
+    return state_;
+  }
+  void leave() {
+    set_state(State::QUIT);
+  }
+  bool has_quit() {
+    return state() == State::QUIT;
+  }
 };
 
 using SoccerServer = Intelligence<IntelligenceType::SERVER>;
@@ -94,14 +115,14 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
   int8_t id_;
   int no_actions = 0;
   Soccer &soccer;
-  net::Socket<net::SocketType::UDP> socket;
+  net::Socket<net::SocketType::UDP> &socket;
   std::thread server_thread;
   std::mutex no_actions_mtx;
   std::mutex finalize_mtx;
 
-  std::vector<net::Addr> clients;
+  std::set<net::Addr> clients;
 
-  Intelligence(int id, Soccer &soccer, net::Socket<net::SocketType::UDP> &socket, std::vector<net::Addr> clients):
+  Intelligence(int id, Soccer &soccer, net::Socket<net::SocketType::UDP> &socket, std::set<net::Addr> clients):
     id_(id), soccer(soccer),
     socket(socket), clients(clients)
   {}
@@ -131,8 +152,8 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
         return !server->should_stop();
       },
       [&](const net::Blob &blob) {
-        // act on receivinga package
-        if(std::find(server->clients.begin(), server->clients.end(), blob.addr) == std::end(server->clients)) {
+        // discard packages not belonging to current players
+        if(server->clients.find(blob.addr) == std::end(server->clients)) {
           return !server->should_stop();
         }
         // if this package seems to be action, perform action and send responses
@@ -201,15 +222,19 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
 
   bool finalize = true;
   void start() {
-    Logger::Info("intelligence: started iserver\n");
+    Logger::Info("iserver: started\n");
     ASSERT(should_stop());
     finalize = false;
     server_thread = std::thread(SoccerServer::run, this);
   }
   void stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
+    ASSERT(!should_stop());
+    {
+      std::lock_guard<std::mutex> guard(finalize_mtx);
+      finalize = true;
+    }
     server_thread.join();
+    Logger::Info("iserver: finished\n");
   }
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
@@ -217,37 +242,30 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
   }
 
   void z_action() {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.z_action(id_);
   }
 
   void x_action(float dir) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.x_action(id_, dir);
   }
 
   void c_action(glm::vec3 dest) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.c_action(id_, dest);
   }
 
   void v_action() {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.v_action(id_);
   }
 
   void f_action(float dir) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.f_action(id_, dir);
   }
 
   void s_action() {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.s_action(id_);
   }
 
   void m_action(glm::vec3 dest) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
     soccer.m_action(id_, dest);
   }
 };
@@ -406,15 +424,19 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
 
   bool finalize = true;
   void start() {
-    Logger::Info("intelligence: started iclient\n");
+    Logger::Info("iclient: started\n");
     ASSERT(should_stop());
     finalize = false;
     client_thread = std::thread(SoccerRemote::run, this);
   }
   void stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
-    finalize = true;
+    ASSERT(!should_stop());
+    {
+      std::lock_guard<std::mutex> guard(finalize_mtx);
+      finalize = true;
+    }
     client_thread.join();
+    Logger::Info("iclient: finished\n");
   }
   bool should_stop() {
     std::lock_guard<std::mutex> guard(finalize_mtx);
@@ -423,7 +445,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
 
   template <typename T>
   void send_action(const T &data) {
-    printf("Client: sending action %d\n", data.a);
+    printf("iclient: sending action %d\n", data.a);
     std::lock_guard<std::mutex> guard(socket_mtx);
     socket.send(net::make_package(server_addr, data));
   }
@@ -448,13 +470,18 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   }
 
   void v_action() {
-    pkg::action_struct d = { .a=pkg::Action::V, .id=id_ };
-    send_action(d);
+    send_action((pkg::action_struct){
+      .a = pkg::Action::V,
+      .id = id_
+    });
   }
 
   void f_action(float dir) {
-    pkg::action_struct d = { .a=pkg::Action::F, .id=id_, .dir=dir };
-    send_action(d);
+    send_action((pkg::action_struct){
+      .a = pkg::Action::F,
+      .id = id_,
+      .dir = dir
+    });
   }
 
   void s_action() {

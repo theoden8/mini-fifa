@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include <map>
+#include <set>
 #include <thread>
 #include <mutex>
 
@@ -41,7 +42,7 @@ struct Lobby {
   struct Participant {
     int8_t ind;
     IntelligenceType itype;
-    bool team;
+    int8_t team;
   };
   std::map<net::Addr, Participant> players;
   std::mutex mtx;
@@ -50,10 +51,6 @@ struct Lobby {
   {}
 
   int team1=0, team2=0;
-
-  void reset() {
-    players.clear();
-  }
 
   void add_participant(net::Addr addr, IntelligenceType itype=IntelligenceType::REMOTE) {
     std::lock_guard<std::mutex> guard(mtx);
@@ -75,7 +72,7 @@ struct Lobby {
 
   void change_team(net::Addr addr) {
     std::lock_guard<std::mutex> guard(mtx);
-    bool &t = players.at(addr).team;
+    auto &t = players.at(addr).team;
     if(t == Soccer::Team::RED_TEAM) {
       --team1; ++team2;
       t = Soccer::Team::BLUE_TEAM;
@@ -92,12 +89,10 @@ struct Lobby {
 };
 
 struct LobbyActor {
-  Lobby &lobby;
-  LobbyActor(Lobby &lobby):
-    lobby(lobby)
-  {
-    lobby.reset();
-  }
+  Lobby lobby;
+  LobbyActor():
+    lobby()
+  {}
   bool is_active() {
     return !should_stop();
   }
@@ -137,19 +132,19 @@ struct LobbyActor {
 
 // server-side
 struct LobbyServer : LobbyActor {
-  net::Addr host;
-  net::Addr metaserver;
-  net::Socket<net::SocketType::UDP> socket;
+  net::Socket<net::SocketType::UDP> &socket;
   std::thread server_thread;
   std::mutex socket_mtx;
   std::mutex finalize_mtx;
 
-  LobbyServer(Lobby &lobby, net::Addr metaserver, net::port_t port=4567):
-    LobbyActor(lobby),
-    host(net::ip_from_ints(0, 0, 0, 0), port),
-    socket(port),
-    metaserver(metaserver)
+  LobbyServer(net::Socket<net::SocketType::UDP> &socket):
+    LobbyActor(),
+    socket(socket)
   {}
+
+  net::Addr host() {
+    return net::Addr(INADDR_ANY, 0);
+  }
 
   static void run(LobbyServer *server) {
     Timer timer;
@@ -184,6 +179,7 @@ struct LobbyServer : LobbyActor {
           Timer::time_t server_time = Timer::system_time();
           for(auto &p : server->lobby.players) {
             auto addr = p.first;
+            if(addr == server->host())continue;
             server->socket.send(net::make_package(addr, (pkg::lobbysync_struct){
               .a = hello.a,
               .time = server_time,
@@ -199,11 +195,12 @@ struct LobbyServer : LobbyActor {
   bool finalize = false;
   void start() {
     Logger::Info("lserver: started\n");
-    lobby.add_participant(host, IntelligenceType::SERVER);
+    lobby.add_participant(host(), IntelligenceType::SERVER);
     finalize = false;
     server_thread = std::thread(LobbyServer::run, this);
   }
   void stop() {
+    ASSERT(!should_stop());
     action_unhost();
     {
       std::lock_guard<std::mutex> guard(finalize_mtx);
@@ -219,9 +216,11 @@ struct LobbyServer : LobbyActor {
 
   void action_unhost() {
     std::lock_guard<std::mutex> guard(lobby.mtx);
+    Logger::Info("lserver: action unhost\n");
     for(auto &p : lobby.players) {
-      Logger::Info("lserver: action unhost\n");
-      socket.send(net::make_package(p.first, (pkg::lobbysync_struct){
+      auto &addr = p.first;
+      if(addr == host())continue;
+      socket.send(net::make_package(addr, (pkg::lobbysync_struct){
         .a = pkg::HelloAction::DISCONNECT
       }));
     }
@@ -229,13 +228,13 @@ struct LobbyServer : LobbyActor {
 
   Intelligence<IntelligenceType::ABSTRACT> *make_intelligence(Soccer &soccer) {
     std::lock_guard<std::mutex> guard(lobby.mtx);
-    std::vector<net::Addr> clients;
+    std::set<net::Addr> clients;
     for(auto p : lobby.players) {
       if(p.second.itype == IntelligenceType::REMOTE) {
-        clients.push_back(p.first);
+        clients.insert(p.first);
       }
     }
-    return new SoccerServer(lobby.players[host].ind, soccer, socket, clients);
+    return new SoccerServer(lobby.players[host()].ind, soccer, socket, clients);
   }
 };
 
@@ -247,8 +246,10 @@ struct LobbyClient : LobbyActor {
   std::mutex socket_mtx;
 
   // connect at construction
-  LobbyClient(Lobby &lobby, net::Addr host, net::port_t port=4567):
-    LobbyActor(lobby), socket(port), host(host)
+  LobbyClient(net::Socket<net::SocketType::UDP> &socket, net::Addr host):
+    LobbyActor(),
+    host(host),
+    socket(socket)
   {}
 
   void send_action(pkg::hello_struct hello) {
@@ -291,9 +292,8 @@ struct LobbyClient : LobbyActor {
 
   bool finalize = false;
   void stop() {
-    if(!should_stop()) {
-      action_quit();
-    }
+    ASSERT(!should_stop());
+    action_quit();
     {
       std::lock_guard<std::mutex> guard(finalize_mtx);
       finalize = true;

@@ -79,9 +79,9 @@ protected:
   const GLFWvidmode *vidmode = nullptr;
 public:
   GLFWwindow *window = nullptr;
-  Window(net::Addr metaserver):
+  Window(Client &client):
     width_(0), height_(0),
-    cObject(metaserver)
+    cObject(client)
   {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }
@@ -99,14 +99,13 @@ public:
     }
   }
   void run() {
-    ui::Font::setup();
     start();
-    cObject.client.start();
+    ui::Font::setup();
     cObject.init();
 
     Timer::time_t current_time = .0;
     glfwSwapInterval(2); GLERROR
-    while(!glfwWindowShouldClose(window)) {
+    while(!glfwWindowShouldClose(window) && cObject.is_active()) {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
       cObject.display(window, width(), height());
       mouse();
@@ -114,9 +113,8 @@ public:
       glfwSwapBuffers(window); GLERROR
     }
     cObject.clear();
-    glfwTerminate(); GLERROR
     ui::Font::cleanup();
-    cObject.client.stop();
+    glfwTerminate(); GLERROR
   }
   /* void display() { */
     /* glEnable(GL_DEPTH_CLAMP); GLERROR */
@@ -135,9 +133,7 @@ public:
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
     if(action == GLFW_PRESS) {
-      cObject.keypress(key);
-    }
-    if(action == GLFW_RELEASE) {
+      cObject.keypress(key, mods);
     }
   }
   void mouse() {

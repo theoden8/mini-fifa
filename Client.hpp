@@ -7,7 +7,6 @@
 
 struct Client {
   MetaServerClient mclient;
-  Lobby *lobby = nullptr;
   LobbyActor *l_actor = nullptr;
   Soccer *soccer = nullptr;
   Intelligence<IntelligenceType::ABSTRACT> *intelligence = nullptr;
@@ -21,7 +20,7 @@ struct Client {
   }
 
   bool is_active_lobby() {
-    return lobby != nullptr && l_actor != nullptr;
+    return l_actor != nullptr;
   }
 
   bool is_active_game() {
@@ -42,7 +41,7 @@ struct Client {
   void start_lobby() {
     ASSERT(!is_active_lobby());
     l_actor = mclient.make_lobby();
-    lobby = &l_actor->lobby;
+    l_actor->set_state(LobbyActor::State::DEFAULT);
     l_actor->start();
   }
   void stop_lobby() {
@@ -50,8 +49,6 @@ struct Client {
     l_actor->stop();
     delete l_actor;
     l_actor = nullptr;
-    delete lobby;
-    lobby = nullptr;
   }
 
   void start_game() {
@@ -68,7 +65,19 @@ struct Client {
     soccer = nullptr;
   }
 
+  enum class State {
+    DEFAULT, QUIT
+  };
+  State state = State::DEFAULT;
+  bool has_quit() {
+    return state == State::QUIT;
+  }
+
 // actions
+  void action_quit() {
+    Logger::Info("client: action quit\n");
+    state = State::QUIT;
+  }
   void action_host_game() {
     Logger::Info("client: action host game\n");
     stop_mclient();
@@ -93,10 +102,13 @@ struct Client {
     Logger::Info("client: action leave game\n");
     stop_game();
     start_mclient();
+    mclient.set_state(MetaServerClient::State::DEFAULT);
   }
 
   // scope functions
   void start() {
+    Logger::Info("client: start\n");
+    state = State::DEFAULT;
     start_mclient();
   }
   void stop() {
@@ -109,5 +121,6 @@ struct Client {
     if(is_active_mclient()) {
       mclient.stop();
     }
+    Logger::Info("client: stopped\n");
   }
 };

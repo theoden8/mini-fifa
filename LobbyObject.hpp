@@ -14,9 +14,8 @@ struct LobbyObject {
 
   C_STRING(infobarR_texture, "assets/infobar_red.png");
   C_STRING(infobarB_texture, "assets/infobar_blue.png");
-  C_STRING(infobar_font, "assets/Verdana.ttf");
-  ui::Button<infobarR_texture, infobar_font> infobarR;
-  ui::Button<infobarB_texture, infobar_font> infobarB;
+  ui::Button<infobarR_texture, btn_font> infobarR;
+  ui::Button<infobarB_texture, btn_font> infobarB;
 
   LobbyObject()
   {}
@@ -26,8 +25,14 @@ struct LobbyObject {
   }
 
   void init() {
+    exit_button.setx(-1, -.7);
+    exit_button.sety(.9, 1);
     exit_button.init();
+    exit_button.label.set_text("Exit");
+    start_button.setx(.7, 1);
+    start_button.sety(.9, 1);
     start_button.init();
+    start_button.label.set_text("Start");
     infobarR.init();
     infobarB.init();
   }
@@ -46,48 +51,27 @@ struct LobbyObject {
     click_action = action;
   }
 
-  template <typename F>
-  void exit_button_update(F &&func) {
-    exit_button.setx(-1., -.8);
-    exit_button.sety(.9, .1);
-    exit_button.label.set_text("Exit");
-    exit_button.mouse(cursorPosition.x, cursorPosition.y);
-    if(clicked && (exit_button.region.contains(cursorPosition) || exit_button.state != decltype(exit_button)::DEFAULT_STATE)) {
-      exit_button.mouse_click(click_button, click_action);
+  template <typename ButtonT, typename F>
+  void button_display(ButtonT &btn, F &&func) {
+    btn.mouse(cursorPosition.x, cursorPosition.y);
+    if(clicked && (btn.region.contains(cursorPosition) || btn.state != ButtonT::DEFAULT_STATE)) {
+      btn.mouse_click(click_button, click_action);
       clicked = false;
     }
-    exit_button.action_on_click(func);
-  }
-
-  template <typename F>
-  void start_button_update(F &&func) {
-    start_button.setx(-.2, .0);
-    start_button.sety(.9, .1);
-    start_button.label.set_text("Start");
-    start_button.mouse(cursorPosition.x, cursorPosition.y);
-    if(clicked && (start_button.region.contains(cursorPosition) || start_button.state != decltype(start_button)::DEFAULT_STATE)) {
-      start_button.mouse_click(click_button, click_action);
-      clicked = false;
-    }
-    start_button.action_on_click(func);
-  }
-
-  void update() {
-    if(!is_active())return;
-    exit_button_update([&]() mutable {
-      lobbyActor->action_leave();
-    });
-    start_button_update([&]() mutable {
-      lobbyActor->action_start();
-    });
+    btn.action_on_click(func);
+    btn.display();
   }
 
   void display() {
     if(!is_active())return;
-    update();
+    button_display(exit_button, [&]() mutable {
+      lobbyActor->action_leave();
+    });
     if(!is_active())return;
-    exit_button.display();
-    start_button.display();
+    button_display(start_button, [&]() mutable {
+      lobbyActor->action_start();
+    });
+    if(!is_active())return;
 
     glm::vec2 xs(-.8, .0);
     glm::vec2 ys(-1., -.8);

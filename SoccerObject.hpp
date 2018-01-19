@@ -50,11 +50,13 @@ struct SoccerObject {
   };
   CursorState cursorState = CursorState::DEFAULT;
   glm::vec2 cursorPoint;
-  void keyboard(int key) {
+  void keypress(int key, int mods) {
     if(key == GLFW_KEY_ESCAPE) {
       if(cursorState != CursorState::DEFAULT) {
         cursorState = CursorState::DEFAULT;
       }
+    } else if(key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {
+      intelligence.leave();
     } else if(key == GLFW_KEY_Z) {
       intelligence.z_action();
     } else if(key == GLFW_KEY_X) {

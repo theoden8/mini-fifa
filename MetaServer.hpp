@@ -28,7 +28,7 @@ namespace pkg {
   struct metaserver_response_struct {
     MetaServerAction action;
     net::Addr host;
-    bool you = false;
+    int8_t you = false;
     char name[30];
   };
 }
@@ -70,15 +70,21 @@ struct MetaServer {
         if(timer.timed_out(CHECK_STATUSES)) {
           Logger::Info("mserver: cleaning up inactive users\n");
           timer.set_event(CHECK_STATUSES);
+          user_timer.set_time(Timer::system_time());
           std::string s = "";
+          // workaround because it fails when the iterated set changes
+          std::set<net::Addr> exusers;
           for(auto &u : users) {
             if(user_timer.timed_out(Timer::key_t(u.ip))) {
               Logger::Info("mserver: removing user %s\n", u.to_str().c_str());
-              users.erase(u);
-              user_timer.erase(Timer::key_t(u.ip));
+              exusers.insert(u);
             } else {
               s += u.to_str() + " ";
             }
+          }
+          for(auto &u : exusers) {
+            users.erase(u);
+            user_timer.erase(Timer::key_t(u.ip));
           }
           Logger::Info("mserver: users [ %s]\n", s.c_str());
         }
@@ -199,8 +205,7 @@ struct MetaServerClient {
             case pkg::MetaServerAction::HOST_GAME:
               client->register_host(response.host, response.name);
               if(response.you) {
-                std::lock_guard<std::mutex> guard(client->state_mtx);
-                client->state_hosted = true;
+                client->set_state(State::HOSTED);
               }
             break;
             case pkg::MetaServerAction::UNHOST_GAME:
@@ -214,16 +219,31 @@ struct MetaServerClient {
   }
 
   std::mutex state_mtx;
-  bool state_hosted = false;
-  bool has_hosted() {
+  enum class State {
+    DEFAULT,
+    HOSTED,
+    QUIT
+  };
+  State state_ = State::DEFAULT;
+  void set_state(State state) {
     std::lock_guard<std::mutex> guard(state_mtx);
-    return state_hosted;
+    state_ = state;
+  }
+  State state() {
+    std::lock_guard<std::mutex> guard(state_mtx);
+    return state_;
+  }
+  bool has_hosted() {
+    return state() == State::HOSTED;
+  }
+  bool has_quit() {
+    return state() == State::QUIT;
   }
 
-  void register_host(net::Addr host, std::string name) {
-    ASSERT(name.length() < 80);
-    Logger::Info("mclient: register game host=%s name=%s\n", host.to_str().c_str(), name.c_str());
-    gamelist.add_game(host, name);
+  void register_host(net::Addr host, std::string gamename) {
+    ASSERT(gamename.length() < 30);
+    Logger::Info("mclient: register game host=%s name=%s\n", host.to_str().c_str(), gamename.c_str());
+    gamelist.add_game(host, gamename);
   }
 
   void unregister_host(net::Addr host) {
@@ -236,7 +256,7 @@ struct MetaServerClient {
     pkg::metaserver_hello_struct data = {
       .action = pkg::MetaServerAction::HOST_GAME
     };
-    for(int i = 0; i < std::min<int>(gamename.length(), 30); ++i)data.name[i]=gamename[i];
+    memcpy(data.name, gamename.c_str(), std::min<int>(gamename.length() + 1, 30));
     data.name[29] = '\0';
     Logger::Info("mclient: sending action host name='%s'\n", data.name);
     send_action(data);
@@ -244,10 +264,7 @@ struct MetaServerClient {
 
   void action_unhost() {
     Logger::Info("mclient: sending action unhost game\n");
-    {
-      std::lock_guard<std::mutex> guard(state_mtx);
-      state_hosted = false;
-    }
+    set_state(State::DEFAULT);
     send_action((pkg::metaserver_hello_struct){
       .action = pkg::MetaServerAction::UNHOST_GAME
     });
@@ -260,11 +277,11 @@ struct MetaServerClient {
   }
 
   LobbyActor *make_lobby() {
-    Lobby *lobby = new Lobby();
+    std::lock_guard<std::mutex> guard(socket_mtx);
     if(lobbyMaker.ltype == LobbyMaker::type::SERVER) {
-      return new LobbyServer(*lobby, metaserver);
+      return new LobbyServer(socket);
     } else if(lobbyMaker.ltype == LobbyMaker::type::CLIENT) {
-      return new LobbyClient(*lobby, lobbyMaker.host);
+      return new LobbyClient(socket, lobbyMaker.host);
     }
   }
 
@@ -285,6 +302,7 @@ struct MetaServerClient {
   }
 
   void stop() {
+    ASSERT(!should_stop());
     {
       std::lock_guard<std::mutex> guard(finalize_mtx);
       finalize = true;
@@ -293,9 +311,6 @@ struct MetaServerClient {
     Logger::Info("mclient: finished\n");
   }
 
-  ~MetaServerClient() {
-    if(should_stop()) {
-      stop();
-    }
-  }
+  ~MetaServerClient()
+  {}
 };
