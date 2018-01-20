@@ -1,5 +1,5 @@
 #if defined (__APPLE_CC__)
-    # define __gl3_h_
+  #define __gl3_h_
 	#include <OpenGL/gl3.h>
 	#include <OpenGL/glext.h>
 #else

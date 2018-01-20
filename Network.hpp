@@ -3,14 +3,15 @@
 #include <cassert>
 #include <cstring>
 #include <cstdint>
+#include <ctime>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <netinet/ip_icmp.h>
-#include <sys/select.h>
+/* #include <sys/select.h> */
+/* #include <netinet/ip_icmp.h> */
 
 #include <netdb.h>
 #include <arpa/inet.h>
@@ -175,11 +176,14 @@ enum class SocketType {
 
 template <SocketType Proto> class Socket;
 
-// https://stackoverflow.com/a/20105379/4811285
+/* // https://stackoverflow.com/a/20105379/4811285 */
 /* template <> */
 /* class Socket<SocketType::ICMP> { */
+/*   static constexpr int MAX_PACKET_SIZE = 256; */
+
 /*   int sequence = 0; */
 /*   int handle_; */
+/*   icmphdr icmp_hdr; */
 /*   port_t port; */
 /* public: */
 /*   Socket(port_t port): */
@@ -191,7 +195,6 @@ template <SocketType Proto> class Socket;
 /*       TERMINATE("Can't create socket\n"); */
 /*     } */
 
-/*     icmphdr icmp_hdr; */
 /*     memset(&icmp_hdr, 0, sizeof(icmphdr)); */
 /*     icmp_hdr.type = ICMP_ECHO; */
 /*     icmp_hdr.un.echo.id = 1234; // arbitrary id */
@@ -206,6 +209,63 @@ template <SocketType Proto> class Socket;
 /*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { */
 /*       perror("error"); */
 /*       TERMINATE("Can't set non-blocking socket\n"); */
+/*     } */
+/*   } */
+
+/*   void send(const char *msg) { */
+/*     unsigned char data[MAX_PACKET_SIZE]; */
+
+/*     icmp_hdr.un.echo.sequence = sequence++; */
+/*     memcpy(data, &icmp_hdr, sizeof(icmphdr)); */
+/*     memcpy(data + sizeof(icmphdr), msg, strlen(msg)); //icmp payload */
+/*     sockaddr_in addr; */
+/*     int sent_bytes = sendto(handle_, data, sizeof(icmphdr) + strlen(msg), 0, (sockaddr_in *)&addr, sizeof(sockaddr_in)); */
+/*     if(rc <= 0) { */
+/*       perror("error"): */
+/*       TERMINATE("Can't send packet\n"); */
+/*     } */
+/*   } */
+
+/*   // wait for reply with a timeout */
+/*   bool select(int sec=3) { */
+/*     fd_set read_set; */
+
+/*     timeval timeout = { sec, 0 }; */
+
+/*     memset(read_set, 0, sizeof(fd_set)); */
+/*     FD_SET(handle_, &read_set); */
+
+/*     int rc = select(handle_ + 1, &read_set, nullptr, nullptr, &timeout); */
+/*     if(rc < 0) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't select\n"); */
+/*     } */
+
+/*     return rc != 0; */
+/*   } */
+
+/*   bool receive() { */
+/*     unsigned char data[MAX_PACKET_SIZE]; */
+
+/*     socklen_t slen; */
+/*     icmphdr rcv_hdr; */
+
+/*     int received_bytes = recvfrom(handle_, data, MAX_PACKET_SIZE, 0, nullptr, &slen); */
+/*     if(received_bytes <= 0) { */
+/*       perror("error"); */
+/*       TERMINATE("Can't receive packet\n"); */
+/*     } */
+
+/*     if(received_bytes < sizeof(icmphdr)) { */
+/*       TERMINATE("Recieved too short ICMP packet\n"); */
+/*     } */
+
+/*     memcpy(&rcv_hdr, data, sizeof(icmphdr)); */
+/*     if(rcv_hdr.type == ICMP_ECHOREPLY) { */
+/*       // id = icmp_hdr.un.echo.id */
+/*       // sequence = icmp_hdr.un.echo.sequence */
+/*     } else { */
+/*       // type = rcv_hdr.type */
 /*     } */
 /*   } */
 
