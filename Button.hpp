@@ -155,7 +155,7 @@ struct Button {
 
     // display text
     ShaderProgramText::use(textProgram);
-    label.transform.SetScale(1, 1, 1);
+    /* label.transform.SetScale(1, 1, 1); */
     label.color = glm::vec3(1, 1, 1);
     label.display(textProgram);
     ShaderProgramText::unuse();

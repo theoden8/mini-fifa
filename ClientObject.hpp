@@ -66,13 +66,18 @@ struct ClientObject {
     if(client.mclient.has_quit()) {
       client.action_quit();
     }
-    if(client.is_active_mclient() && client.mclient.has_hosted() && !client.is_active_lobby() && !client.is_active_game()) {
-      client.action_host_game();
-    }
-    if(client.is_active_lobby() && client.l_actor->has_quit()) {
-      client.action_quit_lobby();
-    } else if(client.is_active_lobby() && client.l_actor->has_started()) {
-      client.action_start_game();
+    if(client.is_active_mclient() && !client.is_active_lobby() && !client.is_active_game()) {
+      if(client.mclient.has_hosted()) {
+        client.action_host_game();
+      } else if(client.mclient.has_joined()) {
+        client.action_join_game();
+      }
+    } else if(client.is_active_lobby()) {
+      if(client.l_actor->has_quit()) {
+        client.action_quit_lobby();
+      } else if(client.l_actor->has_started()) {
+        client.action_start_game();
+      }
     }
     if(client.is_active_game() && client.intelligence->has_quit()) {
       client.action_quit_game();

@@ -43,9 +43,17 @@ struct Transformation {
     has_changed = true;
   }
 
+  void SetPosition(glm::vec3 p) {
+    SetPosition(p.x, p.y, p.z);
+  }
+
   void MovePosition(float x, float y, float z) {
     translation = glm::translate(glm::vec3(x, y, z)) * translation;
     has_changed = true;
+  }
+
+  void MovePosition(glm::vec3 p) {
+    MovePosition(p.x, p.y, p.z);
   }
 
   glm::vec4 GetPosition() const {
@@ -80,6 +88,10 @@ struct Transformation {
   void SetScale(float sx, float sy, float sz) {
     scaling = glm::scale(glm::vec3(sx, sy, sz));
     has_changed = true;
+  }
+
+  void SetScale(glm::vec3 s) {
+    SetScale(s.x, s.y, s.z);
   }
 
   glm::vec3 GetScale() const {

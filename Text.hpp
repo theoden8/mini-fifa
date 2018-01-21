@@ -75,8 +75,11 @@ struct Text {
     gl::VertexArray::unbind();
   }
 
+  enum class Positioning {
+    LEFT, CENTER
+  };
   template <typename... ShaderTs>
-  void display(gl::ShaderProgram<ShaderTs...> &program) {
+  void display(gl::ShaderProgram<ShaderTs...> &program, Positioning pst=Positioning::CENTER, float scale=1.) {
     glEnable(GL_BLEND); GLERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
@@ -86,7 +89,9 @@ struct Text {
     uTextColor.set_id(program.id());
     uTextColor.set_data(color);
 
-    transform.Scale(xscale, yscale, 1);
+    auto init_scale = transform.GetScale();
+    auto init_pos = transform.GetPosition();
+    transform.SetScale(scale * xscale, scale * yscale, 1);
     transform.SetPosition(pos.x, -pos.y, 0);
     matrix = transform.get_matrix();
     uTransform.set_id(program.id());
@@ -95,7 +100,9 @@ struct Text {
     gl::Texture::set_active(0);
     gl::VertexArray::bind(vao);
     float x = 0, y = 0;
-    transform.MovePosition(-.5*width(), -.5*height(), 0);
+    /* if(pst == Positioning::CENTER) { */
+    /*   transform.MovePosition(-.5*width(), .5*height(), 0); */
+    /* } */
     for(char c : str) {
       ASSERT(isascii(c));
       ASSERT(font.alphabet.find(c) != font.alphabet.end());
@@ -127,8 +134,10 @@ struct Text {
     gl::VertexArray::unbind();
     gl::Texture::unbind();
 
-    transform.MovePosition(.5*width(), .5*height(), 0);
-    transform.Scale(1./xscale, 1./yscale, 1);
+    /* transform.MovePosition(.5*width(), -.5*height(), 0); */
+    /* transform.Scale(1./xscale, 1./yscale, 1); */
+    transform.SetScale(init_scale);
+    /* transform.SetPosition(init_pos); */
 
     gl::ShaderProgram<ShaderTs...>::unuse();
 

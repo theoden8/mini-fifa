@@ -11,8 +11,9 @@ struct Client {
   Soccer *soccer = nullptr;
   Intelligence<IntelligenceType::ABSTRACT> *intelligence = nullptr;
 
-  Client(net::Addr metaserver, net::port_t port=5679):
-    mclient(metaserver, port)
+  template <typename... ArgTs>
+  Client(ArgTs... args):
+    mclient(std::forward<ArgTs>(args)...)
   {}
 
   bool is_active_mclient() {
@@ -80,6 +81,11 @@ struct Client {
   }
   void action_host_game() {
     Logger::Info("client: action host game\n");
+    stop_mclient();
+    start_lobby();
+  }
+  void action_join_game() {
+    Logger::Info("client: action join game\n");
     stop_mclient();
     start_lobby();
   }

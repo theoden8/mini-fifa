@@ -78,7 +78,7 @@ struct Addr {
     return !(*this == other);
   }
 
-  bool operator<(const Addr &other) const { return ip < other.ip; }
+  bool operator<(const Addr &other) const { return ip < other.ip || (ip == other.ip && port < other.port); }
 
   std::string to_str() const {
     sockaddr_in saddr = (*this);
@@ -324,8 +324,6 @@ public:
       perror("error");
       TERMINATE("Can't send packet\n");
     }
-
-    /* std::cerr << "Send: " << send.text << std::endl; */
   }
 
 	std::optional<Blob> receive() const {
@@ -343,7 +341,6 @@ public:
 
     blob.resize(received_bytes);
     blob.addr = Addr(saddr_from);
-    std::cout << blob.addr.to_str() << std::endl;
 
     return blob;
   }
@@ -375,7 +372,7 @@ public:
 
 /* template <> */
 /* class Socket<SocketType::TCP_SERVER> { */
-/* 	static const int MAX_PACKET_SIZE = 256; */
+/* 	static constexpr int MAX_PACKET_SIZE = 256; */
 
 /* 	int handle_; */
 /* 	port_t port_; */
@@ -470,11 +467,11 @@ public:
 /*       TERMINATE("Can't bind socket\n"); */
 /*     } */
 
-/*     int nonBlocking = 1; */
-/*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { */
-/*       perror("error"); */
-/*       TERMINATE("Can't set non-blocking socket\n"); */
-/*     } */
+/*     /1* int nonBlocking = 1; *1/ */
+/*     /1* if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { *1/ */
+/*     /1*   perror("error"); *1/ */
+/*     /1*   TERMINATE("Can't set non-blocking socket\n"); *1/ */
+/*     /1* } *1/ */
 
 /*     listen(handle_, 5); */
 /*     if(errno)perror("error:"); */
@@ -500,16 +497,15 @@ public:
 /*   } */
 
 /*   template <typename T, typename F> */
-/*   bool receive_all(net::Package<T> &package, F checker) { */
+/*   std::optional<Blob> receive_all(net::Package<T> &package, F checker) { */
+/*     std::optional<Blob> opt_blob; */
 /*     for(auto c : clients) { */
 /*       auto &conn = c.second; */
-/*       if(conn.receive(package)) { */
-/*         if(checker(package.data)) { */
-/*           return true; */
-/*         } */
+/*       if((opt_blob = conn.receive(package)).has_value()) { */
+/*         break; */
 /*       } */
 /*     } */
-/*     return false; */
+/*     return opt_blob; */
 /*   } */
 
 /* 	port_t port() const { */
@@ -519,6 +515,7 @@ public:
 
 /* template <> */
 /* class Socket<SocketType::TCP_CLIENT> { */
+/*   static constexpr int MAX_PACKET_SIZE = 256; */
 /*   int handle_; */
 /*   port_t port_; */
 /* public: */
@@ -539,11 +536,11 @@ public:
 /*       TERMINATE("Can't bind socket\n"); */
 /*     } */
 
-/*     int nonBlocking = 1; */
-/*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { */
-/*       perror("error"); */
-/*       TERMINATE("Can't set non-blocking socket\n"); */
-/*     } */
+/* /1*     int nonBlocking = 1; *1/ */
+/* /1*     if(fcntl(handle_, F_SETFL, O_NONBLOCK, nonBlocking) == -1) { *1/ */
+/* /1*       perror("error"); *1/ */
+/* /1*       TERMINATE("Can't set non-blocking socket\n"); *1/ */
+/* /1*     } *1/ */
 /*   } */
 
 /*   ~Socket() { */
@@ -553,6 +550,9 @@ public:
 /*   bool try_connect(Addr addr) { */
 /*     server = addr; */
 /*     if(connect(handle_, (sockaddr *)&server, sizeof(server)) < 0) { */
+/*       if(errno == EALREADY) { */
+/*         return false; */
+/*       } */
 /*       perror("error"); */
 /*       return false; */
 /*     } */
@@ -561,6 +561,14 @@ public:
 
 /*   template <typename T> */
 /*   void send(const Package<T> &package) { */
+/*     if(package.addr != server) { */
+/*       do { */
+/*         errno = 0; */
+/*         if(!try_connect(package.addr)) { */
+/*           TERMINATE("Can't set up connection to server\n"); */
+/*         } */
+/*       } while(errno == EALREADY); */
+/*     } */
 /*     int sent_bytes = write(handle_, &package.data, sizeof(T)); */
 /*     if(sent_bytes < sizeof(T)) { */
 /*       perror("error"); */
@@ -569,13 +577,19 @@ public:
 /*   } */
 
 /*   template <typename T> */
-/*   bool receive(Package<T> &package) { */
-/*     int received_bytes = read(handle_, &package.data, sizeof(T)); */
-/*     if(received_bytes < sizeof(T)) { */
-/*       return false; */
+/*   std::optional<Blob> receive() { */
+/*     Blob blob; */
+/*     blob.resize(MAX_PACKET_SIZE); */
+
+/*     int received_bytes = read(handle_, blob.data(), MAX_PACKET_SIZE); */
+
+/*     if(received_bytes <= 0) { */
+/*       return std::optional<Blob>(); */
 /*     } */
-/*     package.addr = server; */
-/*     return true; */
+
+/*     blob.resize(received_bytes); */
+
+/*     return blob; */
 /*   } */
 
 /* 	port_t port() const { */
