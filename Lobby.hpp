@@ -280,17 +280,16 @@ struct LobbyClient : LobbyActor {
     );
   }
 
+  bool finalize = true;
   void start() {
     ASSERT(should_stop());
     Logger::Info("lclient: started\n");
     finalize = false;
-    send_action((pkg::lobby_hello_struct){
+    socket.send(net::make_package(host, (pkg::lobby_hello_struct) {
       .a = pkg::HelloAction::CONNECT
-    });
+    }));
     client_thread = std::thread(LobbyClient::run, this);
   }
-
-  bool finalize = false;
   void stop() {
     ASSERT(!should_stop());
     action_quit();

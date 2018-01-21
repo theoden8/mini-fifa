@@ -74,14 +74,12 @@
     button_display(exit_button, [&]() mutable {
       mclient.set_state(MetaServerClient::State::QUIT);
     });
-    glm::vec2 init_pos(-1, -1);
-    button.region.ys += button.label.height() * 2;
     GameList glist;
     {
       // remove duplicates from multiple metaservers
       std::lock_guard<std::mutex> guard(mclient.mservers_mtx);
       for(auto &m : mclient.metaservers) {
-        for(auto &game : mclient.gamelist[m].games) {
+        for(auto &game : mclient.gamelists[m].games) {
           auto &host = game.first;
           if(glist.games.find(host) == std::end(glist.games)) {
             glist.games[host] = game.second;
@@ -89,6 +87,8 @@
         }
       }
     }
+    button.setx(-.9, .9);
+    button.sety(-1, -1+.1);
     for(auto &g : glist.games) {
       auto &host = g.first;
       auto &name = g.second;
@@ -96,10 +96,8 @@
       button_display(button, [&]() mutable {
         mclient.action_join(g.first);
       });
-      button.region.ys += button.label.height();
+      button.region.ys += .1;
     }
-    button.region.xs -= button.region.x1() - init_pos.x;
-    button.region.ys -= button.region.y1() - init_pos.y;
   }
 
   void clear() {
