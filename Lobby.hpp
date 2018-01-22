@@ -36,6 +36,16 @@ namespace pkg {
       return time > other.time;
     }
   };
+
+  enum class MSAction : int8_t {
+    HELLO,
+    HOST_GAME,
+    UNHOST_GAME
+  };
+
+  struct metaserver_hello_struct {
+    MSAction action = MSAction::HELLO;
+  };
 }
 
 struct Lobby {
@@ -54,7 +64,7 @@ struct Lobby {
 
   void add_participant(net::Addr addr, IntelligenceType itype=IntelligenceType::REMOTE) {
     std::lock_guard<std::mutex> guard(mtx);
-    bool team = (team1 >= team2) ? Soccer::Team::RED_TEAM : Soccer::Team::BLUE_TEAM;
+    bool team = (team1 <= team2) ? Soccer::Team::RED_TEAM : Soccer::Team::BLUE_TEAM;
     players.insert({addr, Participant({
       .ind=int8_t(players.size()),
       .itype=itype,
@@ -137,9 +147,13 @@ struct LobbyServer : LobbyActor {
   std::mutex socket_mtx;
   std::mutex finalize_mtx;
 
-  LobbyServer(net::Socket<net::SocketType::UDP> &socket):
+  std::set<net::Addr> &metaservers;
+  std::mutex &mservers_mtx;
+
+  LobbyServer(net::Socket<net::SocketType::UDP> &socket, std::set<net::Addr> &metaservers, std::mutex &mservers_mtx):
     LobbyActor(),
-    socket(socket)
+    socket(socket),
+    metaservers(metaservers), mservers_mtx(mservers_mtx)
   {}
 
   net::Addr host() {
@@ -149,8 +163,23 @@ struct LobbyServer : LobbyActor {
   static void run(LobbyServer *server) {
     Timer timer;
     timer.set_time(Timer::system_time());
+    constexpr int SEND_HELLO_MSERVERS = 1;
+    timer.set_timeout(SEND_HELLO_MSERVERS, 1.);
     server->socket.listen(server->socket_mtx,
       [&]() mutable {
+        /* usleep(1e6 / 24); */
+        timer.set_time(Timer::system_time());
+        if(timer.timed_out(SEND_HELLO_MSERVERS)) {
+          timer.set_event(SEND_HELLO_MSERVERS);
+          Logger::Info("lserver: sending hello to metaservers\n");
+          std::lock_guard<std::mutex> guard(server->socket_mtx);
+          std::lock_guard<std::mutex> mguard(server->mservers_mtx);
+          for(auto &m : server->metaservers) {
+            server->socket.send(net::make_package(m, (pkg::metaserver_hello_struct){
+              .action = pkg::MSAction::HELLO
+            }));
+          }
+        }
         return !server->should_stop();
       },
       [&](const net::Blob &blob) mutable {
@@ -169,7 +198,6 @@ struct LobbyServer : LobbyActor {
             }
           }
           {
-            std::lock_guard<std::mutex> guard(server->lobby.mtx);
             switch(hello.a) {
               case pkg::HelloAction::CONNECT:server->lobby.add_participant(blob.addr);break;
               case pkg::HelloAction::DISCONNECT:server->lobby.remove_participant(blob.addr);break;
@@ -240,7 +268,7 @@ struct LobbyServer : LobbyActor {
 
 struct LobbyClient : LobbyActor {
   net::Addr host;
-  net::Socket<net::SocketType::UDP> socket;
+  net::Socket<net::SocketType::UDP> &socket;
   std::thread client_thread;
   std::mutex finalize_mtx;
   std::mutex socket_mtx;

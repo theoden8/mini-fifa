@@ -15,16 +15,6 @@
 #include <string>
 
 namespace pkg {
-  enum class MSAction : int8_t {
-    HELLO,
-    HOST_GAME,
-    UNHOST_GAME
-  };
-
-  struct metaserver_hello_struct {
-    MSAction action = MSAction::HELLO;
-  };
-
   struct metaserver_host_struct {
     MSAction action;
     char name[30] = "";
@@ -77,10 +67,10 @@ struct MetaServer {
   void run() {
     std::mutex mtx;
     constexpr Timer::key_t CHECK_STATUSES = 1;
-    timer.set_timeout(CHECK_STATUSES, 5.);
+    timer.set_timeout(CHECK_STATUSES, 3.);
     Logger::Info("mserver: started at port %hu\n", socket.port());
     socket.listen(mtx,
-      [&]() {
+      [&]() mutable {
         timer.set_time(Timer::system_time());
         if(timer.timed_out(CHECK_STATUSES)) {
           Logger::Info("mserver: cleaning up inactive users\n");
@@ -98,6 +88,9 @@ struct MetaServer {
             }
           }
           for(auto &u : exusers) {
+            if(gamelist.games.find(u) != std::end(gamelist.games)) {
+              unregister_host(u);
+            }
             users.erase(u);
             user_timer.erase(Timer::key_t(u.ip));
           }
@@ -335,7 +328,7 @@ struct MetaServerClient {
     std::lock_guard<std::mutex> guard(socket_mtx);
     std::lock_guard<std::mutex> lmguard(lmaker_mtx);
     if(lobbyMaker.ltype == LobbyMaker::type::SERVER) {
-      return new LobbyServer(socket);
+      return new LobbyServer(socket, metaservers, mservers_mtx);
     } else if(lobbyMaker.ltype == LobbyMaker::type::CLIENT) {
       return new LobbyClient(socket, lobbyMaker.host);
     }

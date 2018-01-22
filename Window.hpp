@@ -157,9 +157,9 @@ static Window &get_window(GLFWwindow *window) {
 
 namespace glfw {
 void error_callback(int error, const char* description) {
-#ifndef NDEBUG
+/* #ifndef NDEBUG */
   Logger::Error("[GLFW] code %i msg: %s\n", error, description);
-#endif
+/* #endif */
 }
 void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
   get_window(window).keyboard_event(key, scancode, action, mods);

@@ -171,7 +171,10 @@ struct Blob {
 };
 
 enum class SocketType {
-  TCP_SERVER, TCP_CLIENT, UDP, ICMP
+  ICMP,
+  UDP,
+  TCP_SERVER,
+  TCP_CLIENT
 };
 
 template <SocketType Proto> class Socket;
@@ -345,7 +348,7 @@ public:
     return blob;
   }
 
-	port_t port() const {
+	constexpr port_t port() const {
     return port_;
   }
 

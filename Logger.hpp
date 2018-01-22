@@ -20,11 +20,11 @@ class Logger {
   Logger(const char *filename):
     filename(filename)
   {
-    #ifndef NDEBUG
+    /* #ifndef NDEBUG */
       /* truncate(this->filename.c_str(), 0); */
       file = fopen(this->filename.c_str(), "w");
       ASSERT(file != nullptr);
-    #endif
+    /* #endif */
   }
   ~Logger() {
     if(file != nullptr) {
@@ -32,22 +32,22 @@ class Logger {
     }
   }
   void Write(const char *fmt, va_list args) {
-    #ifndef NDEBUG
+    /* #ifndef NDEBUG */
       std::lock_guard<std::mutex> guard(mtx);
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, fmt, args);
       fflush(file);
-    #endif
+    /* #endif */
   }
   void WriteFmt(const char *prefix, const char *fmt, va_list args) {
-    #ifndef NDEBUG
+    /* #ifndef NDEBUG */
       std::lock_guard<std::mutex> guard(mtx);
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, (std::string() + prefix + fmt).c_str(), args);
       fflush(file);
-    #endif
+    /* #endif */
   }
   static Logger *instance;
 public:
