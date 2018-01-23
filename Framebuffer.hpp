@@ -11,6 +11,8 @@ struct Framebuffer {
   GLuint fbo = 0;
   std::vector<GLuint> textures;
 
+  size_t w=0, h=0;
+
   Framebuffer()
   {}
 
@@ -18,12 +20,28 @@ struct Framebuffer {
     return fbo;
   }
 
-  void init(size_t width, size_t height) {
+  static void init(GLuint &fbo) {
     glGenFramebuffers(1, &fbo); GLERROR
   }
 
-  void bind() {
+  static void init(Framebuffer &fb) {
+    fb.init();
+  }
+
+  void init() {
+    gl::Framebuffer::init();
+  }
+
+  static void bind(GLuint fbo) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo); GLERROR
+  }
+
+  static void bind(Framebuffer &fb) {
+    fb.bind();
+  }
+
+  void bind() {
+    gl::Framebuffer::bind(fbo);
   }
 
   static void unbind() {
@@ -31,7 +49,7 @@ struct Framebuffer {
   }
 
   template <GLenum Attachment>
-  void attach_texture(size_t w, size_t h, int mipmap_level=0) {
+  void attach_texture(int mipmap_level=0) {
     gl::Framebuffer::bind();
 
     GLuint tex = 0;
@@ -54,16 +72,23 @@ struct Framebuffer {
   void attach_renderbuffer(gl::Renderbuffer<StorageT> &rb) {
     bind();
 
-    rb.bind();
+    gl::Renderbuffer<StorageT>::bind(rb);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, AttachmentT, GL_RENDERBUFFER, rb.id()); GLERROR
     gl::Renderbuffer<StorageT>::unbind();
 
     gl::Framebuffer::unbind();
   }
 
+  static void clear(gl::Framebuffer &fb) {
+    glDeleteTextures(fb.textures.size(), fb.textures.data()); GLERROR
+    glDeleteFramebuffers(1, &fb.fbo); GLERROR
+  }
+
   void clear() {
-    glDeleteTextures(textures.size(), textures.data()); GLERROR
-    glDeleteFramebuffers(1, &fbo); GLERROR
+    gl::Framebuffer(fbo);
   }
 };
+}
+
+int main() {
 }

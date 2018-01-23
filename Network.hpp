@@ -35,7 +35,7 @@ namespace net {
 typedef uint64_t ip_t;
 typedef uint16_t port_t;
 
-ip_t ip_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
+ip_t ipv4_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
   return ((a << 24) | (b << 16) | (c << 8) | (d << 0));
 }
 
