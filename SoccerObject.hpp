@@ -8,9 +8,9 @@
 #include "Camera.hpp"
 #include "PlayerObject.hpp"
 #include "BallObject.hpp"
-#include "Pitch.hpp"
-#include "Post.hpp"
-#include "Cursor.hpp"
+#include "PitchObject.hpp"
+#include "PostObject.hpp"
+#include "CursorObject.hpp"
 
 #include "Soccer.hpp"
 #include "Intelligence.hpp"
@@ -20,22 +20,22 @@ struct SoccerObject {
   Intelligence<IntelligenceType::ABSTRACT> &intelligence;
 
   std::vector<PlayerObject> playerObjs;
-  Pitch pitch;
-  Post post_red, post_blue;
+  PitchObject pitchObj;
+  PostObject postObjRed, postObjBlue;
   BallObject ballObj;
 
   SoccerObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence):
     soccer(soccer),
     intelligence(intelligence),
     playerObjs(soccer.team1.size() + soccer.team2.size()),
-    post_red(Soccer::Team::RED_TEAM),
-    post_blue(Soccer::Team::BLUE_TEAM)
+    postObjRed(Soccer::Team::RED_TEAM),
+    postObjBlue(Soccer::Team::BLUE_TEAM)
   {}
 
   void init() {
-    pitch.init();
-    post_red.init();
-    post_blue.init();
+    pitchObj.init();
+    postObjRed.init();
+    postObjBlue.init();
     ballObj.init();
     for(auto &p : playerObjs) {
       p.init();
@@ -78,7 +78,7 @@ struct SoccerObject {
     }
   }
 
-  void set_cursor(Cursor &cursor, float m_x, float m_y, float width, float height, Camera &cam) {
+  void set_cursor(CursorObject &cursor, float m_x, float m_y, float width, float height, Camera &cam) {
     float s_x = m_x * 2 - 1, s_y = m_y * 2 - 1;
     glm::vec4 screenPos = glm::vec4(s_x, -s_y, 1.f, 1.f);
     glm::vec4 worldPos = glm::inverse(cam.get_matrix()) * screenPos;
@@ -95,9 +95,9 @@ struct SoccerObject {
     cursorPoint = glm::vec2(pos.x, pos.y);
     /* printf("cursor (%f %f) -> (%f %f %f)\n", s_x, s_y, pos.x,pos.y, pos.z); */
     if(cursorState == CursorState::DEFAULT) {
-      cursor.state = Cursor::State::POINTER;
+      cursor.state = CursorObject::State::POINTER;
     } else {
-      cursor.state = Cursor::State::SELECTOR;
+      cursor.state = CursorObject::State::SELECTOR;
     }
   }
 
@@ -132,9 +132,9 @@ struct SoccerObject {
   }
 
   void display(Camera &cam) {
-    pitch.display(cam);
-    post_red.display(cam);
-    post_blue.display(cam);
+    pitchObj.display(cam);
+    postObjRed.display(cam);
+    postObjBlue.display(cam);
     std::lock_guard<std::recursive_mutex> guard(soccer.mtx);
     ballObj.display(soccer.ball, cam);
 
@@ -160,8 +160,8 @@ struct SoccerObject {
       p.clear();
     }
     ballObj.clear();
-    post_red.clear();
-    post_blue.clear();
-    pitch.clear();
+    postObjRed.clear();
+    postObjBlue.clear();
+    pitchObj.clear();
   }
 };

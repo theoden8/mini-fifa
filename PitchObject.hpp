@@ -11,7 +11,7 @@
 #include "ShaderAttrib.hpp"
 #include "Texture.hpp"
 
-struct Pitch {
+struct PitchObject {
   Transformation transform;
   glm::mat4 matrix;
 
@@ -27,7 +27,7 @@ struct Pitch {
   using ShaderAttrib = decltype(attrVertex);
   using ShaderProgram = decltype(program);
 
-  Pitch():
+  PitchObject():
     program({"shaders/pitch.vert", "shaders/pitch.frag"}),
     uTransform("transform"),
     attrVertex("vertex"),
