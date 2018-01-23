@@ -13,7 +13,7 @@ struct Soccer {
   std::vector<Player> players;
   Ball ball;
 
-  std::mutex mtx;
+  std::recursive_mutex mtx;
 
   Soccer(size_t team1sz=1, size_t team2sz=2):
     players(),
@@ -116,7 +116,7 @@ struct Soccer {
   Team team1, team2;
 
   void idle(Timer::time_t curtime) {
-    std::lock_guard<std::mutex> guard(mtx);
+    std::lock_guard<std::recursive_mutex> guard(mtx);
     timer.set_time(curtime);
     idle_control();
     ball.idle(timer.current_time);

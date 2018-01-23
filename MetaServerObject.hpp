@@ -77,7 +77,7 @@
     GameList glist;
     {
       // remove duplicates from multiple metaservers
-      std::lock_guard<std::mutex> guard(mclient.mservers_mtx);
+      std::lock_guard<std::recursive_mutex> guard(mclient.mservers_mtx);
       for(auto &m : mclient.metaservers) {
         for(auto &game : mclient.gamelists[m].games) {
           auto &host = game.first;

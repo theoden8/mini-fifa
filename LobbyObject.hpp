@@ -68,10 +68,12 @@ struct LobbyObject {
       lobbyActor->action_leave();
     });
     if(!is_active())return;
-    button_display(start_button, [&]() mutable {
-      lobbyActor->action_start();
-    });
-    if(!is_active())return;
+    if(lobbyActor->is_server()) {
+      button_display(start_button, [&]() mutable {
+        lobbyActor->action_start();
+      });
+      if(!is_active())return;
+    }
 
     glm::vec2 xs(-.8, .0);
     glm::vec2 ys(-1., -.9);

@@ -54,7 +54,7 @@ struct Client {
 
   void start_game() {
     ASSERT(!is_active_game());
-    soccer = new Soccer(l_actor->lobby.get_soccer());
+    soccer = new Soccer(l_actor->get_soccer());
     intelligence = l_actor->make_intelligence(*soccer);
   }
   void stop_game() {
@@ -98,10 +98,9 @@ struct Client {
   }
 
   void action_quit_lobby() {
-    Logger::Info("client: action unhost game\n");
+    Logger::Info("client: action quit lobby\n");
     stop_lobby();
     start_mclient();
-    mclient.action_unhost();
   }
 
   void action_quit_game() {
