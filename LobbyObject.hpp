@@ -76,8 +76,7 @@ struct LobbyObject {
     glm::vec2 xs(-.8, .0);
     glm::vec2 ys(-1., -.9);
     ys += .05;
-    std::lock_guard<std::mutex> guard(lobbyActor->lobby.mtx);
-    for(auto &p : lobbyActor->lobby.players) {
+    lobbyActor->lobby.iterate([&](auto &p) mutable {
       if(p.second.team == Soccer::Team::RED_TEAM) {
         infobarR.setx(xs.x, xs.y);
         infobarR.sety(ys.x, ys.y);
@@ -90,7 +89,8 @@ struct LobbyObject {
         button_display(infobarB, [&]() mutable {});
       }
       ys += .12;
-    }
+      return true;
+    });
   }
 
   void clear() {

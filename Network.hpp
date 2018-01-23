@@ -283,10 +283,12 @@ class Socket<SocketType::UDP> {
 
 	int handle_;
 	port_t port_;
+  std::mutex mtx;
 public:
 	Socket(port_t port):
     port_(port)
   {
+    std::lock_guard<std::mutex> guard(mtx);
     handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(handle_ <= 0) {
       perror("error");
@@ -312,7 +314,8 @@ public:
   }
 
   template <typename T>
-	void send(const Package<T> package) const {
+	void send(const Package<T> package) {
+    std::lock_guard<std::mutex> guard(mtx);
     if(sizeof(T) > MAX_PACKET_SIZE) {
       perror("error");
       TERMINATE("The packet to be sent is too big\n");
@@ -329,7 +332,8 @@ public:
     }
   }
 
-	std::optional<Blob> receive() const {
+	std::optional<Blob> receive() {
+    std::lock_guard<std::mutex> guard(mtx);
     sockaddr_in saddr_from;
     socklen_t saddr_from_length = sizeof(saddr_from);
 
@@ -353,14 +357,13 @@ public:
   }
 
   template <typename G, typename F>
-  void listen(std::mutex &socket_mtx, G &&idle, F &&func) {
+  void listen(G &&idle, F &&func) {
     std::optional<Blob> opt_blob;
     bool cond = 1;
     while(cond) {
       if(!idle()) {
         break;
       }
-      std::lock_guard<std::mutex> guard(socket_mtx);
       if((opt_blob = receive()).has_value()) {
         cond = func(*opt_blob);
       }
@@ -368,8 +371,8 @@ public:
   }
 
   template <typename F>
-  void listen(std::mutex &socket_mtx, F &&func) {
-    listen(socket_mtx, [](){return true;}, std::forward<F>(func));
+  void listen(F &&func) {
+    listen([](){return true;}, std::forward<F>(func));
   }
 };
 

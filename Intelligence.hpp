@@ -129,12 +129,14 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
 
   static void run(SoccerServer *server) {
     constexpr int EVENT_SYNC = 1;
-    std::mutex socket_mtx;
     Timer timer;
     timer.set_time(Timer::system_time());
     timer.set_timeout(EVENT_SYNC, .1);
-    server->socket.listen(socket_mtx,
+    server->socket.listen(
       [&]() mutable {
+        if(server->has_quit()) {
+          return !server->should_stop();
+        }
         // send sync data for random unit showing that no action occured until a
         // certain time point
         Timer::time_t server_time = Timer::system_time();
@@ -145,7 +147,6 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
           int no_ids = server->soccer.team1.size() + server->soccer.team2.size() + 1;
           int8_t unit_id = (rand() % no_ids) - 1;
           for(const auto &addr : server->clients) {
-            std::lock_guard<std::mutex> guard(socket_mtx);
             server->socket.send(net::make_package(addr, server->get_sync_data(unit_id)));
           }
         }
@@ -153,7 +154,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
       },
       [&](const net::Blob &blob) {
         // discard packages not belonging to current players
-        if(server->clients.find(blob.addr) == std::end(server->clients)) {
+        if(server->has_quit() || server->clients.find(blob.addr) == std::end(server->clients)) {
           return !server->should_stop();
         }
         // if this package seems to be action, perform action and send responses
@@ -275,13 +276,12 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   int8_t id_;
   Soccer &soccer;
   net::Addr server_addr;
-  net::Socket<net::SocketType::UDP> socket;
+  net::Socket<net::SocketType::UDP> &socket;
   int no_actions = 0;
   Timer::time_t last_frame = Timer::time_start();
   std::thread client_thread;
   std::mutex frame_schedule_mtx;
   std::mutex finalize_mtx;
-  std::mutex socket_mtx;
 
   Intelligence(int id, Soccer &soccer, net::Socket<net::SocketType::UDP> &socket, net::Addr server_addr):
     id_(id),
@@ -292,13 +292,12 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
 
   static void run(SoccerRemote *client) {
     Timer::time_t delay = 1.;
-    client->socket.listen(client->socket_mtx,
+    client->socket.listen(
       [&]() mutable {
         return !client->should_stop();
       },
       [&](const net::Blob &blob) mutable {
-        bool ret = client->should_stop();
-        if(blob.addr != client->server_addr) {
+        if(client->has_quit() || blob.addr != client->server_addr) {
           return !client->should_stop();
         }
         blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) mutable {
@@ -446,7 +445,6 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   template <typename T>
   void send_action(const T &data) {
     printf("iclient: sending action %d\n", data.a);
-    std::lock_guard<std::mutex> guard(socket_mtx);
     socket.send(net::make_package(server_addr, data));
   }
 

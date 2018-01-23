@@ -15,24 +15,34 @@
 #include <string>
 
 namespace pkg {
+  struct metaserver_query_struct {
+    MSAction action;
+    net::Addr addr;
+  };
+
+  struct metaserver_query_response_struct {
+    net::Addr addr;
+    int8_t active;
+  };
+
   struct metaserver_host_struct {
     MSAction action;
     char name[30] = "";
 
     void set_name(std::string &s) {
-      memcpy(name, s.c_str(), std::min<int>(s.length() + 1, 30));
+      strncpy(name, s.c_str(), std::min<int>(s.length() + 1, 30));
       name[29] = '\0';
     }
   };
 
-  struct metaserver_response_struct {
+  struct metaserver_host_response_struct {
     MSAction action;
     net::Addr host;
     int8_t you = false;
     char name[30] = "";
 
     void set_name(std::string &s) {
-      memcpy(name, s.c_str(), std::min<int>(s.length() + 1, 30));
+      strncpy(name, s.c_str(), std::min<int>(s.length() + 1, 30));
       name[29] = '\0';
     }
   };
@@ -47,6 +57,10 @@ struct GameList {
 
   void delete_game(net::Addr host) {
     games.erase(host);
+  }
+
+  bool find(net::Addr host) {
+    return games.find(host) != std::end(games);
   }
 };
 
@@ -65,16 +79,15 @@ struct MetaServer {
   {}
 
   void run() {
-    std::mutex mtx;
-    constexpr Timer::key_t CHECK_STATUSES = 1;
-    timer.set_timeout(CHECK_STATUSES, 3.);
+    constexpr Timer::key_t EVENT_CHECK_STATUSES = 1;
+    timer.set_timeout(EVENT_CHECK_STATUSES, Timer::time_t(3.));
     Logger::Info("mserver: started at port %hu\n", socket.port());
-    socket.listen(mtx,
+    socket.listen(
       [&]() mutable {
         timer.set_time(Timer::system_time());
-        if(timer.timed_out(CHECK_STATUSES)) {
+        // clean up inactive users
+        timer.periodic(EVENT_CHECK_STATUSES, [&]() mutable {
           Logger::Info("mserver: cleaning up inactive users\n");
-          timer.set_event(CHECK_STATUSES);
           user_timer.set_time(Timer::system_time());
           std::string s = "";
           // workaround because it fails when the iterated set changes
@@ -88,18 +101,19 @@ struct MetaServer {
             }
           }
           for(auto &u : exusers) {
-            if(gamelist.games.find(u) != std::end(gamelist.games)) {
+            if(gamelist.find(u)) {
               unregister_host(u);
             }
             users.erase(u);
             user_timer.erase(Timer::key_t(u.ip));
           }
           Logger::Info("mserver: users [ %s]\n", s.c_str());
-        }
+        });
         return !feof(stdin);
       },
       [&](const net::Blob &blob) mutable {
         Logger::Info("mserver: received package from %s\n", blob.addr.to_str().c_str());
+        // find out if the user already exists
         bool found = users.find(blob.addr) != std::end(users);
         user_timer.set_time(Timer::system_time());
         if(found) {
@@ -109,25 +123,69 @@ struct MetaServer {
         // received hello package
         blob.try_visit_as<pkg::metaserver_hello_struct>([&](auto hello) mutable {
           Logger::Info("mserver: recognized as hello package, found=%d\n", found);
-          ASSERT(hello.action == pkg::MSAction::HELLO);
           if(!found) {
             // add user
             Logger::Info("mserver: added user %s\n", blob.addr.to_str().c_str());
             user_timer.set_event(Timer::key_t(blob.addr.ip));
-            user_timer.set_timeout(Timer::key_t(blob.addr.ip), 2.);
+            user_timer.set_timeout(Timer::key_t(blob.addr.ip), Timer::time_t(3.));
             users.insert(blob.addr);
+          } else if(hello.action == pkg::MSAction::QUERY) {
+            // send random game information
+            if(!gamelist.games.empty()) {
+              int i = 0; int j = rand() % gamelist.games.size();
+              for(auto &it : gamelist.games) {
+                if(i == j) {
+                  pkg::metaserver_host_response_struct gameinfo = {
+                    .action = pkg::MSAction::HOST_GAME,
+                    .host = it.first,
+                    .you = false,
+                  };
+                  gameinfo.set_name(it.second);
+                  socket.send(net::make_package(blob.addr, gameinfo));
+                  Logger::Info("mserver: randomly sending host info on %s\n", blob.addr.to_str().c_str());
+                  break;
+                }
+                ++i;
+              }
+            }
           }
         });
+        static_assert(sizeof(pkg::metaserver_hello_struct) != sizeof(pkg::metaserver_query_struct));
+        // respond whether the address is active or not
+        blob.try_visit_as<pkg::metaserver_query_struct>([&](auto query) mutable {
+          Logger::Info("mserver: recognized as query package, found=%d\n");
+          if(!found) {
+            return;
+          }
+          ASSERT(query.action == pkg::MSAction::QUERY);
+          socket.send(net::make_package(blob.addr, (pkg::metaserver_query_response_struct){
+            .addr = query.addr,
+            .active = gamelist.find(query.addr)
+          }));
+        });
+        static_assert(sizeof(pkg::metaserver_query_struct) != sizeof(pkg::metaserver_host_struct));
         // received hosting action
         blob.try_visit_as<pkg::metaserver_host_struct>([&](auto host) mutable {
           Logger::Info("mserver: recognized as hosting struct\n");
           switch(host.action) {
             case pkg::MSAction::HELLO:break;
+            case pkg::MSAction::QUERY:break;
             case pkg::MSAction::HOST_GAME:
               if(found) {
                 host.name[29] = '\0';
                 Logger::Info("mserver: hosting game name='%s'\n", host.name);
                 register_host(blob.addr, host.name);
+                pkg::metaserver_host_response_struct response = {
+                  .action = pkg::MSAction::HOST_GAME,
+                  .host = blob.addr
+                };
+                std::string name = host.name;
+                response.set_name(name);
+                Logger::Info("mserver: sending action host host=%s name=%s\n", blob.addr.to_str().c_str(), name.c_str());
+                for(auto &u : users) {
+                  response.you = (blob.addr == u);
+                  socket.send(net::make_package(u, response));
+                }
               }
             break;
             case pkg::MSAction::UNHOST_GAME:
@@ -135,6 +193,14 @@ struct MetaServer {
                 host.name[29] = '\0';
                 Logger::Info("mserver: unhosting game\n");
                 unregister_host(blob.addr);
+                Logger::Info("mserver: sending action unhost host=%s\n", blob.addr.to_str().c_str());
+                for(auto &u : users) {
+                  socket.send(net::make_package(u, (pkg::metaserver_host_response_struct){
+                    .action = pkg::MSAction::UNHOST_GAME,
+                    .host = blob.addr,
+                    .you = (blob.addr == u)
+                  }));
+                }
               }
             break;
           }
@@ -147,31 +213,15 @@ struct MetaServer {
   // parent lock
   void register_host(net::Addr host, std::string name) {
     ASSERT(name.length() < 30);
-    if(gamelist.games.find(host) == std::end(gamelist.games) || gamelist.games.at(host) != name) {
+    if(!gamelist.find(host) || gamelist.games.at(host) != name) {
       gamelist.add_game(host, name);
-    }
-    pkg::metaserver_response_struct response = {
-      .action = pkg::MSAction::HOST_GAME,
-      .host = host
-    };
-    response.set_name(name);
-    Logger::Info("mserver: sending action host host=%s name=%s\n", host.to_str().c_str(), name.c_str());
-    for(auto &addr : users) {
-      response.you = (host == addr);
-      socket.send(net::make_package(addr, response));
     }
   }
 
   // parent lock
   void unregister_host(net::Addr host) {
-    gamelist.delete_game(host);
-    Logger::Info("mserver: sending action unhost host=%s\n", host.to_str().c_str());
-    for(auto &addr : users) {
-      socket.send(net::make_package(addr, (pkg::metaserver_response_struct){
-        .action = pkg::MSAction::UNHOST_GAME,
-        .host = host,
-        .you = (host == addr)
-      }));
+    if(gamelist.find(host)) {
+      gamelist.delete_game(host);
     }
   }
 };
@@ -189,7 +239,6 @@ struct MetaServerClient {
 
   std::thread user_thread;
   std::mutex mservers_mtx;
-  std::mutex socket_mtx;
   std::mutex lmaker_mtx;
   std::mutex finalize_mtx;
 
@@ -200,32 +249,56 @@ struct MetaServerClient {
 
   static void run(MetaServerClient *client) {
     Timer timer;
-    constexpr int EVENT_REFRESH = 1;
-    timer.set_timeout(EVENT_REFRESH, Timer::time_t(1.));
-    client->socket.listen(client->socket_mtx,
+    constexpr Timer::key_t EVENT_SEND_HELLO = 1;
+    timer.set_timeout(EVENT_SEND_HELLO, Timer::time_t(1.));
+    client->socket.listen(
       [&]() mutable {
-        usleep(1e6 / 24.);
-        timer.set_time(Timer::system_time());
-        if(timer.timed_out(EVENT_REFRESH)) {
-          timer.set_event(EVENT_REFRESH);
-          Logger::Info("mclient: sending hello\n");
-          client->send_action((pkg::metaserver_hello_struct){
-            .action = pkg::MSAction::HELLO
-          });
+        if(client->has_quit() || client->has_hosted()) {
+          return !client->should_stop();
         }
+        /* usleep(1e6 / 24.); */
+        timer.set_time(Timer::system_time());
+        // send hello to the metaserver every second
+        timer.periodic(EVENT_SEND_HELLO, [&]() mutable {
+          if(rand() % 3) {
+            Logger::Info("mclient: sending hello\n");
+            client->send_action((pkg::metaserver_hello_struct){
+              .action = pkg::MSAction::HELLO
+            });
+          } else {
+            Logger::Info("mclient: sending query\n");
+            client->send_action((pkg::metaserver_hello_struct){
+              .action = pkg::MSAction::QUERY
+            });
+          }
+        });
         return !client->should_stop();
       },
       [&](const net::Blob &blob) {
+        if(client->has_quit() || client->has_hosted()) {
+          return !client->should_stop();
+        }
         {
           std::lock_guard<std::mutex> guard(client->mservers_mtx);
           if(client->metaservers.find(blob.addr) == std::end(client->metaservers)) {
             return !client->should_stop();
           }
         }
-        blob.try_visit_as<pkg::metaserver_response_struct>([&](const auto &response) mutable {
+        static_assert(sizeof(pkg::metaserver_query_response_struct) != sizeof(pkg::metaserver_host_response_struct));
+        // recognize as a query response struct
+        blob.try_visit_as<pkg::metaserver_query_response_struct>([&](const auto response) mutable {
+          // unregister if no longer marked active
+          Logger::Info("mclient: received query response for %s\n", response.addr.to_str().c_str());
+          if(client->gamelists[blob.addr].find(response.addr) && !response.active) {
+            client->unregister_host(blob.addr, response.addr);
+          }
+        });
+        // recognize as a hosting respond struct
+        blob.try_visit_as<pkg::metaserver_host_response_struct>([&](const auto response) mutable {
           switch(response.action) {
             case pkg::MSAction::HELLO:break;
             case pkg::MSAction::HOST_GAME:
+              Logger::Info("mclient: register game host=%s name=%s\n", blob.addr.to_str().c_str(), response.name);
               client->register_host(blob.addr, response.host, response.name);
               if(response.you) {
                 client->set_state(State::HOSTED);
@@ -236,6 +309,7 @@ struct MetaServerClient {
               }
             break;
             case pkg::MSAction::UNHOST_GAME:
+              Logger::Info("mclient: unregister game host=%s\n", blob.addr.to_str().c_str());
               client->unregister_host(blob.addr, response.host);
             break;
           }
@@ -273,17 +347,14 @@ struct MetaServerClient {
 
   void register_host(net::Addr metaserver, net::Addr host, std::string gamename) {
     ASSERT(gamename.length() < 30);
-    Logger::Info("mclient: register game host=%s name=%s\n", host.to_str().c_str(), gamename.c_str());
     gamelists[metaserver].add_game(host, gamename);
   }
 
   void unregister_host(net::Addr metaserver, net::Addr host) {
-    Logger::Info("mclient: unregister game host=%s\n", host.to_str().c_str());
     gamelists[metaserver].delete_game(host);
   }
 
   void action_host(std::string gamename) {
-    char name[30];
     pkg::metaserver_host_struct data = {
       .action = pkg::MSAction::HOST_GAME
     };
@@ -317,7 +388,6 @@ struct MetaServerClient {
 
   template <typename DataT>
   void send_action(DataT data) {
-    std::lock_guard<std::mutex> guard(socket_mtx);
     std::lock_guard<std::mutex> mguard(mservers_mtx);
     for(auto &m : metaservers) {
       socket.send(net::make_package(m, data));
@@ -325,7 +395,6 @@ struct MetaServerClient {
   }
 
   LobbyActor *make_lobby() {
-    std::lock_guard<std::mutex> guard(socket_mtx);
     std::lock_guard<std::mutex> lmguard(lmaker_mtx);
     if(lobbyMaker.ltype == LobbyMaker::type::SERVER) {
       return new LobbyServer(socket, metaservers, mservers_mtx);
