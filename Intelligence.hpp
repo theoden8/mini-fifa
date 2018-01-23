@@ -88,7 +88,7 @@ namespace pkg {
 
     uint16_t no_actions;
     action_struct action = {
-      .a=Action::NO_ACTION
+      .a = Action::NO_ACTION
     };
 
     constexpr bool has_action() const {
@@ -210,6 +210,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
       case pkg::Action::F: soccer.f_action(action.id, action.dir); break;
       case pkg::Action::S: soccer.s_action(action.id); break;
       case pkg::Action::M: soccer.m_action(action.id, action.dest); break;
+      case pkg::Action::NO_ACTION:break;
     }
   }
 
@@ -300,6 +301,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
         if(client->has_quit() || blob.addr != client->server_addr) {
           return !client->should_stop();
         }
+        // receive package sync
         blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) mutable {
           std::lock_guard<std::recursive_mutex> guard(client->frame_schedule_mtx);
           client->frame_schedule.push(sync);
@@ -364,6 +366,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
       case pkg::Action::F:soccer.f_action(event.action.id, event.action.dir);break;
       case pkg::Action::S:soccer.s_action(event.action.id);break;
       case pkg::Action::M:soccer.m_action(event.action.id, event.action.dest);break;
+      case pkg::Action::NO_ACTION:break;
     }
     ++no_actions;
   }
@@ -444,7 +447,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
 
   template <typename T>
   void send_action(const T &data) {
-    printf("iclient: sending action %d\n", data.a);
+    printf("iclient: sending action %hhu\n", data.a);
     socket.send(net::make_package(server_addr, data));
   }
 

@@ -28,7 +28,6 @@ namespace pkg {
   struct metaserver_host_response_struct {
     MSAction action;
     net::Addr host;
-    int8_t you = false;
     char name[30] = "";
 
     void set_name(std::string &s) {
@@ -128,7 +127,6 @@ struct MetaServer {
                   pkg::metaserver_host_response_struct gameinfo = {
                     .action = pkg::MSAction::HOST,
                     .host = it.first,
-                    .you = false,
                   };
                   gameinfo.set_name(it.second);
                   socket.send(net::make_package(blob.addr, gameinfo));
@@ -173,7 +171,6 @@ struct MetaServer {
                 response.set_name(name);
                 Logger::Info("mserver: sending action host host=%s name=%s\n", blob.addr.to_str().c_str(), name.c_str());
                 for(auto &u : users) {
-                  response.you = (blob.addr == u);
                   socket.send(net::make_package(u, response));
                 }
               }
@@ -187,8 +184,7 @@ struct MetaServer {
                 for(auto &u : users) {
                   socket.send(net::make_package(u, (pkg::metaserver_host_response_struct){
                     .action = pkg::MSAction::UNHOST,
-                    .host = blob.addr,
-                    .you = (blob.addr == u)
+                    .host = blob.addr
                   }));
                 }
               }
@@ -324,16 +320,10 @@ struct MetaServerClient {
         blob.try_visit_as<pkg::metaserver_host_response_struct>([&](const auto response) mutable {
           switch(response.action) {
             case pkg::MSAction::HELLO:break;
+            case pkg::MSAction::QUERY:break;
             case pkg::MSAction::HOST:
               Logger::Info("mclient: register game host=%s name=%s\n", blob.addr.to_str().c_str(), response.name);
               client->register_host(blob.addr, response.host, response.name);
-              if(response.you) {
-                client->set_state(State::HOSTED);
-                std::lock_guard<std::recursive_mutex> guard(client->lmaker_mtx);
-                client->lobbyMaker = (LobbyMaker){
-                  .ltype = LobbyMaker::type::SERVER
-                };
-              }
             break;
             case pkg::MSAction::UNHOST:
               Logger::Info("mclient: unregister game host=%s\n", blob.addr.to_str().c_str());
@@ -382,6 +372,11 @@ struct MetaServerClient {
   }
 
   void action_host(std::string gamename) {
+    set_state(State::HOSTED);
+    std::lock_guard<std::recursive_mutex> guard(lmaker_mtx);
+    lobbyMaker = (LobbyMaker){
+      .ltype = LobbyMaker::type::SERVER
+    };
     pkg::metaserver_host_struct data = {
       .action = pkg::MSAction::HOST
     };
@@ -420,6 +415,7 @@ struct MetaServerClient {
     } else if(lobbyMaker.ltype == LobbyMaker::type::CLIENT) {
       return new LobbyClient(socket, lobbyMaker.host);
     }
+    return nullptr;
   }
 
   void start() {

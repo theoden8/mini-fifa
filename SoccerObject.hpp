@@ -58,17 +58,23 @@ struct SoccerObject {
     } else if(key == GLFW_KEY_1 && mods == GLFW_MOD_SHIFT) {
       intelligence.leave();
     } else if(key == GLFW_KEY_Z) {
-      intelligence.z_action();
+      if(cursorState == CursorState::DEFAULT) {
+        intelligence.z_action();
+      }
     } else if(key == GLFW_KEY_X) {
       cursorState = CursorState::X_AIM;
     } else if(key == GLFW_KEY_C) {
       cursorState = CursorState::C_AIM;
     } else if(key == GLFW_KEY_V) {
-      intelligence.v_action();
+      if(cursorState == CursorState::DEFAULT) {
+        intelligence.v_action();
+      }
     } else if(key == GLFW_KEY_F) {
       cursorState = CursorState::F_AIM;
     } else if(key == GLFW_KEY_S) {
-      intelligence.s_action();
+      if(cursorState == CursorState::DEFAULT) {
+        intelligence.s_action();
+      }
     }
   }
 

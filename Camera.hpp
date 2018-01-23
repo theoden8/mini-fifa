@@ -86,6 +86,8 @@ struct Camera {
     } else if (glfwGetKey(w, GLFW_KEY_RIGHT) == GLFW_PRESS) {
       move_right(cameraSpeedKeys);
     } else if (glfwGetKey(w, GLFW_KEY_MINUS) == GLFW_PRESS) {
+      fov = std::fmin<double>(fov + 1, 89);
+      has_changed = true;
     } else if (glfwGetKey(w, GLFW_KEY_EQUAL) == GLFW_PRESS) {
       fov = std::fmax<double>(fov - 1, 1);
       has_changed = true;
@@ -100,7 +102,7 @@ struct Camera {
   }
 
   void mouse(double x, double y) {
-    return;
+    /* return; */
     double border = .02;
     if(x < border) {
       move_left(cameraSpeedMouse);

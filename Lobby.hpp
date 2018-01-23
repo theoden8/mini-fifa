@@ -296,6 +296,11 @@ struct LobbyServer : LobbyActor {
         // received hello from client
         blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto hello) mutable {
           switch(hello.action) {
+            case pkg::LobbyAction::NOTHING:
+              if(found) {
+                server->action_activity(blob.addr);
+              }
+            break;
             case pkg::LobbyAction::CONNECT:
               if(!found) {
                 server->action_join(blob.addr);
@@ -306,12 +311,8 @@ struct LobbyServer : LobbyActor {
                 server->action_kick(blob.addr);
               }
             break;
-            case pkg::LobbyAction::NOTHING:
-              if(found) {
-                server->action_activity(blob.addr);
-              }
-            break;
             case pkg::LobbyAction::UNHOST:break;
+            case pkg::LobbyAction::START:break;
           }
         });
         return !server->should_stop();

@@ -18,6 +18,10 @@
 namespace ui {
 template <typename BUTTON_FILENAME, typename FONT_FILENAME>
 struct Button {
+  // workaround for "error: cannot compile this scalar expression yet" from clang
+  const std::string btnquadf = "shaders/btn_quad.frag";
+  const std::string btntextf = "shaders/btn_text.frag";
+
   using self_t = Button<BUTTON_FILENAME, FONT_FILENAME>;
   Sprite<ui::Font, self_t> *font;
   ui::Text label;
@@ -49,8 +53,8 @@ struct Button {
     label(font->object),
     btnTx("btn"),
     uState("state"),
-    quadProgram({"shaders/btn_quad.vert"s, "shaders/btn_quad.frag"s}),
-    textProgram({"shaders/btn_text.vert"s, "shaders/btn_text.frag"s}),
+    quadProgram({"shaders/btn_quad.vert"s, btnquadf}),
+    textProgram({"shaders/btn_text.vert"s, btntextf}),
     attrVertex("vertex"),
     region(region)
   {}
