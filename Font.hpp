@@ -3,7 +3,7 @@
 #include <map>
 #include <glm/glm.hpp>
 
-#include "freetype_config.h"
+#include "incfreetype.h"
 #include "Debug.hpp"
 #include "Logger.hpp"
 #include "Texture.hpp"

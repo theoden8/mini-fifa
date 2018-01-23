@@ -100,6 +100,7 @@ struct Camera {
   }
 
   void mouse(double x, double y) {
+    return;
     double border = .02;
     if(x < border) {
       move_left(cameraSpeedMouse);

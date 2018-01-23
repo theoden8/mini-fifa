@@ -18,10 +18,12 @@ endif()
 set(CMAKE_CXX_FLAGS "-std=c++1z")
 
 add_executable(metaserver metaserver.cpp)
+include_directories($(CMAKE_CURRENT_SOURCE_DIR))
 
 set(exec minififa)
 set(SRCS ./minififa.cpp)
 add_executable(${exec} ${SRCS})
+include_directories($(CMAKE_CURRENT_SOURCE_DIR))
 # set_target_properties(${exec} PROPERTIES CXX_STANDARD_REQUIRED 17 CXX_EXTENSIONS OFF)
 # set_property(TARGET ${exec} PROPERTY CXX_STANDARD 14)
 

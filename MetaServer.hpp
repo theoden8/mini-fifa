@@ -270,28 +270,35 @@ struct MetaServerClient {
           }
         });
         // send query for random host
-        /* client->timer.periodic(EVENT_SEND_QUERY, [&]() mutable { */
-        /*   int i = 0, j = rand() % client->gamelists.size(); */
-        /*   for(auto &e:client->gamelists) { */
-        /*     if(i == j) { */
-        /*       int k = 0, m = rand() % e.second.games.size(); */
-        /*       for(auto &e2:e.second.games) { */
-        /*         if(k == m) { */
-        /*           auto &addr = e2.first; */
-        /*           Logger::Info("mclient: sending query for host %s\n", addr.to_str().c_str()); */
-        /*           client->send_action((pkg::metaserver_query_struct){ */
-        /*             .action = pkg::MSAction::QUERY, */
-        /*             .addr = addr */
-        /*           }); */
-        /*           break; */
-        /*         } */
-        /*         ++k; */
-        /*       } */
-        /*       break; */
-        /*     } */
-        /*     ++i; */
-        /*   } */
-        /* }); */
+        client->timer.periodic(EVENT_SEND_QUERY, [&]() mutable {
+          std::lock_guard<std::recursive_mutex> guard(client->mservers_mtx);
+          if(client->gamelists.empty()) {
+            return;
+          }
+          int i = 0, j = rand() % client->gamelists.size();
+          for(auto &e:client->gamelists) {
+            if(i == j) {
+              auto &games = e.second.games;
+              if(games.empty()) {
+                return;
+              }
+              int k = 0, m = rand() % games.size();
+              for(auto &e2:games) {
+                if(k == m) {
+                  auto &addr = e2.first;
+                  Logger::Info("mclient: sending query for host %s\n", addr.to_str().c_str());
+                  client->send_action((pkg::metaserver_query_struct){
+                    .action = pkg::MSAction::QUERY,
+                    .addr = addr
+                  });
+                  return;
+                }
+                ++k;
+              }
+            }
+            ++i;
+          }
+        });
         return !client->should_stop();
       },
       [&](const net::Blob &blob) {

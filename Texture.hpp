@@ -3,11 +3,11 @@
 #include <string>
 
 #include "incgraphics.h"
+#include "incfreetype.h"
 
 #include "ShaderProgram.hpp"
 #include "ShaderUniform.hpp"
 
-#include "freetype_config.h"
 #include "ImageLoader.hpp"
 
 namespace gl {
