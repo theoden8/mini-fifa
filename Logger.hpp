@@ -21,8 +21,8 @@ class Logger {
     filename(filename)
   {
     /* #ifndef NDEBUG */
-      /* truncate(this->filename.c_str(), 0); */
       file = fopen(this->filename.c_str(), "w");
+      ftruncate(fileno(file), 0);
       ASSERT(file != nullptr);
     /* #endif */
   }
