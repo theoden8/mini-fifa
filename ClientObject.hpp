@@ -3,11 +3,11 @@
 #include "GameObject.hpp"
 #include "LobbyObject.hpp"
 #include "MetaServerObject.hpp"
-#include "Cursor.hpp"
+#include "CursorObject.hpp"
 #include "Client.hpp"
 
 struct ClientObject {
-  Cursor cursor;
+  CursorObject cursor;
   Client &client;
 
   GameObject *gObject = nullptr;
