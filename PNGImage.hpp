@@ -5,6 +5,7 @@
 #include <png.h>
 
 #include "Debug.hpp"
+#include "File.hpp"
 #include "Logger.hpp"
 #include "Image.hpp"
 
@@ -25,6 +26,9 @@ struct PNGImage : public Image {
     if(fp == nullptr) {
       TERMINATE("png: unable to open file '%s'\n", filename.c_str());
     }
+
+    sys::File::Lock fl(fp);
+
     fread(header, 1, 8, fp);
     if(png_sig_cmp(header, 0, 8)) {
       TERMINATE("png: File %s is not recognized as a PNG file\n", filename.c_str());

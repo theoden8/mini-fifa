@@ -8,6 +8,7 @@
 #include <cassert>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 
 namespace sys {
 namespace HACK {
@@ -27,6 +28,29 @@ namespace HACK {
 
 class File {
   std::string filename;
+
+public:
+  class Lock {
+    int fd;
+  public:
+    Lock(FILE *file):
+      fd(fileno(file))
+    {
+      ASSERT(File::is_open(fd));
+      if(flock(fd, LOCK_EX) < 0) {
+        perror("flock[ex]:");
+        TERMINATE("unable to lock file\n");
+      }
+    }
+
+    ~Lock() {
+      if(flock(fd, LOCK_UN) < 0) {
+        perror("flock[un]:");
+        /* TERMINATE("unable to unlock file\n"); */
+        /* abort(); */
+      }
+    }
+  };
 public:
   File(const char *filename):
     filename(filename)
@@ -46,6 +70,14 @@ public:
     return filename;
   }
 
+  static bool is_open(FILE *file) {
+    return sys::File::is_open(fileno(file));
+  }
+
+  static bool is_open(int fd) {
+    return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
+  }
+
   bool is_ext(const std::string &&ext) {
     if(ext.length() > filename.length())
       return false;
@@ -57,25 +89,27 @@ public:
     return access(filename.c_str(), F_OK) != -1;
   }
 
-  char *load_text() {
+  std::string load_text() {
     size_t size = length() + 1;
-    char *text = (char *)malloc(size * sizeof(char));
-    if(text == nullptr) {
-      TERMINATE("unable to allocate text\n");
-    }
+    std::string text;
+    text.resize(size);
 
     FILE *file = fopen(filename.c_str(), "r");
     if(file == nullptr) {
       TERMINATE("unable to open file '%s' for reading\n", filename.c_str());
     }
 
-    char *t = text;
-    while((*t = fgetc(file)) != EOF)
-      ++t;
-    *t = '\0';
+    ASSERT(sys::File::is_open(file));
+    sys::File::Lock fl(file);
+
+    int i = 0;
+    while((text[i] = fgetc(file)) != EOF)
+      ++i;
+    text[i] = '\0';
 
     fclose(file);
     return text;
   }
 };
+
 }

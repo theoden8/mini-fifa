@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Debug.hpp"
+#include "Logger.hpp"
+#include "Optimizations.hpp"
 #include "Timer.hpp"
 #include "Network.hpp"
 #include "Lobby.hpp"
@@ -18,12 +21,12 @@ namespace pkg {
   struct metaserver_query_struct {
     MSAction action;
     net::Addr addr;
-  };
+  } ATTRIB_PACKED;
 
   struct metaserver_query_response_struct {
     net::Addr addr;
     int8_t active;
-  };
+  } ATTRIB_PACKED;
 
   struct metaserver_host_response_struct {
     MSAction action;
@@ -34,7 +37,7 @@ namespace pkg {
       strncpy(name, s.c_str(), std::min<int>(s.length() + 1, 30));
       name[29] = '\0';
     }
-  };
+  } ATTRIB_PACKED;
 }
 
 struct GameList {

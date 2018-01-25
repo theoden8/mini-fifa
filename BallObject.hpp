@@ -3,6 +3,7 @@
 #include "Ball.hpp"
 
 #include "incgraphics.h"
+#include "Optimizations.hpp"
 #include "Transformation.hpp"
 #include "Camera.hpp"
 #include "Model.hpp"

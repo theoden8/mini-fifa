@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Image.hpp"
+#include "File.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 
@@ -22,6 +23,8 @@ struct BMPImage : public Image {
     if(file == nullptr) {
       TERMINATE("bmp: unable to open file '%s'\n", filename.c_str());
     }
+
+    sys::File::Lock fl(file);
 
     // If less than 54 bytes are read, problem
     size_t r;

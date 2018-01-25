@@ -2,6 +2,7 @@
 
 #include "Debug.hpp"
 #include "Logger.hpp"
+#include "Optimizations.hpp"
 
 #include <cstdint>
 
@@ -21,19 +22,19 @@ namespace pkg {
 
   struct lobby_hello_struct {
     LobbyAction action;
-  };
+  } ATTRIB_PACKED;
 
   struct lobby_start_struct {
     LobbyAction action = LobbyAction::START;
     int8_t index;
     int8_t team1;
     int8_t team2;
-  };
+  } ATTRIB_PACKED;
 
   struct lobby_sync_struct {
     LobbyAction action = LobbyAction::NOTHING;
     Timer::time_t time;
-    bool you = false;
+    int8_t you = false;
     net::Addr address;
 
     constexpr bool operator<(const lobby_sync_struct &other) const {
@@ -43,7 +44,7 @@ namespace pkg {
     constexpr bool operator>(const lobby_sync_struct &other) const {
       return time > other.time;
     }
-  };
+  } ATTRIB_PACKED;
 
   enum class MSAction : int8_t {
     HELLO,
@@ -52,10 +53,12 @@ namespace pkg {
     UNHOST
   };
 
+  // all int8
   struct metaserver_hello_struct {
     MSAction action = MSAction::HELLO;
-  };
+  } ATTRIB_PACKED;
 
+  // all int8=char
   struct metaserver_host_struct {
     MSAction action;
     char name[30] = "";
@@ -64,7 +67,7 @@ namespace pkg {
       strncpy(name, s.c_str(), std::min<int>(s.length() + 1, 30));
       name[29] = '\0';
     }
-  };
+  } ATTRIB_PACKED;
 }
 
 class Lobby {
@@ -218,7 +221,8 @@ struct LobbyServer : LobbyActor {
   LobbyServer(net::Socket<net::SocketType::UDP> &socket, std::set<net::Addr> &metaservers, std::recursive_mutex &mservers_mtx):
     LobbyActor(),
     socket(socket),
-    metaservers(metaservers), mservers_mtx(mservers_mtx)
+    metaservers(metaservers),
+    mservers_mtx(mservers_mtx)
   {
     set_timer();
   }

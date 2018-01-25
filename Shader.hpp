@@ -57,13 +57,10 @@ struct Shader {
   }
   void init() {
     shaderId = glCreateShader(get_gl_shader_constant<ShaderT>()); GLERROR
-    char *source_code = file.load_text();
-    if(source_code == nullptr) {
-      TERMINATE("unable to load text from file '%s'\n", file.name().c_str());
-    }
-    glShaderSource(shaderId, 1, &source_code, nullptr); GLERROR
+    std::string source_code = file.load_text();
+    const char *source = source_code.c_str();
+    glShaderSource(shaderId, 1, &source, nullptr); GLERROR
     glCompileShader(shaderId); GLERROR
-    free(source_code);
   }
   void clear() {
     glDeleteShader(shaderId); GLERROR
