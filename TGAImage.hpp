@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "Image.hpp"
+#include "File.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 
@@ -20,6 +21,8 @@ struct TGAImage : public Image {
     if(file == nullptr) {
       TERMINATE("bmp: unable to open file '%s'\n", filename.c_str());
     }
+
+    sys::File::Lock fl(file);
 
     uint8_t header[18] = {0};
     constexpr static uint8_t is_decompressed_mask[12] = {0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
@@ -133,6 +136,7 @@ struct TGAImage : public Image {
       TERMINATE("tga: invalid file format: required 24 (RGB) or 32 (RGBA) bpp image\n");
     }
 
+    fl.drop();
     fclose(file);
   }
 };

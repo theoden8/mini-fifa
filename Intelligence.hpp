@@ -12,6 +12,7 @@
 #include "Soccer.hpp"
 #include "Network.hpp"
 #include "Logger.hpp"
+#include "Optimizations.hpp"
 
 enum class IntelligenceType {
   ABSTRACT,
@@ -66,19 +67,57 @@ using SoccerComputer = Intelligence<IntelligenceType::COMPUTER>;
 namespace pkg {
   // listen/send action
   enum class Action : uint8_t { NO_ACTION,Z,X,C,V,F,S,M };
+
+  struct vec2 {
+    float x,y;
+
+    vec2(){}
+
+    constexpr vec2(float x, float y):
+      x(x), y(y)
+    {}
+
+    constexpr pkg::vec2 operator=(const glm::vec3 &v) {
+      x=v.x, y=v.y;
+      return *this;
+    }
+
+    constexpr operator glm::vec2() const {
+      return glm::vec2(x, y);
+    }
+  } ATTRIB_PACKED;
+  struct vec3 {
+    float x,y,z;
+
+    vec3(){}
+
+    constexpr vec3(float x, float y, float z):
+      x(x), y(y), z(z)
+    {}
+
+    constexpr pkg::vec3 operator=(const glm::vec3 &v) {
+      x=v.x, y=v.y, z=v.z;
+      return *this;
+    }
+
+    constexpr operator glm::vec3() const {
+      return glm::vec3(x, y, z);
+    }
+  } ATTRIB_PACKED;
+
   struct action_struct {
     Action a;
     int8_t id;
     float dir;
-    glm::vec3 dest;
-  };
+    pkg::vec3 dest;
+  } ATTRIB_PACKED;
 
   // send/listen to unit sync
   struct sync_struct {
     int8_t id; // -1 for ball
     int8_t ball_owner;
-    glm::vec3 pos;
-    glm::vec2 dest;
+    pkg::vec3 pos;
+    pkg::vec2 dest;
     float movement_speed;
     float vertical_speed;
     float angle;
@@ -107,7 +146,7 @@ namespace pkg {
     constexpr bool operator>(const sync_struct &other) const {
       return frame > other.frame;
     }
-  };
+  } ATTRIB_PACKED;
 };
 
 template <>
@@ -349,7 +388,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
     unit.facing = sync.angle;
     unit.facing_dest = sync.angle_dest;
     unit.moving_speed = sync.movement_speed;
-    unit.dest = glm::vec3(sync.dest, 0);
+    unit.dest = pkg::vec3(sync.dest.x, sync.dest.y, 0);
 
     /* soccer.timer.set_time(sync.frame); */
     /* soccer.set_control_player(sync.ball_owner); */

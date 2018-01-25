@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Debug.hpp"
+#include "File.hpp"
 #include "Logger.hpp"
 #include "Image.hpp"
 
@@ -20,10 +21,12 @@ struct JPEGImage : public Image {
     struct jpeg_decompress_struct info; //for our jpeg info
     struct jpeg_error_mgr err;          //the error handler
 
-    FILE* file = fopen(filename.c_str(), "rb");  //open the file
+    FILE *file = fopen(filename.c_str(), "rb");  //open the file
     if(file == nullptr) {
       TERMINATE("jpeg: unable to open file '%s'\n", filename.c_str());
     }
+
+    sys::File::Lock fl(file);
 
     info.err = jpeg_std_error(& err);
     jpeg_create_decompress(& info);   //fills info structure
@@ -53,6 +56,7 @@ struct JPEGImage : public Image {
     }
     jpeg_finish_decompress(&info);
     jpeg_destroy_decompress(&info);
+    fl.drop();
     fclose(file);
   }
 };

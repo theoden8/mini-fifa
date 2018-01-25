@@ -28,6 +28,9 @@
 #ifndef TERMINATE
 #include "Debug.hpp"
 #include "Logger.hpp"
+#ifndef ATTRIB_PACKED
+#include "Optimizations.hpp"
+#endif
 #endif
 
 namespace net {
@@ -84,7 +87,7 @@ struct Addr {
     sockaddr_in saddr = (*this);
     return inet_ntoa(saddr.sin_addr) + std::string(":") + std::to_string(port);
   }
-};
+} ATTRIB_PACKED;
 
 template <typename T>
 struct Package {
@@ -140,16 +143,14 @@ struct Blob {
     return data_.data();
   }
 
-/*   template <typename T> */
-/*   operator Package<T>() { */
-/*     std::cout << "implicit conversion" << std::endl; */
-/*     ASSERT(sizeof(T) == size()); */
-/*     Package<T> packet; */
-/*     packet.addr = addr; */
-/*     memcpy(&packet.data, data(), sizeof(T)); */
-/*     std::cout << "origin " << addr.to_str() << std::endl; */
-/*     std::cout << "copied " << packet.addr.to_str() << std::endl; */
-/*   } */
+  template <typename T>
+  operator Package<T>() {
+    ASSERT(sizeof(T) == size());
+    Package<T> packet;
+    packet.addr = addr;
+    memcpy(&packet.data, data(), sizeof(T));
+    return packet;
+  }
 
   template <typename T, typename F, typename CF>
   bool try_visit_as(F &&func, CF &&cond) const {

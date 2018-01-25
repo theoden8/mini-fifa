@@ -9,7 +9,7 @@
 
 struct Team;
 
-struct Soccer {
+struct __attribute__((__packed__)) Soccer {
   std::vector<Player> players;
   Ball ball;
 
