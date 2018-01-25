@@ -32,6 +32,7 @@ class File {
 public:
   class Lock {
     int fd;
+    bool dropped = true;
   public:
     Lock(FILE *file):
       fd(fileno(file))
@@ -41,13 +42,21 @@ public:
         perror("flock[ex]:");
         TERMINATE("unable to lock file\n");
       }
+      dropped = false;
     }
 
-    ~Lock() {
+    void drop() noexcept {
       if(flock(fd, LOCK_UN) < 0) {
         perror("flock[un]:");
         /* TERMINATE("unable to unlock file\n"); */
-        /* abort(); */
+        abort();
+      }
+      dropped = true;
+    }
+
+    ~Lock() {
+      if(!dropped) {
+        drop();
       }
     }
   };
@@ -106,6 +115,8 @@ public:
     while((text[i] = fgetc(file)) != EOF)
       ++i;
     text[i] = '\0';
+
+    fl.drop();
 
     fclose(file);
     return text;

@@ -136,6 +136,7 @@ struct TGAImage : public Image {
       TERMINATE("tga: invalid file format: required 24 (RGB) or 32 (RGBA) bpp image\n");
     }
 
+    fl.drop();
     fclose(file);
   }
 };

@@ -56,6 +56,7 @@ struct JPEGImage : public Image {
     }
     jpeg_finish_decompress(&info);
     jpeg_destroy_decompress(&info);
+    fl.drop();
     fclose(file);
   }
 };

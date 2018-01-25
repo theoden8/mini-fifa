@@ -75,6 +75,7 @@ struct BMPImage : public Image {
       }
     }
     delete [] row;
+    fl.drop();
     fclose(file);
   }
 };

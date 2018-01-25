@@ -79,6 +79,7 @@ struct PNGImage : public Image {
 
     png_read_image(png_ptr, row_pointers);
 
+    fl.drop();
     fclose(fp);
 
     if(bpp == 3) {
