@@ -111,7 +111,11 @@ struct MetaServer {
         if(found) {
           user_timer.set_event(Timer::key_t(blob.addr.ip));
         }
-        static_assert(sizeof(pkg::metaserver_hello_struct) != sizeof(pkg::metaserver_host_struct));
+        static_assert(net::Typecheck::all_distinct<
+          pkg::metaserver_hello_struct,
+          pkg::metaserver_query_struct,
+          pkg::metaserver_host_struct
+        >);
         // received hello package
         blob.try_visit_as<pkg::metaserver_hello_struct>([&](const auto hello) mutable {
           Logger::Info("mserver: recognized as hello package, found=%d\n", found);
@@ -141,7 +145,6 @@ struct MetaServer {
             }
           }
         });
-        static_assert(sizeof(pkg::metaserver_hello_struct) != sizeof(pkg::metaserver_query_struct));
         // respond whether the address is active or not
         blob.try_visit_as<pkg::metaserver_query_struct>([&](auto query) mutable {
           Logger::Info("mserver: recognized as query package, found=%d\n");
@@ -154,7 +157,6 @@ struct MetaServer {
             .active = gamelist.find(query.addr)
           }));
         });
-        static_assert(sizeof(pkg::metaserver_query_struct) != sizeof(pkg::metaserver_host_struct));
         // received hosting action
         blob.try_visit_as<pkg::metaserver_host_struct>([&](auto host) mutable {
           Logger::Info("mserver: recognized as hosting struct\n");
@@ -310,7 +312,10 @@ struct MetaServerClient {
             return !client->should_stop();
           }
         }
-        static_assert(sizeof(pkg::metaserver_query_response_struct) != sizeof(pkg::metaserver_host_response_struct));
+        static_assert(net::Typecheck::all_distinct<
+          pkg::metaserver_query_response_struct,
+          pkg::metaserver_host_response_struct
+        >);
         // recognize as a query response struct
         blob.try_visit_as<pkg::metaserver_query_response_struct>([&](const auto response) mutable {
           // unregister if no longer marked active

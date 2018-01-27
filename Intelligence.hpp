@@ -14,7 +14,7 @@
 #include "Logger.hpp"
 #include "Optimizations.hpp"
 
-enum class IntelligenceType {
+enum class IntelligenceType : int8_t {
   ABSTRACT,
   SERVER,
   REMOTE,

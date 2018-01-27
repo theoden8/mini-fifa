@@ -604,4 +604,32 @@ public:
 /*   } */
 /* }; */
 
+namespace Typecheck {
+  namespace detail {
+    template <bool... Bs> struct all_true_struct;
+    template <bool... Bs> constexpr bool all_true = all_true_struct<Bs...>::value;
+    template <bool B, bool... Bs> struct all_true_struct<B, Bs...> {
+      static constexpr bool value = B && all_true<Bs...>;
+    };
+    template <> struct all_true_struct<> {
+      static constexpr bool value = true;
+    };
+
+    template <typename... Ts> struct distinct;
+    template <typename T, typename... Ts> struct distinct<T, Ts...> {
+      static constexpr bool value = all_true<distinct<T, Ts>::value...> && distinct<Ts...>::value;
+    };
+    template <typename Ta, typename Tb> struct distinct<Ta, Tb> {
+      static constexpr bool value = sizeof(Ta) != sizeof(Tb);
+    };
+    template <typename T> struct distinct<T> {
+      static constexpr bool value = true;
+    };
+    template <> struct distinct<> {
+      static constexpr bool value = true;
+    };
+  }
+  template <typename... Ts> constexpr bool all_distinct = detail::distinct<Ts...>::value;
+}
+
 }
