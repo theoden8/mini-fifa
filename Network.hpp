@@ -54,7 +54,7 @@ struct Addr {
     ip(ip), port(port)
   {}
 
-  constexpr Addr(sockaddr_in saddr_in):
+  Addr(sockaddr_in saddr_in):
     ip(ntohl(saddr_in.sin_addr.s_addr)), port(ntohs(saddr_in.sin_port))
   {}
 

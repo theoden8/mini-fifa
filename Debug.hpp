@@ -23,7 +23,7 @@
 
 #define ASSERT(CONDITION) \
   if(!(CONDITION)) { \
-    throw std::runtime_error("\033[1;91merror\033[0m at " CODE_LOCATION CONDITION_TOSTR(CONDITION)); \
+    Logger::Error("%s\n", "\033[1;91merror\033[0m at " CODE_LOCATION CONDITION_TOSTR(CONDITION)); \
   }
 #define TERMINATE(...) \
   Logger::Error(__VA_ARGS__);  \

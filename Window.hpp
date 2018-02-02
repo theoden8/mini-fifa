@@ -13,6 +13,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "ImageLoader.hpp"
 #include "Logger.hpp"
 #include "Debug.hpp"
 
@@ -75,9 +76,13 @@ protected:
   }
   void init_glew() {
     // Initialize GLEW
-    glewExperimental = true; // Needed for core profile
-    GLuint res = glewInit(); GLERROR
-    ASSERT(res == GLEW_OK);
+    glewExperimental = GL_TRUE; // Needed for core profile
+    auto res = glewInit(); GLERROR
+    // on some systems, returns invalid value even if succeeds
+    if(res != GLEW_OK) {
+      Logger::Error("glew error: %s\n", "there was some error initializing glew");
+      /* Logger::Error("glew error: %s\n", glewGetErrorString()); */
+    }
   }
   void init_controls() {
     // ensure we can capture the escape key
@@ -122,6 +127,7 @@ public:
     }
     cObject.clear();
     ui::Font::cleanup();
+    glfwDestroyWindow(window); GLERROR
     glfwTerminate(); GLERROR
   }
   /* void display() { */

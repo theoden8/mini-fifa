@@ -67,7 +67,8 @@ struct CursorObject {
   }
 
   glm::vec2 get_position() const {
-    return transform.GetPosition();
+    glm::vec4 pos = transform.GetPosition();
+    return {pos.x, pos.y};
   }
 
   void display() {

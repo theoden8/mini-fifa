@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdio>
-#include <csetjmp>
 #include <png.h>
 
 #include "Debug.hpp"

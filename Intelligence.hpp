@@ -82,8 +82,8 @@ namespace pkg {
       return *this;
     }
 
-    constexpr operator glm::vec2() const {
-      return glm::vec2(x, y);
+    operator glm::vec2() const {
+      return {x, y};
     }
   } ATTRIB_PACKED;
   struct vec3 {
@@ -100,7 +100,7 @@ namespace pkg {
       return *this;
     }
 
-    constexpr operator glm::vec3() const {
+    operator glm::vec3() const {
       return glm::vec3(x, y, z);
     }
   } ATTRIB_PACKED;
