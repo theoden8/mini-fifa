@@ -17,7 +17,7 @@
 
 namespace pkg {
   enum class LobbyAction : int8_t {
-    NOTHING, CONNECT, DISCONNECT, UNHOST, START
+    NOTHING, CONNECT, DISCONNECT, UNHOST, START, QUERY
   };
 
   struct lobby_hello_struct {
@@ -31,19 +31,21 @@ namespace pkg {
     int8_t team2;
   } ATTRIB_PACKED;
 
-  struct lobby_sync_struct {
-    LobbyAction action = LobbyAction::NOTHING;
-    Timer::time_t time;
-    int8_t you = false;
-    net::Addr address;
+  struct lobby_query_struct {
+    LobbyAction action = LobbyAction::QUERY;
+    net::Addr addr;
+  } ATTRIB_PACKED;
 
-    constexpr bool operator<(const lobby_sync_struct &other) const {
-      return time < other.time;
-    }
+  struct lobby_participant_struct {
+    int8_t ind;
+    IntelligenceType itype;
+    int8_t team;
+  } ATTRIB_PACKED;
 
-    constexpr bool operator>(const lobby_sync_struct &other) const {
-      return time > other.time;
-    }
+  struct lobby_query_response_struct {
+    net::Addr addr;
+    int8_t active;
+    pkg::lobby_participant_struct info;
   } ATTRIB_PACKED;
 
   enum class MSAction : int8_t {
@@ -72,14 +74,9 @@ namespace pkg {
 
 class Lobby {
 public:
-  struct Participant {
-    int8_t ind;
-    IntelligenceType itype;
-    int8_t team;
-  };
 private:
   std::recursive_mutex mtx;
-  std::map<net::Addr, Participant> players;
+  std::map<net::Addr, pkg::lobby_participant_struct> players;
   int team1_=0, team2_=0;
 public:
   Lobby()
@@ -88,12 +85,21 @@ public:
   void add_participant(net::Addr addr, IntelligenceType itype=IntelligenceType::REMOTE) {
     std::lock_guard<std::recursive_mutex> guard(mtx);
     bool team = (team1_ <= team2_) ? Soccer::Team::RED_TEAM : Soccer::Team::BLUE_TEAM;
-    players.insert({addr, Participant({
+    players.insert({addr, pkg::lobby_participant_struct({
       .ind=int8_t(players.size()),
       .itype=itype,
       .team=team
     })});
     ++(!team?team1_:team2_);
+  }
+
+  size_t size() {
+    std::lock_guard<std::recursive_mutex> guard(mtx);
+    return players.size();
+  }
+
+  bool empty() {
+    return size() == 0;
   }
 
   void remove_participant(net::Addr addr) {
@@ -104,7 +110,7 @@ public:
     }
   }
 
-  auto operator[](net::Addr addr) {
+  decltype(auto) operator[](net::Addr addr) {
     std::lock_guard<std::recursive_mutex> guard(mtx);
     return players[addr];
   }
@@ -122,6 +128,19 @@ public:
         break;
       }
     }
+  }
+
+  net::Addr random() {
+    std::lock_guard<std::recursive_mutex> guard(mtx);
+    ASSERT(!players.empty());
+    int i = 0, j = rand() % players.size();
+    for(const auto &p : players) {
+      if(i == j) {
+        return p.first;
+      }
+      ++i;
+    }
+    throw std::runtime_error("bullshit!");
   }
 
   void change_team(net::Addr addr) {
@@ -259,9 +278,18 @@ struct LobbyServer : LobbyActor {
         });
         // send hello to clients
         server->timer.periodic(EVENT_SEND_HELLO_USERS, [&]() mutable {
-          server->send_action((pkg::lobby_hello_struct){
-            .action = pkg::LobbyAction::NOTHING
-          });
+          if(rand() % 3 || server->lobby.empty()) {
+            server->send_action((pkg::lobby_hello_struct){
+              .action = pkg::LobbyAction::NOTHING
+            });
+          } else {
+            net::Addr addr = server->lobby.random();
+            server->send_action((pkg::lobby_query_response_struct){
+              .addr = addr,
+              .active = true,
+              .info = server->lobby[addr]
+            });
+          }
         });
         // clean up inactive users
         server->timer.periodic(EVENT_CHECK_STATUSES, [&]() mutable {
@@ -297,14 +325,15 @@ struct LobbyServer : LobbyActor {
           return !server->should_stop();
         }
         bool found = server->lobby.find(blob.addr);
+        if(found) {
+          server->action_activity(blob.addr);
+        }
         // received hello from client
+        static_assert(net::Typecheck::all_distinct<pkg::lobby_hello_struct, pkg::lobby_query_struct>);
         blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto hello) mutable {
+          Logger::Info("%.2f received signal %d from %s\n", server->timer.current_time, hello.action, blob.addr.to_str().c_str());
           switch(hello.action) {
-            case pkg::LobbyAction::NOTHING:
-              if(found) {
-                server->action_activity(blob.addr);
-              }
-            break;
+            case pkg::LobbyAction::NOTHING:break;
             case pkg::LobbyAction::CONNECT:
               if(!found) {
                 server->action_join(blob.addr);
@@ -315,8 +344,21 @@ struct LobbyServer : LobbyActor {
                 server->action_kick(blob.addr);
               }
             break;
+            case pkg::LobbyAction::QUERY:break;
             case pkg::LobbyAction::UNHOST:break;
             case pkg::LobbyAction::START:break;
+          }
+        });
+        blob.try_visit_as<pkg::lobby_query_struct>([&](const auto query) mutable {
+          if(found) {
+            pkg::lobby_query_response_struct data = {
+              .addr = query.addr,
+              .active = server->lobby.find(query.addr)
+            };
+            if(data.active) {
+              data.info = server->lobby[query.addr];
+            }
+            server->socket.send(net::make_package(blob.addr, data));
           }
         });
         return !server->should_stop();
@@ -416,13 +458,12 @@ struct LobbyServer : LobbyActor {
   void action_join(net::Addr addr) {
     Timer::time_t server_time = Timer::system_time();
     Logger::Info("%.2f lserver: sending action join for %s to clients\n", server_time, addr.to_str().c_str());
-    send_action((pkg::lobby_sync_struct){
-      .action = pkg::LobbyAction::CONNECT,
-      .time = server_time,
-      .you = false,
-      .address = addr
-    });
     lobby.add_participant(addr);
+    send_action((pkg::lobby_query_response_struct){
+      .addr = addr,
+      .active = true,
+      .info = lobby[addr]
+    });
     user_timer.set_time(Timer::system_time());
     user_timer.set_event(Timer::key_t(addr.ip));
     user_timer.set_timeout(Timer::key_t(addr.ip), Timer::time_t(3.));
@@ -431,13 +472,11 @@ struct LobbyServer : LobbyActor {
   void action_kick(net::Addr addr) {
     Timer::time_t server_time = Timer::system_time();
     Logger::Info("%.2f lserver: sending action kick for %s to clients\n", server_time, addr.to_str().c_str());
-    send_action((pkg::lobby_sync_struct){
-      .action = pkg::LobbyAction::DISCONNECT,
-      .time = server_time,
-      .you = false,
-      .address = addr
-    });
     lobby.remove_participant(addr);
+    send_action((pkg::lobby_query_response_struct){
+      .addr = addr,
+      .active = false,
+    });
     user_timer.erase(Timer::key_t(addr.ip));
   }
 
@@ -476,7 +515,8 @@ struct LobbyClient : LobbyActor {
     set_timer();
   }
 
-  void send_action(pkg::lobby_hello_struct hello) {
+  template <typename DataT>
+  void send_action(const DataT hello) {
     socket.send(net::make_package(host, hello));
   }
 
@@ -488,8 +528,11 @@ struct LobbyClient : LobbyActor {
     timer.set_timeout(EVENT_HOST_ACTIVITY, Timer::time_t(3.));
   }
 
-  std::priority_queue<pkg::lobby_sync_struct> lobby_actions;
-  std::recursive_mutex lsync_mtx;
+  void register_host_activity() {
+    timer.set_time(Timer::system_time());
+    timer.set_event(EVENT_HOST_ACTIVITY);
+  }
+
   static void run(LobbyClient *client) {
     client->timer.set_time(Timer::system_time());
     client->timer.set_event(EVENT_HOST_ACTIVITY);
@@ -501,11 +544,21 @@ struct LobbyClient : LobbyActor {
         }
         client->timer.set_time(Timer::system_time());
         client->timer.periodic(EVENT_SEND_HELLO, [&]() mutable {
-          client->send_action((pkg::lobby_hello_struct){
-            .action = pkg::LobbyAction::NOTHING
-          });
+          if(rand() % 3 || client->lobby.empty()) {
+            Logger::Info("%.2f lclient: sending hello\n", client->timer.current_time);
+            client->send_action((pkg::lobby_hello_struct){
+              .action = pkg::LobbyAction::NOTHING
+            });
+          } else {
+            Logger::Info("%.2f lclient: sending query\n", client->timer.current_time);
+            client->send_action((pkg::lobby_query_struct){
+              .action = pkg::LobbyAction::QUERY,
+              .addr = client->lobby.random()
+            });
+          }
         });
         if(client->timer.timed_out(EVENT_HOST_ACTIVITY) && !client->has_quit()) {
+          Logger::Info("%.2f lclient: host timed out (%.2fs)\n", client->timer.current_time, client->timer.elapsed(EVENT_HOST_ACTIVITY));
           client->action_leave();
         }
         return !client->should_stop();
@@ -514,16 +567,34 @@ struct LobbyClient : LobbyActor {
         if(client->has_started() || client->has_quit() || blob.addr != client->host) {
           return !client->should_stop();
         }
-        static_assert(sizeof(pkg::lobby_hello_struct) != sizeof(pkg::lobby_sync_struct));
-        // received lobby update
-        blob.try_visit_as<pkg::lobby_sync_struct>([&](const auto lsync) mutable {
-          Logger::Info("lclient: received sync from host\n");
-          client->add_action(lsync);
+        static_assert(net::Typecheck::all_distinct<
+          pkg::lobby_hello_struct,
+          pkg::lobby_query_response_struct,
+          pkg::lobby_start_struct
+        >);
+        client->register_host_activity();
+        // received idle ping from host
+        blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto hello) mutable {
+          if(hello.action == pkg::LobbyAction::UNHOST) {
+            Logger::Info("%.2f lclient: received UNHOST\n", client->timer.current_time);
+            client->action_leave();
+            return;
+          } else {
+            Logger::Info("%.2f lclient: received ping\n", client->timer.current_time);
+          }
         });
-        static_assert(sizeof(pkg::lobby_hello_struct) != sizeof(pkg::lobby_start_struct));
+        // received lobby query response
+        blob.try_visit_as<pkg::lobby_query_response_struct>([&](const auto qresp) mutable {
+          Logger::Info("%.2f lclient: received query response for (%hhd, %d, %s):\n", client->timer.current_time, qresp.info.ind, qresp.info.team?1:0, qresp.addr.to_str().c_str());
+          if(qresp.active) {
+            client->lobby[qresp.addr] = qresp.info;
+          } else if(client->lobby.find(qresp.addr)) {
+            client->lobby.remove_participant(qresp.addr);
+          }
+        });
         // received lobby start
         blob.try_visit_as<pkg::lobby_start_struct>([&](const auto start) mutable {
-          Logger::Info("lclient: received start package from server\n");
+          Logger::Info("%.2f lclient: received start package from server\n", client->timer.current_time);
           {
             std::lock_guard<std::recursive_mutex> guard(client->gmaker_mtx);
             client->gameMaker.ind = start.index;
@@ -532,56 +603,9 @@ struct LobbyClient : LobbyActor {
           }
           client->action_start();
         });
-        static_assert(sizeof(pkg::lobby_sync_struct) != sizeof(pkg::lobby_start_struct));
-        // received idle ping from host
-        blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto hello) mutable {
-          Logger::Info("lclient: received ping\n");
-          if(hello.action == pkg::LobbyAction::UNHOST) {
-            client->action_leave();
-            return;
-          }
-          client->timer.set_time(Timer::system_time());
-          client->timer.set_event(EVENT_HOST_ACTIVITY);
-        });
         return !client->should_stop();
       }
     );
-  }
-
-  void add_action(pkg::lobby_sync_struct patch) {
-    {
-      std::lock_guard<std::recursive_mutex> guard(lsync_mtx);
-      lobby_actions.push(patch);
-    }
-    reproduce_actions();
-  }
-
-  void apply_patch(pkg::lobby_sync_struct patch) {
-    switch(patch.action) {
-      case pkg::LobbyAction::CONNECT:
-        lobby.add_participant(patch.address);
-      break;
-      case pkg::LobbyAction::DISCONNECT:
-        lobby.remove_participant(patch.address);
-      break;
-      case pkg::LobbyAction::UNHOST:break;
-      case pkg::LobbyAction::START:break;
-      case pkg::LobbyAction::NOTHING:break;
-    }
-  }
-
-  void reproduce_actions() {
-    lobby.clear();
-    std::priority_queue<pkg::lobby_sync_struct> lsync_cp;
-    {
-      std::lock_guard<std::recursive_mutex> guard(lsync_mtx);
-      lsync_cp = lobby_actions;
-    }
-    while(!lsync_cp.empty()) {
-      auto patch = lsync_cp.top();
-      apply_patch(patch);
-      lsync_cp.pop();
-    }
   }
 
   bool finalize = true;
@@ -618,9 +642,11 @@ struct LobbyClient : LobbyActor {
   LobbyActor::State last_state = LobbyActor::State::DEFAULT;
   void trigger_events() {
     if(last_state != LobbyActor::State::QUIT && has_quit()) {
+      Logger::Info("lclient: triggered quit\n");
       last_state = LobbyActor::State::QUIT;
       action_quit();
     } else if(last_state != LobbyActor::State::STARTED && has_started()) {
+      Logger::Info("lclient: triggered start\n");
       last_state = LobbyActor::State::STARTED;
     }
   }

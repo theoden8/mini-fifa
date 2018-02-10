@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdio>
-#include <csetjmp>
 #include <png.h>
 
 #include "Debug.hpp"
@@ -19,7 +18,7 @@ struct PNGImage : public Image {
 
   void init() {
     unsigned char header[8];    // 8 is the maximum size that can be checked
-    format = GL_RGBA;
+    format = Image::Format::RGBA;
 
     /* open file and test for it being a png */
     FILE *fp = fopen(filename.c_str(), "rb");
@@ -83,9 +82,9 @@ struct PNGImage : public Image {
     fclose(fp);
 
     if(bpp == 3) {
-      format = GL_RGB;
+      format = Image::Format::RGB;
     } else if(bpp == 4) {
-      format = GL_RGBA;
+      format = Image::Format::RGBA;
     } else {
       TERMINATE("png: unknown image format %d for file %s\n", bpp, filename.c_str());
     }

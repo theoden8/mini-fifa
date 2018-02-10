@@ -49,11 +49,11 @@ struct TGAImage : public Image {
       data = new unsigned char[size];
 
       if(bpp == 4) {
-        format = GL_RGBA;
+        format = Image::Format::RGBA;
       } else if(bpp == 3) {
-        format = GL_RGB;
+        format = Image::Format::RGB;
       } else if(bpp == 1) {
-        format = GL_ALPHA8;
+        format = Image::Format::ALPHA8;
       }
 
       unsigned char *dpixel = data;
@@ -87,11 +87,11 @@ struct TGAImage : public Image {
       is_compressed = true;
       data = new unsigned char[width * height * bpp];
       if(bpp == 4) {
-        format = GL_RGBA;
+        format = Image::Format::RGBA;
       } else if(bpp == 3) {
-        format = GL_RGB;
+        format = Image::Format::RGB;
       } else if(bpp == 1) {
-        format = GL_ALPHA8;
+        format = Image::Format::ALPHA8;
       }
 
       unsigned char *dpixel = data;
