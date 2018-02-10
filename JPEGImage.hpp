@@ -41,9 +41,9 @@ struct JPEGImage : public Image {
     width = info.output_width;
     height = info.output_height;
     if(bpp == 3) {
-      format = GL_RGB;
+      format = Image::Format::RGB;
     } else if(bpp == 4) {
-      format = GL_RGBA;
+      format = Image::Format::RGBA;
     } else {
       TERMINATE("jpeg: unknown pixel format\n");
     }

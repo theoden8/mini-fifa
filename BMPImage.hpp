@@ -47,7 +47,7 @@ struct BMPImage : public Image {
     height = *(int32_t*)&(header[0x16]);
 
     size_t bpp = 3;
-    format = GL_RGB;
+    format = Image::Format::RGB;
     // Some BMP files are misformatted, guess missing information
     if(img_size == 0 || img_size != width * height * bpp) {
       Logger::Warning("[bmp] warning: file [%s] has incorrect img_size %d\n", filename.c_str(), img_size);

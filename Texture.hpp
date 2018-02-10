@@ -19,6 +19,16 @@ struct Texture {
     uSampler(uniform_name.c_str())
   {}
 
+  static constexpr GLenum get_gl_pixel_format(img::Image::Format format) {
+    switch(format) {
+      case img::Image::Format::ALPHA8: return GL_ALPHA8;
+      case img::Image::Format::RGB: return GL_RGB;
+      case img::Image::Format::RGBA: return GL_RGBA;
+      case img::Image::Format::BGR: return GL_BGR;
+      case img::Image::Format::BGRA: return GL_BGRA;
+    }
+  }
+
   GLuint id() const { return tex; }
 
   void init_white_square() {
@@ -51,7 +61,7 @@ struct Texture {
     /* c=clock(); */
     glGenTextures(1, &tex); GLERROR
     gl::Texture::bind(tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, image->format, image->width, image->height, 0, image->format, GL_UNSIGNED_BYTE, image->data); GLERROR
+    glTexImage2D(GL_TEXTURE_2D, 0, get_gl_pixel_format(image->format), image->width, image->height, 0, get_gl_pixel_format(image->format), GL_UNSIGNED_BYTE, image->data); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); GLERROR
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); GLERROR
