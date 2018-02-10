@@ -7,9 +7,9 @@
 #include "ShaderProgram.hpp"
 #include "Texture.hpp"
 #include "Timer.hpp"
-#include "Pitch.hpp"
+#include "Region.hpp"
 
-struct Cursor {
+struct CursorObject {
   Transformation transform;
 
   enum class State {
@@ -32,7 +32,7 @@ struct Cursor {
 
   State state = State::POINTER;
 
-  Cursor():
+  CursorObject():
     uTransform("transform"),
     pointerTx("cursorTx"),
     selectorTx("cursorTx"),
@@ -67,7 +67,8 @@ struct Cursor {
   }
 
   glm::vec2 get_position() const {
-    return transform.GetPosition();
+    glm::vec4 pos = transform.GetPosition();
+    return {pos.x, pos.y};
   }
 
   void display() {

@@ -12,8 +12,9 @@
 #include "Soccer.hpp"
 #include "Network.hpp"
 #include "Logger.hpp"
+#include "Optimizations.hpp"
 
-enum class IntelligenceType {
+enum class IntelligenceType : int8_t {
   ABSTRACT,
   SERVER,
   REMOTE,
@@ -42,13 +43,13 @@ struct Intelligence <IntelligenceType::ABSTRACT> {
     DEFAULT, QUIT
   };
   State state_ = State::DEFAULT;
-  std::mutex state_mtx;
+  std::recursive_mutex state_mtx;
   void set_state(State state) {
-    std::lock_guard<std::mutex> guard(state_mtx);
+    std::lock_guard<std::recursive_mutex> guard(state_mtx);
     state_ = state;
   }
   State state() {
-    std::lock_guard<std::mutex> guard(state_mtx);
+    std::lock_guard<std::recursive_mutex> guard(state_mtx);
     return state_;
   }
   void leave() {
@@ -66,19 +67,57 @@ using SoccerComputer = Intelligence<IntelligenceType::COMPUTER>;
 namespace pkg {
   // listen/send action
   enum class Action : uint8_t { NO_ACTION,Z,X,C,V,F,S,M };
+
+  struct vec2 {
+    float x,y;
+
+    vec2(){}
+
+    constexpr vec2(float x, float y):
+      x(x), y(y)
+    {}
+
+    constexpr pkg::vec2 operator=(const glm::vec3 &v) {
+      x=v.x, y=v.y;
+      return *this;
+    }
+
+    operator glm::vec2() const {
+      return {x, y};
+    }
+  } ATTRIB_PACKED;
+  struct vec3 {
+    float x,y,z;
+
+    vec3(){}
+
+    constexpr vec3(float x, float y, float z):
+      x(x), y(y), z(z)
+    {}
+
+    constexpr pkg::vec3 operator=(const glm::vec3 &v) {
+      x=v.x, y=v.y, z=v.z;
+      return *this;
+    }
+
+    operator glm::vec3() const {
+      return glm::vec3(x, y, z);
+    }
+  } ATTRIB_PACKED;
+
   struct action_struct {
     Action a;
     int8_t id;
     float dir;
-    glm::vec3 dest;
-  };
+    pkg::vec3 dest;
+  } ATTRIB_PACKED;
 
   // send/listen to unit sync
   struct sync_struct {
     int8_t id; // -1 for ball
     int8_t ball_owner;
-    glm::vec3 pos;
-    glm::vec2 dest;
+    pkg::vec3 pos;
+    pkg::vec2 dest;
     float movement_speed;
     float vertical_speed;
     float angle;
@@ -88,7 +127,7 @@ namespace pkg {
 
     uint16_t no_actions;
     action_struct action = {
-      .a=Action::NO_ACTION
+      .a = Action::NO_ACTION
     };
 
     constexpr bool has_action() const {
@@ -107,7 +146,7 @@ namespace pkg {
     constexpr bool operator>(const sync_struct &other) const {
       return frame > other.frame;
     }
-  };
+  } ATTRIB_PACKED;
 };
 
 template <>
@@ -117,8 +156,8 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
   Soccer &soccer;
   net::Socket<net::SocketType::UDP> &socket;
   std::thread server_thread;
-  std::mutex no_actions_mtx;
-  std::mutex finalize_mtx;
+  std::recursive_mutex no_actions_mtx;
+  std::recursive_mutex finalize_mtx;
 
   std::set<net::Addr> clients;
 
@@ -129,23 +168,24 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
 
   static void run(SoccerServer *server) {
     constexpr int EVENT_SYNC = 1;
-    std::mutex socket_mtx;
     Timer timer;
     timer.set_time(Timer::system_time());
     timer.set_timeout(EVENT_SYNC, .1);
-    server->socket.listen(socket_mtx,
+    server->socket.listen(
       [&]() mutable {
+        if(server->has_quit()) {
+          return !server->should_stop();
+        }
         // send sync data for random unit showing that no action occured until a
         // certain time point
         Timer::time_t server_time = Timer::system_time();
         timer.set_time(server_time);
         if(timer.timed_out(EVENT_SYNC)) {
           timer.set_event(EVENT_SYNC);
-          std::lock_guard<std::mutex> guard(server->soccer.mtx);
+          std::lock_guard<std::recursive_mutex> guard(server->soccer.mtx);
           int no_ids = server->soccer.team1.size() + server->soccer.team2.size() + 1;
           int8_t unit_id = (rand() % no_ids) - 1;
           for(const auto &addr : server->clients) {
-            std::lock_guard<std::mutex> guard(socket_mtx);
             server->socket.send(net::make_package(addr, server->get_sync_data(unit_id)));
           }
         }
@@ -153,18 +193,18 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
       },
       [&](const net::Blob &blob) {
         // discard packages not belonging to current players
-        if(server->clients.find(blob.addr) == std::end(server->clients)) {
+        if(server->has_quit() || server->clients.find(blob.addr) == std::end(server->clients)) {
           return !server->should_stop();
         }
         // if this package seems to be action, perform action and send responses
         blob.try_visit_as<pkg::action_struct>([&](const auto action) mutable {
           server->perform_action(action);
           {
-            std::lock_guard<std::mutex> guard(server->no_actions_mtx);
+            std::lock_guard<std::recursive_mutex> guard(server->no_actions_mtx);
             ++server->no_actions;
           }
           {
-            std::lock_guard<std::mutex> guard(server->soccer.mtx);
+            std::lock_guard<std::recursive_mutex> guard(server->soccer.mtx);
             for(const auto &addr : server->clients) {
               server->socket.send(net::make_package(addr, server->get_sync_data(action.id)));
             }
@@ -177,7 +217,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
 
   pkg::sync_struct get_sync_data(int unit_id=Ball::NO_OWNER) {
     pkg::sync_struct usd;
-    std::lock_guard<std::mutex> guard(soccer.mtx);
+    std::lock_guard<std::recursive_mutex> guard(soccer.mtx);
     usd.id = unit_id;
     usd.frame = soccer.timer.current_time;
     if(unit_id == Ball::NO_OWNER) {
@@ -193,14 +233,14 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
     usd.angle = unit.facing;
     usd.angle_dest = unit.facing_dest;
     {
-      std::lock_guard<std::mutex> guard(no_actions_mtx);
+      std::lock_guard<std::recursive_mutex> guard(no_actions_mtx);
       usd.no_actions = no_actions;
     }
     return usd;
   }
 
   void perform_action(pkg::action_struct action) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
+    std::lock_guard<std::recursive_mutex> guard(soccer.mtx);
     switch(action.a) {
       case pkg::Action::Z: soccer.z_action(action.id); break;
       case pkg::Action::X: soccer.x_action(action.id, action.dir); break;
@@ -209,6 +249,7 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
       case pkg::Action::F: soccer.f_action(action.id, action.dir); break;
       case pkg::Action::S: soccer.s_action(action.id); break;
       case pkg::Action::M: soccer.m_action(action.id, action.dest); break;
+      case pkg::Action::NO_ACTION:break;
     }
   }
 
@@ -230,14 +271,14 @@ struct Intelligence<IntelligenceType::SERVER> : public Intelligence<Intelligence
   void stop() {
     ASSERT(!should_stop());
     {
-      std::lock_guard<std::mutex> guard(finalize_mtx);
+      std::lock_guard<std::recursive_mutex> guard(finalize_mtx);
       finalize = true;
     }
     server_thread.join();
     Logger::Info("iserver: finished\n");
   }
   bool should_stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
+    std::lock_guard<std::recursive_mutex> guard(finalize_mtx);
     return finalize;
   }
 
@@ -275,13 +316,12 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   int8_t id_;
   Soccer &soccer;
   net::Addr server_addr;
-  net::Socket<net::SocketType::UDP> socket;
+  net::Socket<net::SocketType::UDP> &socket;
   int no_actions = 0;
   Timer::time_t last_frame = Timer::time_start();
   std::thread client_thread;
-  std::mutex frame_schedule_mtx;
-  std::mutex finalize_mtx;
-  std::mutex socket_mtx;
+  std::recursive_mutex frame_schedule_mtx;
+  std::recursive_mutex finalize_mtx;
 
   Intelligence(int id, Soccer &soccer, net::Socket<net::SocketType::UDP> &socket, net::Addr server_addr):
     id_(id),
@@ -292,19 +332,19 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
 
   static void run(SoccerRemote *client) {
     Timer::time_t delay = 1.;
-    client->socket.listen(client->socket_mtx,
+    client->socket.listen(
       [&]() mutable {
         return !client->should_stop();
       },
       [&](const net::Blob &blob) mutable {
-        bool ret = client->should_stop();
-        if(blob.addr != client->server_addr) {
+        if(client->has_quit() || blob.addr != client->server_addr) {
           return !client->should_stop();
         }
+        // receive package sync
         blob.try_visit_as<pkg::sync_struct>([&](const auto &sync) mutable {
-          std::lock_guard<std::mutex> guard(client->frame_schedule_mtx);
+          std::lock_guard<std::recursive_mutex> guard(client->frame_schedule_mtx);
           client->frame_schedule.push(sync);
-          std::lock_guard<std::mutex> sguard(client->soccer.mtx);
+          std::lock_guard<std::recursive_mutex> sguard(client->soccer.mtx);
           Timer::time_t current_time = client->soccer.timer.current_time;
           delay = current_time - sync.frame;
         });
@@ -337,7 +377,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   }
 
   void unpack_sync_unit(const pkg::sync_struct &sync) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
+    std::lock_guard<std::recursive_mutex> guard(soccer.mtx);
     if(sync.id == Ball::NO_OWNER) {
       soccer.ball.vertical_speed = sync.vertical_speed;
     } else {
@@ -348,14 +388,14 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
     unit.facing = sync.angle;
     unit.facing_dest = sync.angle_dest;
     unit.moving_speed = sync.movement_speed;
-    unit.dest = glm::vec3(sync.dest, 0);
+    unit.dest = pkg::vec3(sync.dest.x, sync.dest.y, 0);
 
     /* soccer.timer.set_time(sync.frame); */
     /* soccer.set_control_player(sync.ball_owner); */
   }
 
   void unpack_sync_action(const pkg::sync_struct &event) {
-    std::lock_guard<std::mutex> guard(soccer.mtx);
+    std::lock_guard<std::recursive_mutex> guard(soccer.mtx);
     if(!event.has_action())return;
     switch(event.action.a) {
       case pkg::Action::Z:soccer.z_action(event.action.id);break;
@@ -365,6 +405,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
       case pkg::Action::F:soccer.f_action(event.action.id, event.action.dir);break;
       case pkg::Action::S:soccer.s_action(event.action.id);break;
       case pkg::Action::M:soccer.m_action(event.action.id, event.action.dest);break;
+      case pkg::Action::NO_ACTION:break;
     }
     ++no_actions;
   }
@@ -383,7 +424,7 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
       max_new_frame = std::fmax(max_new_frame, frames.front() + .0001);
     }
 
-    std::lock_guard<std::mutex> guard_frames(frame_schedule_mtx);
+    std::lock_guard<std::recursive_mutex> guard_frames(frame_schedule_mtx);
     pkg::sync_struct next_event;
     /* printf("frame: %f\n", last_frame); */
     /* printf("curtime: %f\n", curtime); */
@@ -432,21 +473,20 @@ struct Intelligence<IntelligenceType::REMOTE> : public Intelligence<Intelligence
   void stop() {
     ASSERT(!should_stop());
     {
-      std::lock_guard<std::mutex> guard(finalize_mtx);
+      std::lock_guard<std::recursive_mutex> guard(finalize_mtx);
       finalize = true;
     }
     client_thread.join();
     Logger::Info("iclient: finished\n");
   }
   bool should_stop() {
-    std::lock_guard<std::mutex> guard(finalize_mtx);
+    std::lock_guard<std::recursive_mutex> guard(finalize_mtx);
     return finalize;
   }
 
   template <typename T>
   void send_action(const T &data) {
-    printf("iclient: sending action %d\n", data.a);
-    std::lock_guard<std::mutex> guard(socket_mtx);
+    printf("iclient: sending action %hhu\n", data.a);
     socket.send(net::make_package(server_addr, data));
   }
 

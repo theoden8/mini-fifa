@@ -4,7 +4,7 @@
 #include "Camera.hpp"
 #include "Model.hpp"
 
-struct Post {
+struct PostObject {
   glm::mat4 matrix;
   glm::mat4 extra_rotate;
   Transformation transform;
@@ -19,7 +19,7 @@ struct Post {
   using ShaderProgram = decltype(program);
 
   bool team;
-  Post(bool team):
+  PostObject(bool team):
     team(team),
     uTransform("transform"),
     postModel("assets/woodswing/woodswing.obj"),

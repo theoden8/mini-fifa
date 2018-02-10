@@ -187,7 +187,8 @@ unsigned int TextureFromFile(const char *path, const std::string &directory, boo
 	GLenum format;
 
 	glBindTexture(GL_TEXTURE_2D, textureID); GLERROR
-	glTexImage2D(GL_TEXTURE_2D, 0, image->format, image->width, image->height, 0, image->format, GL_UNSIGNED_BYTE, image->data); GLERROR
+  GLenum pixel_format = gl::Texture::get_gl_pixel_format(image->format);
+	glTexImage2D(GL_TEXTURE_2D, 0, pixel_format, image->width, image->height, 0, pixel_format, GL_UNSIGNED_BYTE, image->data); GLERROR
 	glGenerateMipmap(GL_TEXTURE_2D); GLERROR
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); GLERROR

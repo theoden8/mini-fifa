@@ -28,6 +28,9 @@
 #ifndef TERMINATE
 #include "Debug.hpp"
 #include "Logger.hpp"
+#ifndef ATTRIB_PACKED
+#include "Optimizations.hpp"
+#endif
 #endif
 
 namespace net {
@@ -35,7 +38,7 @@ namespace net {
 typedef uint64_t ip_t;
 typedef uint16_t port_t;
 
-ip_t ip_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
+ip_t ipv4_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
   return ((a << 24) | (b << 16) | (c << 8) | (d << 0));
 }
 
@@ -51,7 +54,7 @@ struct Addr {
     ip(ip), port(port)
   {}
 
-  constexpr Addr(sockaddr_in saddr_in):
+  Addr(sockaddr_in saddr_in):
     ip(ntohl(saddr_in.sin_addr.s_addr)), port(ntohs(saddr_in.sin_port))
   {}
 
@@ -84,7 +87,7 @@ struct Addr {
     sockaddr_in saddr = (*this);
     return inet_ntoa(saddr.sin_addr) + std::string(":") + std::to_string(port);
   }
-};
+} ATTRIB_PACKED;
 
 template <typename T>
 struct Package {
@@ -140,16 +143,14 @@ struct Blob {
     return data_.data();
   }
 
-/*   template <typename T> */
-/*   operator Package<T>() { */
-/*     std::cout << "implicit conversion" << std::endl; */
-/*     ASSERT(sizeof(T) == size()); */
-/*     Package<T> packet; */
-/*     packet.addr = addr; */
-/*     memcpy(&packet.data, data(), sizeof(T)); */
-/*     std::cout << "origin " << addr.to_str() << std::endl; */
-/*     std::cout << "copied " << packet.addr.to_str() << std::endl; */
-/*   } */
+  template <typename T>
+  operator Package<T>() {
+    ASSERT(sizeof(T) == size());
+    Package<T> packet;
+    packet.addr = addr;
+    memcpy(&packet.data, data(), sizeof(T));
+    return packet;
+  }
 
   template <typename T, typename F, typename CF>
   bool try_visit_as(F &&func, CF &&cond) const {
@@ -171,7 +172,10 @@ struct Blob {
 };
 
 enum class SocketType {
-  TCP_SERVER, TCP_CLIENT, UDP, ICMP
+  ICMP,
+  UDP,
+  TCP_SERVER,
+  TCP_CLIENT
 };
 
 template <SocketType Proto> class Socket;
@@ -280,10 +284,12 @@ class Socket<SocketType::UDP> {
 
 	int handle_;
 	port_t port_;
+  std::mutex mtx;
 public:
 	Socket(port_t port):
     port_(port)
   {
+    std::lock_guard<std::mutex> guard(mtx);
     handle_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if(handle_ <= 0) {
       perror("error");
@@ -309,7 +315,8 @@ public:
   }
 
   template <typename T>
-	void send(const Package<T> package) const {
+	void send(const Package<T> package) {
+    std::lock_guard<std::mutex> guard(mtx);
     if(sizeof(T) > MAX_PACKET_SIZE) {
       perror("error");
       TERMINATE("The packet to be sent is too big\n");
@@ -326,7 +333,8 @@ public:
     }
   }
 
-	std::optional<Blob> receive() const {
+	std::optional<Blob> receive() {
+    std::lock_guard<std::mutex> guard(mtx);
     sockaddr_in saddr_from;
     socklen_t saddr_from_length = sizeof(saddr_from);
 
@@ -345,19 +353,18 @@ public:
     return blob;
   }
 
-	port_t port() const {
+	constexpr port_t port() const {
     return port_;
   }
 
   template <typename G, typename F>
-  void listen(std::mutex &socket_mtx, G &&idle, F &&func) {
+  void listen(G &&idle, F &&func) {
     std::optional<Blob> opt_blob;
     bool cond = 1;
     while(cond) {
       if(!idle()) {
         break;
       }
-      std::lock_guard<std::mutex> guard(socket_mtx);
       if((opt_blob = receive()).has_value()) {
         cond = func(*opt_blob);
       }
@@ -365,8 +372,8 @@ public:
   }
 
   template <typename F>
-  void listen(std::mutex &socket_mtx, F &&func) {
-    listen(socket_mtx, [](){return true;}, std::forward<F>(func));
+  void listen(F &&func) {
+    listen([](){return true;}, std::forward<F>(func));
   }
 };
 
@@ -596,5 +603,33 @@ public:
 /*     return port_; */
 /*   } */
 /* }; */
+
+namespace Typecheck {
+  namespace detail {
+    template <bool... Bs> struct all_true_struct;
+    template <bool... Bs> constexpr bool all_true = all_true_struct<Bs...>::value;
+    template <bool B, bool... Bs> struct all_true_struct<B, Bs...> {
+      static constexpr bool value = B && all_true<Bs...>;
+    };
+    template <> struct all_true_struct<> {
+      static constexpr bool value = true;
+    };
+
+    template <typename... Ts> struct distinct;
+    template <typename T, typename... Ts> struct distinct<T, Ts...> {
+      static constexpr bool value = all_true<distinct<T, Ts>::value...> && distinct<Ts...>::value;
+    };
+    template <typename Ta, typename Tb> struct distinct<Ta, Tb> {
+      static constexpr bool value = sizeof(Ta) != sizeof(Tb);
+    };
+    template <typename T> struct distinct<T> {
+      static constexpr bool value = true;
+    };
+    template <> struct distinct<> {
+      static constexpr bool value = true;
+    };
+  }
+  template <typename... Ts> constexpr bool all_distinct = detail::distinct<Ts...>::value;
+}
 
 }

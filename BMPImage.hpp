@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Image.hpp"
+#include "File.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 
@@ -23,6 +24,8 @@ struct BMPImage : public Image {
       TERMINATE("bmp: unable to open file '%s'\n", filename.c_str());
     }
 
+    sys::File::Lock fl(file);
+
     // If less than 54 bytes are read, problem
     size_t r;
     if((r = fread(header, sizeof(unsigned char), 138, file)) != 138) {
@@ -44,7 +47,7 @@ struct BMPImage : public Image {
     height = *(int32_t*)&(header[0x16]);
 
     size_t bpp = 3;
-    format = GL_RGB;
+    format = Image::Format::RGB;
     // Some BMP files are misformatted, guess missing information
     if(img_size == 0 || img_size != width * height * bpp) {
       Logger::Warning("[bmp] warning: file [%s] has incorrect img_size %d\n", filename.c_str(), img_size);
@@ -72,6 +75,7 @@ struct BMPImage : public Image {
       }
     }
     delete [] row;
+    fl.drop();
     fclose(file);
   }
 };

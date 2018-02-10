@@ -92,6 +92,14 @@ struct Timer {
     return elapsed(key) > timeout;
   }
 
+  template <typename F>
+  void periodic(key_t key, F &&func) {
+    if(timed_out(key)) {
+      set_event(key);
+      func();
+    }
+  }
+
   void erase(key_t key) {
     if(events.find(key) != events.end()) {
       events.erase(key);

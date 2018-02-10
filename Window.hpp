@@ -13,15 +13,18 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include "ImageLoader.hpp"
 #include "Logger.hpp"
 #include "Debug.hpp"
 
+#include "Region.hpp"
 #include "ClientObject.hpp"
 
 namespace glfw {
   void error_callback(int error, const char* description);
   void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
   void size_callback(GLFWwindow *window, int new_width, int new_height);
+  void cursor_area_callback(GLFWwindow *window, double xpos, double ypos);
   void mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
   void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 }
@@ -32,6 +35,11 @@ class Window {
 protected:
   size_t width_, height_;
 
+  Region cursor_area{
+    {0, 1},
+    {0, 1}
+  };
+  glm::vec2 cursor_pos{0, 0};
   ClientObject cObject;
 
   void start() {
@@ -62,19 +70,24 @@ protected:
     glfwMakeContextCurrent(window); GLERROR
     glfwSetKeyCallback(window, glfw::keypress_callback); GLERROR
     glfwSetWindowSizeCallback(window, glfw::size_callback); GLERROR
+    glfwSetCursorPosCallback(window, glfw::cursor_area_callback); GLERROR
     glfwSetMouseButtonCallback(window, glfw::mouse_button_callback); GLERROR
     glfwSetScrollCallback(window, glfw::mouse_scroll_callback); GLERROR
   }
   void init_glew() {
     // Initialize GLEW
-    glewExperimental = true; // Needed for core profile
-    GLuint res = glewInit(); GLERROR
-    ASSERT(res == GLEW_OK);
+    glewExperimental = GL_TRUE; // Needed for core profile
+    auto res = glewInit(); GLERROR
+    // on some systems, returns invalid value even if succeeds
+    if(res != GLEW_OK) {
+      Logger::Error("glew error: %s\n", "there was some error initializing glew");
+      /* Logger::Error("glew error: %s\n", glewGetErrorString()); */
+    }
   }
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
-    /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR
   }
   const GLFWvidmode *vidmode = nullptr;
 public:
@@ -107,13 +120,14 @@ public:
     glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window) && cObject.is_active()) {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
+      cObject.mouse(cursor_pos.x, cursor_pos.y);
       cObject.display(window, width(), height());
-      mouse();
       glfwPollEvents(); GLERROR
       glfwSwapBuffers(window); GLERROR
     }
     cObject.clear();
     ui::Font::cleanup();
+    glfwDestroyWindow(window); GLERROR
     glfwTerminate(); GLERROR
   }
   /* void display() { */
@@ -136,15 +150,21 @@ public:
       cObject.keypress(key, mods);
     }
   }
-  void mouse() {
-    double m_x, m_y;
-    glfwGetCursorPos(window, &m_x, &m_y);
+  void mouse(double m_x, double m_y) {
     m_x /= width(), m_y /= height();
-    cObject.mouse(m_x, m_y);
+    if(m_x >= cursor_area.x2()) {
+      cursor_area.xs += (m_x - cursor_area.x2());
+    } else if(m_x <= cursor_area.x1()) {
+      cursor_area.xs -= (cursor_area.x1() - m_x);
+    }
+    if(m_y >= cursor_area.y2()) {
+      cursor_area.ys += (m_y - cursor_area.y2());
+    } else if(m_y <= cursor_area.y1()) {
+      cursor_area.ys -= (cursor_area.y1() - m_y);
+    }
+    cursor_pos = {m_x - cursor_area.x1(), m_y - cursor_area.y1()};
   }
-  void mouse_click(double x, double y, int button, int action, int mods) {
-    double m_x = x/width(), m_y = y/height();
-    cObject.mouse(m_x, m_y);
+  void mouse_click(int button, int action, int mods) {
     cObject.mouse_click(button, action);
   }
   void mouse_scroll(double xoffset, double yoffset) {
@@ -157,9 +177,9 @@ static Window &get_window(GLFWwindow *window) {
 
 namespace glfw {
 void error_callback(int error, const char* description) {
-#ifndef NDEBUG
+/* #ifndef NDEBUG */
   Logger::Error("[GLFW] code %i msg: %s\n", error, description);
-#endif
+/* #endif */
 }
 void keypress_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
   get_window(window).keyboard_event(key, scancode, action, mods);
@@ -167,10 +187,11 @@ void keypress_callback(GLFWwindow *window, int key, int scancode, int action, in
 void size_callback(GLFWwindow *window, int new_width, int new_height) {
   get_window(window).resize((float)new_width, (float)new_height);
 }
+void cursor_area_callback(GLFWwindow *window, double xpos, double ypos) {
+  get_window(window).mouse(xpos, ypos);
+}
 void mouse_button_callback(GLFWwindow *window, int button, int action, int mods) {
-  double m_x, m_y;
-  glfwGetCursorPos(window, &m_x, &m_y);
-  get_window(window).mouse_click(m_x, m_y, button, action, mods);
+  get_window(window).mouse_click(button, action, mods);
 }
 void mouse_scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
   get_window(window).mouse_scroll(xoffset, yoffset);

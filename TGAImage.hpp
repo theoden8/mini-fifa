@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "Image.hpp"
+#include "File.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 
@@ -20,6 +21,8 @@ struct TGAImage : public Image {
     if(file == nullptr) {
       TERMINATE("bmp: unable to open file '%s'\n", filename.c_str());
     }
+
+    sys::File::Lock fl(file);
 
     uint8_t header[18] = {0};
     constexpr static uint8_t is_decompressed_mask[12] = {0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
@@ -46,11 +49,11 @@ struct TGAImage : public Image {
       data = new unsigned char[size];
 
       if(bpp == 4) {
-        format = GL_RGBA;
+        format = Image::Format::RGBA;
       } else if(bpp == 3) {
-        format = GL_RGB;
+        format = Image::Format::RGB;
       } else if(bpp == 1) {
-        format = GL_ALPHA8;
+        format = Image::Format::ALPHA8;
       }
 
       unsigned char *dpixel = data;
@@ -84,11 +87,11 @@ struct TGAImage : public Image {
       is_compressed = true;
       data = new unsigned char[width * height * bpp];
       if(bpp == 4) {
-        format = GL_RGBA;
+        format = Image::Format::RGBA;
       } else if(bpp == 3) {
-        format = GL_RGB;
+        format = Image::Format::RGB;
       } else if(bpp == 1) {
-        format = GL_ALPHA8;
+        format = Image::Format::ALPHA8;
       }
 
       unsigned char *dpixel = data;
@@ -133,6 +136,7 @@ struct TGAImage : public Image {
       TERMINATE("tga: invalid file format: required 24 (RGB) or 32 (RGBA) bpp image\n");
     }
 
+    fl.drop();
     fclose(file);
   }
 };

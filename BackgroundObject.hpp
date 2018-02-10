@@ -7,7 +7,7 @@
 #include "Texture.hpp"
 #include "Tuple.hpp"
 
-struct Background {
+struct BackgroundObject {
   gl::ShaderProgram<
     gl::VertexShader,
     gl::FragmentShader
@@ -18,7 +18,7 @@ struct Background {
   using ShaderAttrib = decltype(attrVertex);
   using ShaderProgram = decltype(program);
 
-  Background():
+  BackgroundObject():
     program({"shaders/bg.vert", "shaders/bg.frag"}),
     attrVertex("vertex")
   {}

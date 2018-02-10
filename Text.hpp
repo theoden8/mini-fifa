@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "incgraphics.h"
-#include "freetype_config.h"
+#include "incfreetype.h"
 
 #include "Transformation.hpp"
 #include "ShaderProgram.hpp"

@@ -68,28 +68,31 @@ struct LobbyObject {
       lobbyActor->action_leave();
     });
     if(!is_active())return;
-    button_display(start_button, [&]() mutable {
-      lobbyActor->action_start();
-    });
-    if(!is_active())return;
+    if(lobbyActor->is_server()) {
+      button_display(start_button, [&]() mutable {
+        lobbyActor->action_start();
+      });
+      if(!is_active())return;
+    }
 
     glm::vec2 xs(-.8, .0);
-    glm::vec2 ys(-1., -.8);
+    glm::vec2 ys(-1., -.9);
     ys += .05;
-    std::lock_guard<std::mutex> guard(lobbyActor->lobby.mtx);
-    for(auto &p : lobbyActor->lobby.players) {
+    lobbyActor->lobby.iterate([&](auto &p) mutable {
       if(p.second.team == Soccer::Team::RED_TEAM) {
         infobarR.setx(xs.x, xs.y);
         infobarR.sety(ys.x, ys.y);
         infobarR.label.set_text(std::to_string(p.second.ind) + ": " + p.first.to_str());
-        infobarR.display();
+        button_display(infobarR, [&]() mutable {});
       } else {
         infobarB.setx(xs.x, xs.y);
         infobarB.sety(ys.x, ys.y);
         infobarB.label.set_text(std::to_string(p.second.ind) + ": " + p.first.to_str());
-        infobarB.display();
+        button_display(infobarB, [&]() mutable {});
       }
-    }
+      ys += .12;
+      return true;
+    });
   }
 
   void clear() {

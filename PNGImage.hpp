@@ -1,10 +1,10 @@
 #pragma once
 
 #include <cstdio>
-#include <csetjmp>
 #include <png.h>
 
 #include "Debug.hpp"
+#include "File.hpp"
 #include "Logger.hpp"
 #include "Image.hpp"
 
@@ -18,13 +18,16 @@ struct PNGImage : public Image {
 
   void init() {
     unsigned char header[8];    // 8 is the maximum size that can be checked
-    format = GL_RGBA;
+    format = Image::Format::RGBA;
 
     /* open file and test for it being a png */
     FILE *fp = fopen(filename.c_str(), "rb");
     if(fp == nullptr) {
       TERMINATE("png: unable to open file '%s'\n", filename.c_str());
     }
+
+    sys::File::Lock fl(fp);
+
     fread(header, 1, 8, fp);
     if(png_sig_cmp(header, 0, 8)) {
       TERMINATE("png: File %s is not recognized as a PNG file\n", filename.c_str());
@@ -75,12 +78,13 @@ struct PNGImage : public Image {
 
     png_read_image(png_ptr, row_pointers);
 
+    fl.drop();
     fclose(fp);
 
     if(bpp == 3) {
-      format = GL_RGB;
+      format = Image::Format::RGB;
     } else if(bpp == 4) {
-      format = GL_RGBA;
+      format = Image::Format::RGBA;
     } else {
       TERMINATE("png: unknown image format %d for file %s\n", bpp, filename.c_str());
     }

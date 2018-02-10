@@ -1,26 +1,26 @@
 #pragma once
 
 #include "Camera.hpp"
-#include "Cursor.hpp"
+#include "CursorObject.hpp"
 #include "Intelligence.hpp"
 #include "Soccer.hpp"
-#include "Background.hpp"
+#include "BackgroundObject.hpp"
 #include "SoccerObject.hpp"
 
 struct GameObject {
   Camera cam;
-  Background background;
+  BackgroundObject backgrObj;
   SoccerObject soccerObject;
 
-  Cursor &cursor; // no ownership, but may modify
+  CursorObject &cursor; // no ownership, but may modify
 
   size_t w_width;
   size_t w_height;
 
   Timer::time_t current_time = 0.;
 
-  GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, Cursor &cursor):
-    background(),
+  GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, CursorObject &cursor):
+    backgrObj(),
     soccerObject(soccer, intelligence),
     cursor(cursor)
   {}
@@ -31,7 +31,7 @@ struct GameObject {
 
   void init() {
     Logger::Info("gobject: intiialized\n");
-    background.init();
+    backgrObj.init();
     soccerObject.init();
   }
 
@@ -63,13 +63,13 @@ struct GameObject {
 
   void display() {
     if(!is_active())return;
-    background.display(cam);
+    backgrObj.display(cam);
     soccerObject.display(cam);
   }
 
   void clear() {
     Logger::Info("gobject: clearance\n");
-    background.clear();
+    backgrObj.clear();
     soccerObject.clear();
   }
 };

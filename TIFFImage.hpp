@@ -23,7 +23,7 @@ struct TIFFImage : public Image {
     }
     if(TIFFRGBAImageBegin(&img, tif, 0, error)) {
       size_t bpp = 4;
-      format = GL_RGBA;
+      format = Image::Format::RGBA;
       width = img.width, height = img.height;
       data = new unsigned char[width * height * bpp];
       TIFFRGBAImageEnd(&img);
