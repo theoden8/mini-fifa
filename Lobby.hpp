@@ -93,6 +93,15 @@ public:
     ++(!team?team1_:team2_);
   }
 
+  size_t size() {
+    std::lock_guard<std::recursive_mutex> guard(mtx);
+    return players.size();
+  }
+
+  bool empty() {
+    return size() == 0;
+  }
+
   void remove_participant(net::Addr addr) {
     std::lock_guard<std::recursive_mutex> guard(mtx);
     if(players.find(addr) != std::end(players)) {
@@ -101,7 +110,7 @@ public:
     }
   }
 
-  auto operator[](net::Addr addr) {
+  decltype(auto) operator[](net::Addr addr) {
     std::lock_guard<std::recursive_mutex> guard(mtx);
     return players[addr];
   }
@@ -123,6 +132,7 @@ public:
 
   net::Addr random() {
     std::lock_guard<std::recursive_mutex> guard(mtx);
+    ASSERT(!players.empty());
     int i = 0, j = rand() % players.size();
     for(const auto &p : players) {
       if(i == j) {
@@ -268,7 +278,7 @@ struct LobbyServer : LobbyActor {
         });
         // send hello to clients
         server->timer.periodic(EVENT_SEND_HELLO_USERS, [&]() mutable {
-          if(rand() % 3) {
+          if(rand() % 3 || server->lobby.empty()) {
             server->send_action((pkg::lobby_hello_struct){
               .action = pkg::LobbyAction::NOTHING
             });
@@ -321,7 +331,7 @@ struct LobbyServer : LobbyActor {
         // received hello from client
         static_assert(net::Typecheck::all_distinct<pkg::lobby_hello_struct, pkg::lobby_query_struct>);
         blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto hello) mutable {
-          Logger::Info("received signal %d from %s\n", hello.action, blob.addr.to_str().c_str());
+          Logger::Info("%.2f received signal %d from %s\n", server->timer.current_time, hello.action, blob.addr.to_str().c_str());
           switch(hello.action) {
             case pkg::LobbyAction::NOTHING:break;
             case pkg::LobbyAction::CONNECT:
@@ -524,6 +534,8 @@ struct LobbyClient : LobbyActor {
   }
 
   static void run(LobbyClient *client) {
+    client->timer.set_time(Timer::system_time());
+    client->timer.set_event(EVENT_HOST_ACTIVITY);
     client->socket.listen(
       [&]() mutable {
         client->trigger_events();
@@ -532,13 +544,13 @@ struct LobbyClient : LobbyActor {
         }
         client->timer.set_time(Timer::system_time());
         client->timer.periodic(EVENT_SEND_HELLO, [&]() mutable {
-          if(rand() % 3) {
-            Logger::Info("lclient: sending hello\n");
+          if(rand() % 3 || client->lobby.empty()) {
+            Logger::Info("%.2f lclient: sending hello\n", client->timer.current_time);
             client->send_action((pkg::lobby_hello_struct){
               .action = pkg::LobbyAction::NOTHING
             });
           } else {
-            Logger::Info("lclient: sending query\n");
+            Logger::Info("%.2f lclient: sending query\n", client->timer.current_time);
             client->send_action((pkg::lobby_query_struct){
               .action = pkg::LobbyAction::QUERY,
               .addr = client->lobby.random()
@@ -546,6 +558,7 @@ struct LobbyClient : LobbyActor {
           }
         });
         if(client->timer.timed_out(EVENT_HOST_ACTIVITY) && !client->has_quit()) {
+          Logger::Info("%.2f lclient: host timed out (%.2fs)\n", client->timer.current_time, client->timer.elapsed(EVENT_HOST_ACTIVITY));
           client->action_leave();
         }
         return !client->should_stop();
@@ -562,15 +575,17 @@ struct LobbyClient : LobbyActor {
         client->register_host_activity();
         // received idle ping from host
         blob.try_visit_as<pkg::lobby_hello_struct>([&](const auto hello) mutable {
-          Logger::Info("lclient: received ping\n");
           if(hello.action == pkg::LobbyAction::UNHOST) {
+            Logger::Info("%.2f lclient: received UNHOST\n", client->timer.current_time);
             client->action_leave();
             return;
+          } else {
+            Logger::Info("%.2f lclient: received ping\n", client->timer.current_time);
           }
         });
         // received lobby query response
         blob.try_visit_as<pkg::lobby_query_response_struct>([&](const auto qresp) mutable {
-          Logger::Info("lclient: received query responst for %s\n", qresp.addr.to_str().c_str());
+          Logger::Info("%.2f lclient: received query response for (%hhd, %d, %s):\n", client->timer.current_time, qresp.info.ind, qresp.info.team?1:0, qresp.addr.to_str().c_str());
           if(qresp.active) {
             client->lobby[qresp.addr] = qresp.info;
           } else if(client->lobby.find(qresp.addr)) {
@@ -579,7 +594,7 @@ struct LobbyClient : LobbyActor {
         });
         // received lobby start
         blob.try_visit_as<pkg::lobby_start_struct>([&](const auto start) mutable {
-          Logger::Info("lclient: received start package from server\n");
+          Logger::Info("%.2f lclient: received start package from server\n", client->timer.current_time);
           {
             std::lock_guard<std::recursive_mutex> guard(client->gmaker_mtx);
             client->gameMaker.ind = start.index;
@@ -627,9 +642,11 @@ struct LobbyClient : LobbyActor {
   LobbyActor::State last_state = LobbyActor::State::DEFAULT;
   void trigger_events() {
     if(last_state != LobbyActor::State::QUIT && has_quit()) {
+      Logger::Info("lclient: triggered quit\n");
       last_state = LobbyActor::State::QUIT;
       action_quit();
     } else if(last_state != LobbyActor::State::STARTED && has_started()) {
+      Logger::Info("lclient: triggered start\n");
       last_state = LobbyActor::State::STARTED;
     }
   }
