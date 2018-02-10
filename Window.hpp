@@ -46,7 +46,7 @@ protected:
     init_glfw();
     init_glew();
     init_controls();
-    /* gl_version(); */
+    gl_version();
   }
   void init_glfw() {
     glfwSetErrorCallback(glfw::error_callback);
@@ -87,7 +87,7 @@ protected:
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR
+    /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
   }
   const GLFWvidmode *vidmode = nullptr;
 public:
