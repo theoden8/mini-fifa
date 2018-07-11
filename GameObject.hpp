@@ -12,14 +12,14 @@ struct GameObject {
   BackgroundObject backgrObj;
   SoccerObject soccerObject;
 
-  CursorObject &cursor; // no ownership, but may modify
+  ui::CursorObject &cursor; // no ownership, but may modify
 
   size_t w_width;
   size_t w_height;
 
   Timer::time_t current_time = 0.;
 
-  GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, CursorObject &cursor):
+  GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, ui::CursorObject &cursor):
     backgrObj(),
     soccerObject(soccer, intelligence),
     cursor(cursor)

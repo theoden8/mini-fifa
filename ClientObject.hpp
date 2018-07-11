@@ -7,7 +7,7 @@
 #include "Client.hpp"
 
 struct ClientObject {
-  CursorObject cursor;
+  ui::CursorObject cursor;
   Client &client;
 
   GameObject *gObject = nullptr;
@@ -96,14 +96,14 @@ struct ClientObject {
     ASSERT(!(lObject.is_active() && gObject != nullptr));
   }
 
-  void display(GLFWwindow *window, size_t width, size_t height) {
+  void display(GLFWwindow *window, size_t wgt, size_t hgt) {
     update_states();
     if(mObject.is_active()) {
       mObject.display();
     } else if(lObject.is_active()) {
       lObject.display();
     } else if(client.is_active_game()) {
-      gObject->set_winsize(width, height);
+      gObject->set_winsize(wgt, hgt);
       gObject->keyboard(window);
       gObject->idle();
       gObject->current_time += 1./60;

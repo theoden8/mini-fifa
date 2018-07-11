@@ -10,9 +10,7 @@
 
 #include "incgraphics.h"
 
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
+#include "Transformation.hpp"
 #include "ImageLoader.hpp"
 #include "Logger.hpp"
 #include "Debug.hpp"
@@ -87,7 +85,7 @@ protected:
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
-    /* glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR */
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); GLERROR
   }
   const GLFWvidmode *vidmode = nullptr;
 public:

@@ -9,6 +9,7 @@
 #include "Timer.hpp"
 #include "Region.hpp"
 
+namespace ui {
 struct CursorObject {
   Transformation transform;
 
@@ -111,3 +112,4 @@ struct CursorObject {
     ShaderProgram::clear(program);
   }
 };
+}

@@ -7,7 +7,6 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "incgraphics.h"
-#include "ShaderUniform.hpp"
 #include "Debug.hpp"
 #include "Logger.hpp"
 
@@ -45,7 +44,7 @@ struct Uniform {
   GLuint uniformId = 0;
   GLuint progId = 0;
   std::string location;
-  Uniform(const char *loc):
+  Uniform(std::string loc):
     location(loc)
   {}
   GLuint id() const {

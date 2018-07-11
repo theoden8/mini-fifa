@@ -64,7 +64,7 @@ struct MetaServerObject {
     }
     btn.action_on_click(func);
     btn.display();
-}
+  }
 
   void display() {
     if(!is_active())return;

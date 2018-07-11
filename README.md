@@ -2,13 +2,7 @@
 
 ## State
 
-Realistically - not working.
-
-### How to make it work
-
-Add a goal model and change in post object model path. Recompile, run.
-
-Potentially - needs better meta-server discovery and game mechanics.
+Realistically - not fully working. Potentially - needs better meta-server discovery and game mechanics.
 
 ## Tools
 

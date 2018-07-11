@@ -24,6 +24,7 @@
 #define ASSERT(CONDITION) \
   if(!(CONDITION)) { \
     Logger::Error("%s\n", "\033[1;91merror\033[0m at " CODE_LOCATION CONDITION_TOSTR(CONDITION)); \
+    abort(); \
   }
 #define TERMINATE(...) \
   Logger::Error(__VA_ARGS__);  \
@@ -32,13 +33,13 @@
 #ifndef NDEBUG
 
 #ifdef COMPILE_GLDEBUG
-  #define GLERROR { GLenum ret = glGetError(); if(ret != GL_NO_ERROR) { explain_glerror(ret); std::cerr << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
+  #define GLERROR { GLenum ret = glGetError(); if(ret != GL_NO_ERROR) { std::cerr << explain_glerror(ret) << std::endl << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
 #else
   #define GLERROR
 #endif
 
 #ifdef COMPILE_ALDEBUG
-  #define ALERROR { GLenum ret = alGetError(); if(ret != GL_NO_ERROR) { explain_alerror(ret); std::cerr << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
+  #define ALERROR { GLenum ret = alGetError(); if(ret != GL_NO_ERROR) { std::cerr << explain_alerror(ret) << std::endl << ret << std::endl; ASSERT(ret == GL_NO_ERROR); } };
 #else
   #define ALERROR
 #endif
@@ -51,7 +52,7 @@
 #endif
 
 #ifdef COMPILE_GLDEBUG
-void explain_glerror(GLenum code) {
+std::string explain_glerror(GLenum code) {
   std::string err;
   switch(code) {
     case GL_NO_ERROR:
@@ -82,7 +83,7 @@ void explain_glerror(GLenum code) {
       err = "unknown_error " + std::to_string(code);
     break;
   }
-  std::cerr << err << std::endl;
+  return err;
 }
 
 /* void log_gl_params() { */
@@ -137,12 +138,12 @@ void explain_glerror(GLenum code) {
 #endif
 
 #ifdef COMPILE_ALDEBUG
-void explain_alerror(ALenum code) {
+std::string explain_alerror(ALenum code) {
   std::string err;
   switch(code) {
     case 40962: err = "invalid enum"; break;
     case 40963: err = "invalid format"; break;
   }
-  std::cerr << "alerror: " << err << " (" << code << ")" << std::endl;
+  return std::string() + "alerror: " + err + " (" + std::to_string(code) + ")";
 }
 #endif

@@ -3,7 +3,6 @@
 #include "incgraphics.h"
 #include "Debug.hpp"
 #include "Logger.hpp"
-#include "Texture.hpp"
 #include "Renderbuffer.hpp"
 
 namespace gl {
@@ -29,7 +28,7 @@ struct Framebuffer {
   }
 
   void init() {
-    gl::Framebuffer::init();
+    gl::Framebuffer::init(fbo);
   }
 
   static void bind(GLuint fbo) {
@@ -79,16 +78,17 @@ struct Framebuffer {
     gl::Framebuffer::unbind();
   }
 
+  static bool is_complete() {
+    return glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+  }
+
   static void clear(gl::Framebuffer &fb) {
     glDeleteTextures(fb.textures.size(), fb.textures.data()); GLERROR
     glDeleteFramebuffers(1, &fb.fbo); GLERROR
   }
 
   void clear() {
-    gl::Framebuffer(fbo);
+    gl::Framebuffer::clear(*this);
   }
 };
-}
-
-int main() {
 }

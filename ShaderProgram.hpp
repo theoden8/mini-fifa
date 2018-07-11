@@ -195,10 +195,7 @@ public:
     Logger::Info("programId %d GL_VALIDATE_STATUS = %d\n", programId, params);
     print_info_log();
     print_all();
-    if (GL_TRUE != params) {
-      return false;
-    }
-    return true;
+    return params == GL_TRUE;
   }
 
   static const char* GL_type_to_string(GLenum type) {

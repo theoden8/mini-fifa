@@ -66,7 +66,7 @@ struct Attrib : GenericShaderAttrib {
   GLuint vbo = 0;
 
   Attrib(){}
-  Attrib(const char *loc):
+  Attrib(std::string loc):
     location(loc)
   {}
 

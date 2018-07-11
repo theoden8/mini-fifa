@@ -78,7 +78,7 @@ struct SoccerObject {
     }
   }
 
-  void set_cursor(CursorObject &cursor, float m_x, float m_y, float width, float height, Camera &cam) {
+  void set_cursor(ui::CursorObject &cursor, float m_x, float m_y, float width, float height, Camera &cam) {
     float s_x = m_x * 2 - 1, s_y = m_y * 2 - 1;
     glm::vec4 screenPos = glm::vec4(s_x, -s_y, 1.f, 1.f);
     glm::vec4 worldPos = glm::inverse(cam.get_matrix()) * screenPos;
@@ -95,9 +95,9 @@ struct SoccerObject {
     cursorPoint = glm::vec2(pos.x, pos.y);
     /* printf("cursor (%f %f) -> (%f %f %f)\n", s_x, s_y, pos.x,pos.y, pos.z); */
     if(cursorState == CursorState::DEFAULT) {
-      cursor.state = CursorObject::State::POINTER;
+      cursor.state = ui::CursorObject::State::POINTER;
     } else {
-      cursor.state = CursorObject::State::SELECTOR;
+      cursor.state = ui::CursorObject::State::SELECTOR;
     }
   }
 
