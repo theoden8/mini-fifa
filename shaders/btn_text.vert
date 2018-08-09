@@ -6,6 +6,6 @@ out vec2 txcoords;
 uniform mat4 transform;
 
 void main(void) {
-  gl_Position = transform * vec4(vertex.xy, 0.0, 1.0);
+  gl_Position = transform * vec4(vertex.xy, 0, 1);
   txcoords = vertex.zw;
 }

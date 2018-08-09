@@ -69,6 +69,7 @@ public:
     glfwSwapInterval(2); GLERROR
     while(!glfwWindowShouldClose(window)) {
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
+      button.label.set_text("text");
       button.display();
       glfwPollEvents(); GLERROR
       glfwSwapBuffers(window); GLERROR

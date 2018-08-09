@@ -39,6 +39,7 @@ struct Text {
   {
     transform.Scale(1.f);
     transform.SetPosition(0, 0, 0);
+    transform.SetRotation(1, 0, 0, 0);
   }
 
   float width() const { return width_ * transform.GetScale().x; }

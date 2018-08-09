@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Logger.hpp"
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -58,7 +60,7 @@ struct Transformation {
   }
 
   glm::vec4 GetPosition() const {
-    return translation * glm::vec4(1.f);
+    return translation * glm::vec4(0.f);
   }
 
   void Rotate(float x, float y, float z, float deg) {
