@@ -1,12 +1,16 @@
 # mini-fifa
 
+## Screenshots
+
+![starting-pos](./screenshots/starting-pos.png)
+
 ## State
 
-Realistically - not fully working. Potentially - needs better meta-server discovery and game mechanics.
+Realistically - not fully working. Potentially - needs better meta-server discovery and game mechanics. Lots of bugs to say the least.
 
 ## Tools
 
-* c++ 17, gcc 7
+* c++ 17
 * opengl 4, glew, glfw 3
 * freetype
 * libjpeg, libpng, libtiff
