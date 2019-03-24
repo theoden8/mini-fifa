@@ -42,7 +42,6 @@ protected:
 
   void start() {
     init_glfw();
-    init_glew();
     init_controls();
     gl_version();
   }
@@ -53,8 +52,9 @@ protected:
 
     vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
     ASSERT(vidmode != nullptr);
-    width_ = vidmode->width;
-    height_ = vidmode->height;
+    width_ = 1200, height_ = 720;
+    /* width_ = vidmode->width; */
+    /* height_ = vidmode->height; */
 
     /* glfwWindowHint(GLFW_SAMPLES, 4); */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -62,7 +62,7 @@ protected:
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL
 
-    window = glfwCreateWindow(width(), height(), "pitch", nullptr, nullptr);
+    window = glfwCreateWindow(width(), height(), "Mini FIFA", nullptr, nullptr);
     ASSERT(window != nullptr);
     window_reference[window] = this;
     glfwMakeContextCurrent(window); GLERROR
@@ -71,16 +71,9 @@ protected:
     glfwSetCursorPosCallback(window, glfw::cursor_area_callback); GLERROR
     glfwSetMouseButtonCallback(window, glfw::mouse_button_callback); GLERROR
     glfwSetScrollCallback(window, glfw::mouse_scroll_callback); GLERROR
-  }
-  void init_glew() {
-    // Initialize GLEW
-    glewExperimental = GL_TRUE; // Needed for core profile
-    auto res = glewInit(); GLERROR
-    // on some systems, returns invalid value even if succeeds
-    if(res != GLEW_OK) {
-      Logger::Error("glew error: %s\n", "there was some error initializing glew");
-      /* Logger::Error("glew error: %s\n", glewGetErrorString()); */
-    }
+    glfwSwapInterval(1); GLERROR
+    glfwMaximizeWindow(window); GLERROR
+    maximize();
   }
   void init_controls() {
     // ensure we can capture the escape key
@@ -114,13 +107,23 @@ public:
     ui::Font::setup();
     cObject.init();
 
-    Timer::time_t current_time = .0;
-    glfwSwapInterval(2); GLERROR
+    int fps = 0;
+    int current_sec = 0;
+    int no_frames = 0;
     while(!glfwWindowShouldClose(window) && cObject.is_active()) {
+      int new_s = int(Timer::system_time());
+      if(new_s != current_sec) {
+        current_sec = new_s;
+        fps = no_frames;
+        printf("fps=%d\n", fps);
+        no_frames = 1;
+      } else {
+        ++no_frames;
+      }
+      glfwPollEvents(); GLERROR
       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); GLERROR
       cObject.mouse(cursor_pos.x, cursor_pos.y);
       cObject.display(window, width(), height());
-      glfwPollEvents(); GLERROR
       glfwSwapBuffers(window); GLERROR
     }
     cObject.clear();
@@ -128,20 +131,13 @@ public:
     glfwDestroyWindow(window); GLERROR
     glfwTerminate(); GLERROR
   }
-  /* void display() { */
-    /* glEnable(GL_DEPTH_CLAMP); GLERROR */
-    /* glEnable(GL_DEPTH_TEST); GLERROR */
-    /* glDepthFunc(GL_LESS); GLERROR */
-    /* glEnable(GL_STENCIL_TEST); GLERROR */
-    /* glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); GLERROR */
-    /* glStencilMask(0xFF); GLERROR */
-
-    /* glEnable(GL_CULL_FACE); GLERROR */
-    /* glCullFace(GL_FRONT); GLERROR */
-    /* glFrontFace(GL_CW); GLERROR */
-  /* } */
   void resize(float new_width, float new_height) {
     width_ = new_width, height_ = new_height;
+  }
+  void maximize() {
+    int w, h;
+    glfwGetWindowSize(window, &w, &h); GLERROR
+    resize(w, h);
   }
   void keyboard_event(int key, int scancode, int action, int mods) {
     if(action == GLFW_PRESS) {

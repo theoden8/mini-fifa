@@ -146,8 +146,8 @@ struct MetaServer {
           }
         });
         // respond whether the address is active or not
-        blob.try_visit_as<pkg::metaserver_query_struct>([&](auto query) mutable {
-          Logger::Info("mserver: recognized as query package, found=%d\n");
+        blob.try_visit_as<pkg::metaserver_query_struct>([&](const auto query) mutable {
+          Logger::Info("mserver: recognized as query package\n");
           if(!found) {
             return;
           }

@@ -39,16 +39,6 @@ protected:
     ASSERT(window != nullptr);
     glfwMakeContextCurrent(window); GLERROR
   }
-  void init_glew() {
-    // Initialize GLEW
-    glewExperimental = GL_TRUE; // Needed for core profile
-    auto res = glewInit(); GLERROR
-    // on some systems, returns invalid value even if succeeds
-    if(res != GLEW_OK) {
-      Logger::Error("glew error: %s\n", "there was some error initializing glew");
-      /* Logger::Error("glew error: %s\n", glewGetErrorString()); */
-    }
-  }
   void init_controls() {
     // ensure we can capture the escape key
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE); GLERROR
@@ -61,7 +51,6 @@ public:
   size_t height() const { return height_; }
   void run() {
     init_glfw();
-    init_glew();
     init_controls();
     ui::Font::setup();
     setup();

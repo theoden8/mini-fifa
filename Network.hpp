@@ -43,14 +43,14 @@ ip_t ipv4_from_ints(ip_t a, ip_t b, ip_t c, ip_t d) {
 }
 
 struct Addr {
-	ip_t ip;
-	port_t port;
+  ip_t ip;
+  port_t port;
 
-	constexpr Addr():
+  constexpr Addr():
     ip(INADDR_ANY), port(0)
   {}
 
-	constexpr Addr(ip_t ip, port_t port):
+  constexpr Addr(ip_t ip, port_t port):
     ip(ip), port(port)
   {}
 
@@ -73,11 +73,11 @@ struct Addr {
     /* }; */
   }
 
-	constexpr bool operator== (const Addr &other) const {
+  constexpr bool operator== (const Addr &other) const {
     return ip == other.ip && port == other.port;
   }
 
-	constexpr bool operator!= (const Addr &other) const {
+  constexpr bool operator!= (const Addr &other) const {
     return !(*this == other);
   }
 
@@ -91,16 +91,16 @@ struct Addr {
 
 template <typename T>
 struct Package {
-	Addr addr;
-	T data;
+  Addr addr;
+  T data;
 
-	Package():
+  Package():
     addr(), data()
   {
     static_assert(std::is_standard_layout_v<T>);
   }
 
-	Package(const Addr &addr, const T data):
+  Package(const Addr &addr, const T data):
     addr(addr), data(data)
   {
     static_assert(std::is_standard_layout_v<T>);
@@ -280,13 +280,13 @@ template <SocketType Proto> class Socket;
 
 template <>
 class Socket<SocketType::UDP> {
-	static constexpr int MAX_PACKET_SIZE = 256;
+  static constexpr int MAX_PACKET_SIZE = 256;
 
-	int handle_;
-	port_t port_;
+  int handle_;
+  port_t port_;
   std::mutex mtx;
 public:
-	Socket(port_t port):
+  Socket(port_t port):
     port_(port)
   {
     std::lock_guard<std::mutex> guard(mtx);
@@ -310,12 +310,12 @@ public:
     }
   }
 
-	~Socket() {
+  ~Socket() {
     close(handle_);
   }
 
   template <typename T>
-	void send(const Package<T> package) {
+  void send(const Package<T> package) {
     std::lock_guard<std::mutex> guard(mtx);
     if(sizeof(T) > MAX_PACKET_SIZE) {
       perror("error");
@@ -333,7 +333,7 @@ public:
     }
   }
 
-	std::optional<Blob> receive() {
+  std::optional<Blob> receive() {
     std::lock_guard<std::mutex> guard(mtx);
     sockaddr_in saddr_from;
     socklen_t saddr_from_length = sizeof(saddr_from);
@@ -353,36 +353,36 @@ public:
     return blob;
   }
 
-	constexpr port_t port() const {
+  constexpr port_t port() const {
     return port_;
   }
 
   template <typename G, typename F>
-  void listen(G &&idle, F &&func) {
+  void listen(G &&break_func, F &&idle) {
     std::optional<Blob> opt_blob;
     bool cond = 1;
     while(cond) {
-      if(!idle()) {
+      if(!break_func()) {
         break;
       }
       if((opt_blob = receive()).has_value()) {
-        cond = func(*opt_blob);
+        cond = idle(*opt_blob);
       }
     }
   }
 
   template <typename F>
-  void listen(F &&func) {
-    listen([](){return true;}, std::forward<F>(func));
+  void listen(F &&idle) {
+    listen([](){return true;}, std::forward<F>(idle));
   }
 };
 
 /* template <> */
 /* class Socket<SocketType::TCP_SERVER> { */
-/* 	static constexpr int MAX_PACKET_SIZE = 256; */
+/*   static constexpr int MAX_PACKET_SIZE = 256; */
 
-/* 	int handle_; */
-/* 	port_t port_; */
+/*   int handle_; */
+/*   port_t port_; */
 
 /*   struct Connection { */
 /*     Socket<SocketType::TCP_SERVER> &socket; */
@@ -459,7 +459,7 @@ public:
 
 /*   std::map<net::Addr, Connection> clients; */
 /* public: */
-/* 	Socket(port_t port): */
+/*   Socket(port_t port): */
 /*     port_(port) */
 /*   { */
 /*     handle_ = socket(AF_INET, SOCK_STREAM, 0); */
@@ -515,7 +515,7 @@ public:
 /*     return opt_blob; */
 /*   } */
 
-/* 	port_t port() const { */
+/*   port_t port() const { */
 /*     return port_; */
 /*   } */
 /* }; */
@@ -599,7 +599,7 @@ public:
 /*     return blob; */
 /*   } */
 
-/* 	port_t port() const { */
+/*   port_t port() const { */
 /*     return port_; */
 /*   } */
 /* }; */

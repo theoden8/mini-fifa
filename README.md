@@ -10,10 +10,10 @@ Realistically - not fully working. Potentially - needs better meta-server discov
 
 ## Tools
 
-* c++ 17
-* opengl 4, glew, glfw 3
-* freetype
-* libjpeg, libpng, libtiff
+* c++ 17, posix network libraries
+* opengl 4, libepoxy
+* freetype, assimp
+* libpng, libjpeg, libtiff
 
 ## Compiling
 
