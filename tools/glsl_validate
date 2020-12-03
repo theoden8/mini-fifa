@@ -1,0 +1,12 @@
+#!/bin/bash
+
+
+glslangValidator shaders/ball.{vert,frag}
+glslangValidator shaders/bg.{vert,frag}
+glslangValidator shaders/btn_quad.{vert,frag}
+glslangValidator shaders/btn_text.{vert,frag}
+glslangValidator shaders/cursor.{vert,frag}
+glslangValidator shaders/pitch.{vert,frag}
+glslangValidator shaders/player.{vert,frag}
+glslangValidator shaders/post.{vert,frag}
+glslangValidator shaders/shadow.{vert,frag}
