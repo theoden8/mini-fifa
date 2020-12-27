@@ -12,6 +12,7 @@
 #include "Logger.hpp"
 #include "ShaderProgram.hpp"
 #include "ShaderAttrib.hpp"
+#include "VertexArray.hpp"
 #include "Mesh.hpp"
 #include "Texture.hpp"
 #include "ImageLoader.hpp"
@@ -55,6 +56,16 @@ struct Model {
     }
   }
 
+  template <typename C>
+  static glm::vec2 to_vec2_xy(const C &cont) {
+    return glm::vec2(cont.x, cont.y);
+  }
+
+  template <typename C>
+  static glm::vec3 to_vec3_xyz(const C &cont) {
+    return glm::vec3(cont.x, cont.y, cont.z);
+  }
+
 	Mesh processMesh(aiMesh *mesh, const aiScene *scene) {
 		// data to fill
 		std::vector<ModelVertex> vertices;
@@ -64,39 +75,21 @@ struct Model {
 		// Walk through each of the mesh's vertices
 		for(unsigned int i = 0; i < mesh->mNumVertices; i++) {
 			ModelVertex vertex;
-			glm::vec3 vec; // we declare a placeholder vector since assimp uses its own vector class that doesn't directly convert to glm's vec3 class so we transfer the data to this placeholder glm::vec3 first.
-			// positions
-			vec.x = mesh->mVertices[i].x;
-			vec.y = mesh->mVertices[i].y;
-			vec.z = mesh->mVertices[i].z;
-			vertex.pos = vec;
-			// normals
-			vec.x = mesh->mNormals[i].x;
-			vec.y = mesh->mNormals[i].y;
-			vec.z = mesh->mNormals[i].z;
-			vertex.nrm = vec;
+
+			vertex.pos = to_vec3_xyz(mesh->mVertices[i]);
+      vertex.nrm = to_vec3_xyz(mesh->mNormals[i]);
 			// texture coordinates
 			if(mesh->mTextureCoords[0]) {
         // does the mesh contain texture coordinates?
-				glm::vec2 vec;
 				// a vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
 				// use models where a vertex can have multiple texture coordinates so we always take the first set (0).
-				vec.x = mesh->mTextureCoords[0][i].x;
-				vec.y = mesh->mTextureCoords[0][i].y;
-				vertex.txcoords = vec;
+				vertex.txcoords = to_vec2_xy(mesh->mTextureCoords[0][i]);
 			} else {
 				vertex.txcoords = glm::vec2(0.0f, 0.0f);
       }
-			// tangent
-			vec.x = mesh->mTangents[i].x;
-			vec.y = mesh->mTangents[i].y;
-			vec.z = mesh->mTangents[i].z;
-			vertex.tangent = vec;
-			// bitangent
-			vec.x = mesh->mBitangents[i].x;
-			vec.y = mesh->mBitangents[i].y;
-			vec.z = mesh->mBitangents[i].z;
-			vertex.bitan = vec;
+			vertex.tangent = to_vec3_xyz(mesh->mTangents[i]);
+      vertex.bitan = to_vec3_xyz(mesh->mBitangents[i]);
+
 			vertices.push_back(vertex);
 		}
 		// now wak through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex indices.

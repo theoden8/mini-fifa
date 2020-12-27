@@ -26,7 +26,6 @@ struct Button {
   Sprite<ui::Font, self_t> *font;
   ui::Text label;
   gl::Texture btnTx;
-  gl::VertexArray vao;
   static constexpr int DEFAULT_STATE = 0;
   static constexpr int POINTED_STATE = 1;
   static constexpr int SELECTED_STATE = 2;
@@ -40,13 +39,17 @@ struct Button {
     gl::VertexShader,
     gl::FragmentShader
   > textProgram;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC2> buf;
+  gl::Attrib<decltype(buf)> attrVertex;
+  gl::VertexArray<decltype(attrVertex)> vao;
 
   Region region;
 
+  using ShaderBuffer = decltype(buf);
   using ShaderAttrib = decltype(attrVertex);
   using ShaderProgramQuad = decltype(quadProgram);
   using ShaderProgramText = decltype(textProgram);
+  using VertexArray = decltype(vao);
 
   Button(Region region=Region(glm::vec2(-1,1), glm::vec2(-1,1))):
     font(Sprite<ui::Font, self_t>::create(FONT_FILENAME::c_str)),
@@ -55,24 +58,26 @@ struct Button {
     uState("state"),
     quadProgram({"shaders/btn_quad.vert"s, btnquadf}),
     textProgram({"shaders/btn_text.vert"s, btntextf}),
-    attrVertex("vertex"),
+    attrVertex("vertex", buf),
+    vao(attrVertex),
     region(region)
   {}
 
   void init() {
-    ShaderAttrib::init(attrVertex);
-    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+    ShaderBuffer::init(buf);
+    buf.allocate<GL_STREAM_DRAW>(std::vector<float>{
       1,1, -1,1, -1,-1,
       -1,-1, 1,-1, 1,1,
     });
 
-    gl::VertexArray::init(vao);
-    gl::VertexArray::bind(vao);
+    VertexArray::init(vao);
     vao.enable(attrVertex);
-    vao.set_access(attrVertex, 0, 0);
-    gl::VertexArray::unbind();
-    ShaderProgramQuad::init(quadProgram, vao, {"attrVertex"});
-    ShaderProgramText::compile_program(textProgram);
+    vao.set_access(attrVertex, 0);
+
+    ShaderProgramQuad::init(quadProgram, vao);
+    ShaderProgramText::init(textProgram, vao);
+    //ShaderProgramText::compile_program(textProgram);
+
     font->init();
     label.init();
     btnTx.init(BUTTON_FILENAME::c_str);
@@ -146,13 +151,13 @@ struct Button {
 
     uState.set_data(state);
 
-    gl::VertexArray::bind(vao);
+    VertexArray::bind(vao);
     auto m = label.transform.get_matrix();
     label.uTransform.set_id(quadProgram.id());
     label.uTransform.set_data(m);
     glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
     label.uTransform.unset_id();
-    gl::VertexArray::unbind();
+    VertexArray::unbind();
 
     gl::Texture::unbind();
     ShaderProgramQuad::unuse();
@@ -167,7 +172,8 @@ struct Button {
 
   void clear() {
     ShaderAttrib::clear(attrVertex);
-    gl::VertexArray::clear(vao);
+    ShaderBuffer::clear(buf);
+    VertexArray::clear(vao);
     btnTx.clear();
     label.clear();
     ShaderProgramQuad::clear(quadProgram);
@@ -175,4 +181,5 @@ struct Button {
     font->clear();
   }
 };
-}
+
+} // namespace ui

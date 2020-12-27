@@ -27,6 +27,7 @@ struct Texture {
       case img::Image::Format::BGR: return GL_BGR;
       case img::Image::Format::BGRA: return GL_BGRA;
     }
+    return UINT_MAX;
   }
 
   GLuint id() const { return tex; }

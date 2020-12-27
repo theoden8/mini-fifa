@@ -9,8 +9,6 @@
 
 #include "Transformation.hpp"
 #include "ShaderProgram.hpp"
-#include "ShaderUniform.hpp"
-#include "ShaderAttrib.hpp"
 #include "Debug.hpp"
 #include "Font.hpp"
 
@@ -26,15 +24,20 @@ struct Text {
 
   gl::Uniform<gl::UniformType::VEC3> uTextColor;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
-  gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC4> vbo;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC4> buf;
+  gl::Attrib<decltype(buf)> attr;
+  gl::VertexArray<decltype(attr)> vao;
   float width_ = 0, height_ = 0;
 
-  using ShaderAttrib = decltype(vbo);
+  using ShaderBuffer = decltype(buf);
+  using ShaderAttrib = decltype(attr);
+  using VertexArray = decltype(vao);
 
   Text(Font &font):
     uTransform("transform"),
     uTextColor("textcolor"),
+    attr("vertex", buf),
+    vao(attr),
     font(font)
   {
     transform.Scale(1.f);
@@ -65,15 +68,13 @@ struct Text {
   }
 
   void init() {
-    gl::VertexArray::init(vao);
-    gl::VertexArray::bind(vao);
-    ShaderAttrib::init(vbo);
-    ShaderAttrib::bind(vbo);
-    vbo.allocate<GL_DYNAMIC_DRAW>(6, nullptr);
-    vao.enable(vbo);
-    vao.set_access(vbo);
-    ShaderAttrib::unbind();
-    gl::VertexArray::unbind();
+    ShaderBuffer::init(buf);
+    buf.allocate_with_overlap<GL_DYNAMIC_DRAW>(std::vector<float>(6, 0));
+
+    VertexArray::init(vao);
+    attr.select_buffer(buf);
+    vao.enable(attr);
+    vao.set_access(attr, 0);
   }
 
   enum class Positioning {
@@ -81,11 +82,13 @@ struct Text {
   };
   template <typename... ShaderTs>
   void display(gl::ShaderProgram<ShaderTs...> &program, Positioning pst=Positioning::CENTER, float scale=1.) {
+    using ShaderProgram = gl::ShaderProgram<ShaderTs...>;
+
     glEnable(GL_BLEND); GLERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
 
-    gl::ShaderProgram<ShaderTs...>::use(program);
+    ShaderProgram::use(program);
 
     uTextColor.set_id(program.id());
     uTextColor.set_data(color);
@@ -99,7 +102,7 @@ struct Text {
     uTransform.set_data(matrix);
 
     gl::Texture::set_active(0);
-    gl::VertexArray::bind(vao);
+    VertexArray::bind(vao);
     float x = 0, y = 0;
     /* if(pst == Positioning::CENTER) { */
     /*   transform.MovePosition(-.5*width(), .5*height(), 0); */
@@ -126,13 +129,13 @@ struct Text {
       ch.tex.uSampler.set_id(program.id());
       gl::Texture::bind(ch.tex);
       ch.tex.set_data(0);
-      ShaderAttrib::bind(vbo);
+      ShaderBuffer::bind(buf);
       glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); GLERROR
-      ShaderAttrib::unbind();
-      glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
+      ShaderBuffer::unbind();
+      VertexArray::draw<GL_TRIANGLES>(vao);
       x += (ch.advance >> 6);
     }
-    gl::VertexArray::unbind();
+    VertexArray::unbind();
     gl::Texture::unbind();
 
     /* transform.MovePosition(.5*width(), -.5*height(), 0); */
@@ -140,14 +143,15 @@ struct Text {
     transform.SetScale(init_scale);
     /* transform.SetPosition(init_pos); */
 
-    gl::ShaderProgram<ShaderTs...>::unuse();
+    ShaderProgram::unuse();
 
     glDisable(GL_BLEND); GLERROR
   }
 
   void clear() {
-    ShaderAttrib::clear(vbo);
-    gl::VertexArray::clear(vao);
+    ShaderAttrib::clear(attr);
+    ShaderBuffer::clear(buf);
+    VertexArray::clear(vao);
   }
 };
-}
+} // namespace ui

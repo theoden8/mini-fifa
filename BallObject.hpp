@@ -12,6 +12,7 @@
 struct BallObject {
   static constexpr size_t DIM = 10; // number of steps per dimension to perform for tessellation
   static constexpr size_t SIZE = DIM*DIM*4; // number of triangles used in tessellation
+  float deg = 0;
 
   Transformation transform;
   glm::mat4 matrix;
@@ -22,14 +23,19 @@ struct BallObject {
   > program;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::Uniform<gl::UniformType::VEC3> uColor;
-  gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC3> attrVertex;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrTexcoord;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC3> bufVertex;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC2> bufTexcoord;
+  gl::Attrib<decltype(bufVertex)> attrVertex;
+  gl::Attrib<decltype(bufTexcoord)> attrTexcoord;
+  gl::VertexArray<decltype(attrVertex), decltype(attrTexcoord)> vao;
   gl::Texture ballTx;
   Shadow shadow;
 
+  using ShaderBufferVEC3 = decltype(bufVertex);
+  using ShaderBufferVEC2 = decltype(bufTexcoord);
   using ShaderAttribVEC3 = decltype(attrVertex);
   using ShaderAttribVEC2 = decltype(attrTexcoord);
+  using VertexArray = decltype(vao);
   using ShaderProgram = decltype(program);
 
   BallObject():
@@ -37,8 +43,9 @@ struct BallObject {
     uColor("color"),
     program({"shaders/ball.vert"s, "shaders/ball.frag"s}),
     ballTx("ballTx"),
-    attrVertex("vpos"),
-    attrTexcoord("vtex")
+    attrVertex("vpos", bufVertex),
+    attrTexcoord("vtex", bufTexcoord),
+    vao(attrVertex, attrTexcoord)
   {
     transform.SetScale(.01, .01, .01);
     transform.SetPosition(0, 0, 0);
@@ -57,7 +64,8 @@ struct BallObject {
   }
 
   // set vertices of the tessellation
-  void set_vertices(float *verts) {
+  void set_vertices(std::vector<float> &vertices) {
+    ASSERT(vertices.size() == SIZE * 9);
     float dimf = DIM;
     for(int index = 0; index < SIZE; ++index) {
       int IF = index & 1;
@@ -71,7 +79,7 @@ struct BallObject {
         a = point_on_sphere(dyx,dzx),
         b = point_on_sphere(dyx + (IF?0:step), dzx+step),
         c = point_on_sphere(dyx + step, dzx + (IF?step:0));
-      float *v = &verts[offset];
+      float *v = &vertices[offset];
       v[0]=a.x,v[1]=a.y,v[2]=a.z;
       v[3]=b.x,v[4]=b.y,v[5]=b.z;
       v[6]=c.x,v[7]=c.y,v[8]=c.z;
@@ -79,7 +87,8 @@ struct BallObject {
   }
 
   // set texture coordinates for triangles used to tessellate
-  void set_texcoords(float *coords) {
+  void set_texcoords(std::vector<float> &coords) {
+    ASSERT(coords.size() == SIZE * 6);
     float dimf = DIM;
     for(int index = 0; index < SIZE; ++index) {
       int IF = index & 1;
@@ -99,32 +108,36 @@ struct BallObject {
   }
 
   void init() {
-    float *vertices = new float[SIZE*9];
-    set_vertices(vertices);
-    ShaderAttribVEC3::init(attrVertex);
-    attrVertex.allocate<GL_STREAM_DRAW>(SIZE*3, vertices);
-    delete [] vertices;
-    float *txcoords = new float[SIZE*6];
-    set_texcoords(txcoords);
-    ShaderAttribVEC2::init(attrTexcoord);
-    attrTexcoord.allocate<GL_STREAM_DRAW>(SIZE*3, txcoords);
-    delete [] txcoords;
-    gl::VertexArray::init(vao);
-    gl::VertexArray::bind(vao);
+    {
+      std::vector<float> vertices(SIZE * 9);
+      set_vertices(vertices);
+      ShaderBufferVEC3::init(bufVertex);
+      bufVertex.allocate<GL_STREAM_DRAW>(vertices);
+    }
+
+    {
+      std::vector<float> txcoords(SIZE * 6);
+      set_texcoords(txcoords);
+      ShaderBufferVEC2::init(bufTexcoord);
+      bufTexcoord.allocate<GL_STREAM_DRAW>(txcoords);
+    }
+
+    VertexArray::init(vao);
+
     vao.enable(attrVertex);
-    vao.set_access(attrVertex, 0, 0);
+    vao.set_access(attrVertex, 0);
+    vao.set_divisor(attrVertex, 0);
+
     vao.enable(attrTexcoord);
-    vao.set_access(attrTexcoord, 1, 0);
-    glVertexAttribDivisor(0, 0); GLERROR
-    glVertexAttribDivisor(1, 0); GLERROR
-    gl::VertexArray::unbind();
-    ShaderProgram::init(program, vao, {"vpos", "vtex"});
+    vao.set_access(attrTexcoord, 0);
+    vao.set_divisor(attrTexcoord, 0);
+
+    ShaderProgram::init(program, vao);
     ballTx.init("assets/ball.png");
 
     ballTx.uSampler.set_id(program.id());
     uTransform.set_id(program.id());
     uColor.set_id(program.id());
-    gl::VertexArray::unbind();
 
     shadow.init();
   }
@@ -135,7 +148,8 @@ struct BallObject {
     glm::vec2 dir(std::cos(angle), std::sin(angle));
     glm::vec2 nrm = glm::normalize(dir);
     Timer::time_t timediff = ball.timer.elapsed();
-    transform.Rotate(nrm.x, nrm.y, 0, 5*360.f*ball.unit.moving_speed*timediff);
+    deg += 5*360.f*ball.unit.moving_speed*timediff;
+    transform.SetRotation(0, 0, M_PI/2, deg);
 
     shadow.transform.SetPosition(ball.unit.pos.x, ball.unit.pos.y, .001);
     shadow.display(cam);
@@ -164,9 +178,9 @@ struct BallObject {
     ballTx.bind();
     ballTx.set_data(0);
 
-    gl::VertexArray::bind(vao);
-    glDrawArrays(GL_TRIANGLES, 0, SIZE*3); GLERROR
-    gl::VertexArray::unbind();
+    VertexArray::bind(vao);
+    VertexArray::draw<GL_TRIANGLES>(vao, 0, SIZE * 3);
+    VertexArray::unbind();
 
     gl::Texture::unbind();
     ShaderProgram::unuse();
@@ -177,7 +191,9 @@ struct BallObject {
     ballTx.clear();
     ShaderAttribVEC3::clear(attrVertex);
     ShaderAttribVEC2::clear(attrTexcoord);
-    gl::VertexArray::clear(vao);
+    ShaderBufferVEC3::clear(bufVertex);
+    ShaderBufferVEC2::clear(bufTexcoord);
+    VertexArray::clear(vao);
     ShaderProgram::clear(program);
   }
 };

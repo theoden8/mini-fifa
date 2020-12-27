@@ -1,13 +1,12 @@
 #pragma once
 
 #include <cstdarg>
-#include <string>
 #include <cstdlib>
-#include <unistd.h>
-
+#include <string>
 #include <mutex>
 
-#include "Debug.hpp"
+#include <File.hpp>
+#include <Debug.hpp>
 
 class Logger {
   std::string filename;
@@ -20,11 +19,11 @@ class Logger {
   Logger(const char *filename):
     filename(filename)
   {
-    /* #ifndef NDEBUG */
+    #ifndef NDEBUG
+      sys::File::truncate(this->filename);
       file = fopen(this->filename.c_str(), "w");
-      ftruncate(fileno(file), 0);
       ASSERT(file != nullptr);
-    /* #endif */
+    #endif
   }
   ~Logger() {
     if(file != nullptr) {
@@ -32,22 +31,22 @@ class Logger {
     }
   }
   void Write(const char *fmt, va_list args) {
-    /* #ifndef NDEBUG */
+    #ifndef NDEBUG
       std::lock_guard<std::mutex> guard(mtx);
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, fmt, args);
       fflush(file);
-    /* #endif */
+    #endif
   }
   void WriteFmt(const char *prefix, const char *fmt, va_list args) {
-    /* #ifndef NDEBUG */
+    #ifndef NDEBUG
       std::lock_guard<std::mutex> guard(mtx);
       if(file == nullptr)return;
       ASSERT(file != nullptr);
       vfprintf(file, (std::string() + prefix + fmt).c_str(), args);
       fflush(file);
-    /* #endif */
+    #endif
   }
   static Logger *instance;
 public:
@@ -86,6 +85,7 @@ public:
     va_end(argptr);
   }
   static void MirrorLog(FILE *redir) {
+    #if defined(_POSIX_VERSION)
     ASSERT(instance != nullptr);
     if(instance->file == nullptr) {
       return;
@@ -96,6 +96,7 @@ public:
       perror("error");
       errno=0;
     }
+    #endif
   }
   static void Close() {
     Logger::Info("Closing log %s", instance->filename.c_str());
