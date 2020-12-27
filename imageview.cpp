@@ -28,6 +28,7 @@ protected:
     ASSERT(vidmode != nullptr);
     width_ = vidmode->width;
     height_ = vidmode->height;
+    width_ = 800, height_ = 600;
 
     /* glfwWindowHint(GLFW_SAMPLES, 4); */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -35,7 +36,7 @@ protected:
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); //We don't want the old OpenGL
 
-    window = glfwCreateWindow(width(), height(), "pitch", nullptr, nullptr);
+    window = glfwCreateWindow(width(), height(), "imageview", nullptr, nullptr);
     ASSERT(window != nullptr);
     glfwMakeContextCurrent(window); GLERROR
   }
@@ -76,7 +77,7 @@ public:
 int main(int argc, char *argv[]) {
   Logger::Setup("imageview.log");
   Logger::MirrorLog(stderr);
-  ImageViewer imv;
-  imv.run();
+  ImageViewer imview;
+  imview.run();
   Logger::Close();
 }

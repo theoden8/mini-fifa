@@ -67,7 +67,10 @@ struct Text {
     }
   }
 
-  void init() {
+  template <typename... ShaderTs>
+  void init(gl::ShaderProgram<ShaderTs...> &program) {
+    using ShaderProgram = gl::ShaderProgram<ShaderTs...>;
+
     ShaderBuffer::init(buf);
     buf.allocate_with_overlap<GL_DYNAMIC_DRAW>(std::vector<float>(6, 0));
 
@@ -75,6 +78,8 @@ struct Text {
     attr.select_buffer(buf);
     vao.enable(attr);
     vao.set_access(attr, 0);
+
+    ShaderProgram::init(program, vao);
   }
 
   enum class Positioning {

@@ -124,10 +124,12 @@ struct BallObject {
 
     VertexArray::init(vao);
 
+    attrVertex.select_buffer(bufVertex);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0);
     vao.set_divisor(attrVertex, 0);
 
+    attrTexcoord.select_buffer(bufTexcoord);
     vao.enable(attrTexcoord);
     vao.set_access(attrTexcoord, 0);
     vao.set_divisor(attrTexcoord, 0);

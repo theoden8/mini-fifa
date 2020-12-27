@@ -50,6 +50,7 @@ struct PitchObject {
     });
 
     VertexArray::init(vao);
+    attrVertex.select_buffer(buf);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0, 0);
     ShaderProgram::init(program, vao);
