@@ -72,7 +72,7 @@ struct Text {
     using ShaderProgram = gl::ShaderProgram<ShaderTs...>;
 
     ShaderBuffer::init(buf);
-    buf.allocate_with_overlap<GL_DYNAMIC_DRAW>(std::vector<float>(6, 0));
+    buf.allocate_with_overlap<GL_DYNAMIC_DRAW>(std::vector<float>(6*4, 0));
 
     VertexArray::init(vao);
     attr.select_buffer(buf);
