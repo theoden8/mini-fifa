@@ -16,7 +16,7 @@ struct Transformation {
   bool has_changed = true;
 
   Transformation():
-    translation(), rotation(), scaling()
+    translation(1.f), rotation(1.f), scaling(1.f)
   {}
 
   Transformation(glm::mat4 translation, glm::mat4 rotation, glm::mat4 scaling):
@@ -33,8 +33,12 @@ struct Transformation {
     );
   }
 
-  decltype(auto) get_matrix() {
+  decltype(auto) get_matrix_const() const {
     return translation * rotation * scaling;
+  }
+
+  decltype(auto) get_matrix() {
+    return get_matrix_const();
   }
 
   decltype(auto) inverse() {
@@ -99,5 +103,13 @@ struct Transformation {
 
   glm::vec3 GetScale() const {
     return glm::vec3(scaling * glm::vec4(1.f));
+  }
+
+  void print() {
+    glm::mat4 m = get_matrix_const();
+    printf("%.6f %.6f %.6f %.6f\n", m[0][0], m[0][1], m[0][2], m[0][3]);
+    printf("%.6f %.6f %.6f %.6f\n", m[1][0], m[1][1], m[1][2], m[1][3]);
+    printf("%.6f %.6f %.6f %.6f\n", m[2][0], m[2][1], m[2][2], m[2][3]);
+    printf("%.6f %.6f %.6f %.6f\n", m[3][0], m[3][1], m[3][2], m[3][3]);
   }
 };

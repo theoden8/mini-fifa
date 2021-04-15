@@ -2,7 +2,8 @@
 
 uniform mat4 transform;
 
-in vec2 vertex;
+layout (location = 0) in vec2 vertex;
+
 out vec2 pos_xy;
 
 void main(void) {

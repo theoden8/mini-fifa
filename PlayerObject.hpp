@@ -17,8 +17,8 @@ struct PlayerObject {
 
   class RedPlayer; class BluePlayer;
 
-	Sprite<Model, RedPlayer> *playerModelRed;
-	Sprite<Model, BluePlayer> *playerModelBlue;
+  Sprite<Model, RedPlayer> *playerModelRed;
+  Sprite<Model, BluePlayer> *playerModelBlue;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::ShaderProgram<
     gl::VertexShader,

@@ -77,11 +77,11 @@ struct CursorObject {
   }
 
   void display() {
+    ShaderProgram::use(program);
+
     glEnable(GL_BLEND); GLERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
-
-    ShaderProgram::use(program);
 
     if(transform.has_changed) {
       glm::mat4 matrix = transform.get_matrix();
@@ -102,8 +102,9 @@ struct CursorObject {
     VertexArray::draw<GL_TRIANGLES>(vao);
 
     gl::Texture::unbind();
-    decltype(program)::unuse();
     glDisable(GL_BLEND); GLERROR
+
+    ShaderProgram::unuse();
   }
 
   void clear() {

@@ -27,6 +27,7 @@ struct Shadow {
   using VertexArray = decltype(vao);
 
   Shadow():
+    transform(),
     program({"shaders/shadow.vert", "shaders/shadow.frag"}),
     uTransform("transform"),
     attrVertex("vertex", buf),
@@ -48,11 +49,11 @@ struct Shadow {
   }
 
   void display(Camera &cam) {
+    ShaderProgram::use(program);
+
     glEnable(GL_BLEND); GLERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
-
-    ShaderProgram::use(program);
 
     if(cam.has_changed || transform.has_changed) {
       matrix = cam.get_matrix() * transform.get_matrix();
@@ -61,13 +62,11 @@ struct Shadow {
       transform.has_changed = false;
     }
 
-    VertexArray::bind(vao);
     VertexArray::draw<GL_TRIANGLES>(vao);
-    VertexArray::unbind();
-
-    ShaderProgram::unuse();
 
     glDisable(GL_BLEND); GLERROR
+
+    ShaderProgram::unuse();
   }
 
   void clear() {
