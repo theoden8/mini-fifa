@@ -153,7 +153,7 @@ struct Buffer {
 
     this->bind();
     glBufferData(BufferT, this->sizeOfBuffer, &host_data[start], DRAW_MODE); GLERROR
-    Logger::Info("allocated buffer data: bytes=%lu, no_scalars=%lu, no_elements=%lu, no_elems_per_element\n",
+    Logger::Info("allocated buffer data: bytes=%lu, no_scalars=%lu, no_elements=%lu, no_elems_per_element=%lu\n",
                  this->sizeOfBuffer, this->numberOfScalars, this->numberOfElements, this->numberOfScalarsPerElement);
     this->unbind();
 
@@ -204,6 +204,8 @@ struct Buffer {
     }
     static_assert(sizeof(typename a_cast_type<ElementT>::vtype) == sizeof(T));
     constexpr size_t element_size = a_cast_type<ElementT>::no_scalars;
+
+    ASSERT(start + count <= this->numberOfScalars);
 
     this->bind();
     glBufferSubData(BufferT, start * sizeof(T), sizeof(T) * count, &host_data[start]); GLERROR

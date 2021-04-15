@@ -115,7 +115,7 @@ public:
       if(new_s != current_sec) {
         current_sec = new_s;
         fps = no_frames;
-        printf("fps=%d\n", fps);
+        //printf("fps=%d\n", fps);
         no_frames = 1;
       } else {
         ++no_frames;

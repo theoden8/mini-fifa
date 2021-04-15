@@ -122,21 +122,19 @@ struct Text {
       GLfloat
         w = ch.size.x,
         h = ch.size.y;
-      GLfloat vertices[6][4] = {
-        { posx,     posy + h,   0.0, 0.0 },
-        { posx,     posy,       0.0, 1.0 },
-        { posx + w, posy,       1.0, 1.0 },
+      std::vector<GLfloat> vertices = {
+        posx,     posy + h,   0.0, 0.0,
+        posx,     posy,       0.0, 1.0,
+        posx + w, posy,       1.0, 1.0,
 
-        { posx,     posy + h,   0.0, 0.0 },
-        { posx + w, posy,       1.0, 1.0 },
-        { posx + w, posy + h,   1.0, 0.0 },
+        posx,     posy + h,   0.0, 0.0,
+        posx + w, posy,       1.0, 1.0,
+        posx + w, posy + h,   1.0, 0.0,
       };
       ch.tex.uSampler.set_id(program.id());
       gl::Texture::bind(ch.tex);
       ch.tex.set_data(0);
-      ShaderBuffer::bind(buf);
-      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); GLERROR
-      ShaderBuffer::unbind();
+      buf.set_subdata(vertices);
       VertexArray::draw<GL_TRIANGLES>(vao, 0, 6);
       x += (ch.advance >> 6);
     }

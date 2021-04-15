@@ -55,7 +55,7 @@ struct VertexArray {
   void enable(const AttribT &attrib) {
     this->bind();
     glEnableVertexAttribArray(Tuple::lfind(attributes, attrib)); GLERROR
-    this->unbind();
+//    this->unbind();
   }
 
   template <typename AttribT>
