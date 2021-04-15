@@ -107,6 +107,7 @@ struct VertexArray {
       });
       no_primitives = maxprimitives - start;
     }
+    ASSERT(no_primitives != SIZE_MAX);
     glDrawArrays(PRIMITIVES, start, no_primitives); GLERROR
     this->unbind();
   }

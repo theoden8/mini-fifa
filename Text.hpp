@@ -89,11 +89,11 @@ struct Text {
   void display(gl::ShaderProgram<ShaderTs...> &program, Positioning pst=Positioning::CENTER, float scale=1.) {
     using ShaderProgram = gl::ShaderProgram<ShaderTs...>;
 
+    ShaderProgram::use(program);
+
     glEnable(GL_BLEND); GLERROR
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); GLERROR
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO); GLERROR
-
-    ShaderProgram::use(program);
 
     uTextColor.set_id(program.id());
     uTextColor.set_data(color);
@@ -137,7 +137,7 @@ struct Text {
       ShaderBuffer::bind(buf);
       glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); GLERROR
       ShaderBuffer::unbind();
-      VertexArray::draw<GL_TRIANGLES>(vao);
+      VertexArray::draw<GL_TRIANGLES>(vao, 0, 6);
       x += (ch.advance >> 6);
     }
     VertexArray::unbind();
@@ -148,9 +148,9 @@ struct Text {
     transform.SetScale(init_scale);
     /* transform.SetPosition(init_pos); */
 
-    ShaderProgram::unuse();
-
     glDisable(GL_BLEND); GLERROR
+
+    ShaderProgram::unuse();
   }
 
   void clear() {

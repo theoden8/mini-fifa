@@ -71,15 +71,14 @@ struct Button {
     });
 
     VertexArray::init(vao);
+    attrVertex.select_buffer(buf);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0);
 
     ShaderProgramQuad::init(quadProgram, vao);
-    ShaderProgramText::init(textProgram, vao);
-    //ShaderProgramText::compile_program(textProgram);
 
     font->init();
-    label.init();
+    label.init(textProgram);
     btnTx.init(BUTTON_FILENAME::c_str);
     btnTx.uSampler.set_id(quadProgram.id());
     uState.set_id(quadProgram.id());
@@ -163,11 +162,9 @@ struct Button {
     ShaderProgramQuad::unuse();
 
     // display text
-    ShaderProgramText::use(textProgram);
     /* label.transform.SetScale(1, 1, 1); */
     label.color = glm::vec3(1, 1, 1);
     label.display(textProgram);
-    ShaderProgramText::unuse();
   }
 
   void clear() {
