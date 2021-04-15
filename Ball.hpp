@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <array>
 
 #include "Timer.hpp"
 #include "Unit.hpp"

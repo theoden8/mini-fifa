@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "Transformation.hpp"
-#include "ShaderUniform.hpp"
 #include "ShaderProgram.hpp"
 #include "Texture.hpp"
 #include "Timer.hpp"
@@ -25,11 +24,14 @@ struct CursorObject {
     gl::VertexShader,
     gl::FragmentShader
   > program;
-  gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC2> buf;
+  gl::Attrib<decltype(buf)> attrVertex;
+  gl::VertexArray<decltype(attrVertex)> vao;
 
+  using ShaderBuffer = decltype(buf);
   using ShaderAttrib = decltype(attrVertex);
   using ShaderProgram = decltype(program);
+  using VertexArray = decltype(vao);
 
   State state = State::POINTER;
 
@@ -37,7 +39,9 @@ struct CursorObject {
     uTransform("transform"),
     pointerTx("cursorTx"),
     selectorTx("cursorTx"),
-    program({"shaders/cursor.vert", "shaders/cursor.frag"})
+    program({"shaders/cursor.vert", "shaders/cursor.frag"}),
+    attrVertex("vertex", buf),
+    vao(attrVertex)
   {
     transform.SetScale(.02f);
     transform.SetPosition(0, 0, 0);
@@ -45,17 +49,17 @@ struct CursorObject {
   }
 
   void init() {
-    ShaderAttrib::init(attrVertex);
-    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+    ShaderBuffer::init(buf);
+    buf.allocate<GL_STREAM_DRAW>(std::vector<float>{
       1,1, -1,1, -1,-1,
       -1,-1, 1,-1, 1,1,
     });
-    gl::VertexArray::init(vao);
-    gl::VertexArray::bind(vao);
+
+    VertexArray::init(vao);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0, 0);
-    gl::VertexArray::unbind();
-    ShaderProgram::init(program, vao, {"attrVertex"});
+
+    ShaderProgram::init(program, vao);
     pointerTx.init("assets/pointer.png");
     selectorTx.init("assets/selector.png");
     pointerTx.uSampler.set_id(program.id());
@@ -95,9 +99,7 @@ struct CursorObject {
       selectorTx.set_data(0);
     }
 
-    gl::VertexArray::bind(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
-    gl::VertexArray::unbind();
+    VertexArray::draw<GL_TRIANGLES>(vao);
 
     gl::Texture::unbind();
     decltype(program)::unuse();
@@ -108,7 +110,8 @@ struct CursorObject {
     pointerTx.clear();
     selectorTx.clear();
     ShaderAttrib::clear(attrVertex);
-    gl::VertexArray::clear(vao);
+    ShaderBuffer::clear(buf);
+    VertexArray::clear(vao);
     ShaderProgram::clear(program);
   }
 };

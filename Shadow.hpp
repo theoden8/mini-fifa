@@ -3,9 +3,11 @@
 #include "Transformation.hpp"
 #include "Camera.hpp"
 #include "Shader.hpp"
-#include "ShaderProgram.hpp"
 #include "ShaderUniform.hpp"
+#include "ShaderBuffer.hpp"
 #include "ShaderAttrib.hpp"
+#include "VertexArray.hpp"
+#include "ShaderProgram.hpp"
 
 struct Shadow {
   glm::mat4 matrix;
@@ -14,32 +16,34 @@ struct Shadow {
     gl::VertexShader,
     gl::FragmentShader
   > program;
-  gl::VertexArray vao;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC2> buf;
+  gl::Attrib<decltype(buf)> attrVertex;
+  gl::VertexArray<decltype(attrVertex)> vao;
 
+  using ShaderBuffer = decltype(buf);
   using ShaderAttrib = decltype(attrVertex);
   using ShaderProgram = decltype(program);
+  using VertexArray = decltype(vao);
 
   Shadow():
     program({"shaders/shadow.vert", "shaders/shadow.frag"}),
     uTransform("transform"),
-    attrVertex("vertex")
+    attrVertex("vertex", buf),
+    vao(attrVertex)
   {}
 
   void init() {
-    ShaderAttrib::init(attrVertex);
-    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+    ShaderBuffer::init(buf);
+    buf.allocate<GL_STREAM_DRAW>(std::vector<float>{
       -1,-1, 1,-1, 1,1,
       1,1, -1,1, -1,-1,
     });
 
-    gl::VertexArray::init(vao);
-    gl::VertexArray::bind(vao);
+    VertexArray::init(vao);
     vao.enable(attrVertex);
-    vao.set_access(attrVertex, 0, 0);
-    gl::VertexArray::unbind();
-    ShaderProgram::init(program, vao, {"attrVertex"});
+    vao.set_access(attrVertex, 0);
+    ShaderProgram::init(program, vao);
     uTransform.set_id(program.id());
   }
 
@@ -57,9 +61,9 @@ struct Shadow {
       transform.has_changed = false;
     }
 
-    gl::VertexArray::bind(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
-    gl::VertexArray::unbind();
+    VertexArray::bind(vao);
+    VertexArray::draw<GL_TRIANGLES>(vao);
+    VertexArray::unbind();
 
     ShaderProgram::unuse();
 
@@ -68,7 +72,8 @@ struct Shadow {
 
   void clear() {
     ShaderAttrib::clear(attrVertex);
-    gl::VertexArray::clear(vao);
+    ShaderBuffer::clear(buf);
+    VertexArray::clear(vao);
     ShaderProgram::clear(program);
   }
 };

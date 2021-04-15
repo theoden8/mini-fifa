@@ -6,9 +6,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "incgraphics.h"
-#include "Debug.hpp"
-#include "Logger.hpp"
+#include <incgraphics.h>
+#include <Debug.hpp>
+#include <Logger.hpp>
 
 namespace gl {
 enum class UniformType {
@@ -20,21 +20,23 @@ enum class UniformType {
 
 #define using_sc static constexpr GLenum
 template <UniformType U> struct u_cast_type { using type = void; };
-template <> struct u_cast_type <UniformType::INTEGER> { using type = GLint; using_sc gltype = GL_INT; };
-template <> struct u_cast_type <UniformType::FLOAT> { using type = GLfloat; using_sc gltype = GL_FLOAT; };
-template <> struct u_cast_type <UniformType::VEC2> { using type = glm::vec2; using_sc gltype = GL_FLOAT_VEC2; };
-template <> struct u_cast_type <UniformType::VEC3> { using type = glm::vec3; using_sc gltype = GL_FLOAT_VEC3; };
-template <> struct u_cast_type <UniformType::VEC4> { using type = glm::vec4; using_sc gltype = GL_FLOAT_VEC4; };
-template <> struct u_cast_type <UniformType::MAT2> { using type = glm::mat2; using_sc gltype = GL_FLOAT_MAT2; };
-template <> struct u_cast_type <UniformType::MAT3> { using type = glm::mat3; using_sc gltype = GL_FLOAT_MAT3; };
-template <> struct u_cast_type <UniformType::MAT4> { using type = glm::mat4; using_sc gltype = GL_FLOAT_MAT4; };
-template <> struct u_cast_type <UniformType::SAMPLER2D> { using type = GLuint; using_sc gltype = GL_SAMPLER_2D; };
+template <> struct u_cast_type <UniformType::INTEGER> {   using type = GLint;      using vtype = int;   using_sc gltype = GL_INT; };
+template <> struct u_cast_type <UniformType::FLOAT> {     using type = GLfloat;    using vtype = float; using_sc gltype = GL_FLOAT; };
+template <> struct u_cast_type <UniformType::VEC2> {      using type = glm::vec2;  using vtype = float; using_sc gltype = GL_FLOAT_VEC2; };
+template <> struct u_cast_type <UniformType::VEC3> {      using type = glm::vec3;  using vtype = float; using_sc gltype = GL_FLOAT_VEC3; };
+template <> struct u_cast_type <UniformType::VEC4> {      using type = glm::vec4;  using vtype = float; using_sc gltype = GL_FLOAT_VEC4; };
+template <> struct u_cast_type <UniformType::MAT2> {      using type = glm::mat2;  using vtype = float; using_sc gltype = GL_FLOAT_MAT2; };
+template <> struct u_cast_type <UniformType::MAT3> {      using type = glm::mat3;  using vtype = float; using_sc gltype = GL_FLOAT_MAT3; };
+template <> struct u_cast_type <UniformType::MAT4> {      using type = glm::mat4;  using vtype = float; using_sc gltype = GL_FLOAT_MAT4; };
+template <> struct u_cast_type <UniformType::SAMPLER2D> { using type = GLuint;     using vtype = int;   using_sc gltype = GL_SAMPLER_2D; };
 #undef using_sc
 
 template <UniformType U>
 struct Uniform {
   using type = typename u_cast_type<U>::type;
+  using vtype = typename u_cast_type<U>::vtype;
   static constexpr GLenum gltype = u_cast_type<U>::gltype;
+  static constexpr size_t element_size = sizeof(type) / sizeof(vtype);
   using dtype = std::conditional_t<
     std::is_fundamental<type>::value,
       std::remove_reference_t<type>,
@@ -44,7 +46,10 @@ struct Uniform {
   GLuint uniformId = 0;
   GLuint progId = 0;
   std::string location;
-  Uniform(std::string loc):
+  Uniform(std::string &loc):
+    location(loc)
+  {}
+  Uniform(std::string &&loc):
     location(loc)
   {}
   GLuint id() const {
@@ -79,6 +84,7 @@ struct Uniform {
     progId = 0;
   }
   void set_data(dtype data);
+  void set_data(std::vector<vtype> &data);
 };
 
 #define CHECK_PROGRAM_ID \
@@ -111,6 +117,12 @@ void gl::Uniform<gl::UniformType::VEC3>::set_data(Uniform<gl::UniformType::VEC3>
 }
 
 template <>
+void gl::Uniform<gl::UniformType::VEC3>::set_data(std::vector<Uniform<gl::UniformType::VEC3>::vtype> &data) {
+  CHECK_PROGRAM_ID;
+  glUniform3fv(uniformId, data.size() / element_size, data.data()); GLERROR
+}
+
+template <>
 void Uniform<UniformType::VEC4>::set_data(Uniform<UniformType::VEC4>::dtype data) {
   CHECK_PROGRAM_ID;
   glUniform4f(uniformId, data.x, data.y, data.z, data.t); GLERROR
@@ -137,7 +149,7 @@ void Uniform<UniformType::MAT4>::set_data(Uniform<UniformType::MAT4>::dtype data
 template <>
 void Uniform<UniformType::SAMPLER2D>::set_data(Uniform<UniformType::SAMPLER2D>::dtype data) {
   CHECK_PROGRAM_ID;
-  glUniform1iARB(uniformId, data); GLERROR
+  glUniform1i(uniformId, data); GLERROR
 }
 
 #undef CHECK_PROGRAM_ID

@@ -20,17 +20,21 @@ struct PitchObject {
     gl::FragmentShader
   > program;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
-  gl::VertexArray vao;
-  gl::Attrib<GL_ARRAY_BUFFER, gl::AttribType::VEC2> attrVertex;
+  gl::Buffer<GL_ARRAY_BUFFER, gl::BufferElementType::VEC2> buf;
+  gl::Attrib<decltype(buf)> attrVertex;
+  gl::VertexArray<decltype(attrVertex)> vao;
   gl::Texture grassTx;
 
+  using ShaderBuffer = decltype(buf);
   using ShaderAttrib = decltype(attrVertex);
+  using VertexArray = decltype(vao);
   using ShaderProgram = decltype(program);
 
   PitchObject():
     program({"shaders/pitch.vert", "shaders/pitch.frag"}),
     uTransform("transform"),
-    attrVertex("vertex"),
+    attrVertex("vertex", buf),
+    vao(attrVertex),
     grassTx("grass")
   {
     transform.SetScale(2, 1, 1);
@@ -39,20 +43,19 @@ struct PitchObject {
   }
 
   void init() {
-    ShaderAttrib::init(attrVertex);
-    attrVertex.allocate<GL_STREAM_DRAW>(6, std::vector<float>{
+    ShaderBuffer::init(buf);
+    buf.allocate<GL_STREAM_DRAW>(std::vector<float>{
       1,1, -1,1, -1,-1,
       -1,-1, 1,-1, 1,1,
     });
 
-    gl::VertexArray::init(vao);
-    gl::VertexArray::bind(vao);
+    VertexArray::init(vao);
+    attrVertex.select_buffer(buf);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0, 0);
-    gl::VertexArray::unbind();
-    ShaderProgram::init(program, vao, {"attrVertex"});
-    grassTx.init("assets/grass.png");
+    ShaderProgram::init(program, vao);
 
+    grassTx.init("assets/grass.png");
     grassTx.uSampler.set_id(program.id());
     uTransform.set_id(program.id());
   }
@@ -85,9 +88,7 @@ struct PitchObject {
     grassTx.bind();
     grassTx.set_data(0);
 
-    gl::VertexArray::bind(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 6); GLERROR
-    gl::VertexArray::unbind();
+    VertexArray::draw<GL_TRIANGLES>(vao);
 
     gl::Texture::unbind();
     ShaderProgram::unuse();
@@ -96,7 +97,8 @@ struct PitchObject {
   void clear() {
     grassTx.clear();
     ShaderAttrib::clear(attrVertex);
-    gl::VertexArray::clear(vao);
+    ShaderBuffer::clear(buf);
+    VertexArray::clear(vao);
     ShaderProgram::clear(program);
   }
 };
