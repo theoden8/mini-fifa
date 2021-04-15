@@ -9,6 +9,7 @@
 #include "ShaderProgram.hpp"
 #include "ShaderAttrib.hpp"
 #include "Texture.hpp"
+#include "StrConst.hpp"
 
 
 struct ModelVertex {
@@ -22,7 +23,7 @@ struct ModelVertex {
 struct ModelTexture {
   GLuint id;
   std::string type;
-  std::string path;
+  std::string texture_path;
 };
 
 struct Mesh {

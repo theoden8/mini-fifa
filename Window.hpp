@@ -52,9 +52,9 @@ protected:
 
     vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
     ASSERT(vidmode != nullptr);
-    width_ = 1200, height_ = 720;
-    /* width_ = vidmode->width; */
-    /* height_ = vidmode->height; */
+//    width_ = 1200, height_ = 720;
+    width_ = vidmode->width;
+    height_ = vidmode->height - 100;
 
     /* glfwWindowHint(GLFW_SAMPLES, 4); */
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
