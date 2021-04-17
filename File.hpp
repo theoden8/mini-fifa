@@ -8,6 +8,8 @@
 #include <vector>
 #include <fstream>
 
+#include <StrConst.hpp>
+
 #if __unix__ || __linux__ || __APPLE__
 #include <unistd.h>
 #include <sys/stat.h>
@@ -15,9 +17,22 @@
 #else
 #include <io.h>
 #include <windows.h>
+#include <direct.h>
 #endif
 
 namespace sys {
+
+std::string get_current_dir() {
+#if defined(_POSIX_VERSION)
+  char buf[PATH_MAX + 1];
+  getcwd(buf, PATH_MAX);
+#else
+  char buf[MAX_PATH + 1];
+  _getcwd(buf, MAX_PATH);
+#endif
+  std::string s = buf;
+  return s;
+}
 
 namespace HACK {
   void rename_file(const char *a, const char *b) {
@@ -51,6 +66,10 @@ struct Path {
 #endif
 
   inline operator std::string() const noexcept {
+    return p;
+  }
+
+  inline std::string str() const noexcept {
     return p;
   }
 

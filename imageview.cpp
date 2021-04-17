@@ -47,7 +47,10 @@ protected:
   }
 public:
   GLFWwindow *window = nullptr;
-  ImageViewer(): width_(0), height_(0) {}
+  ImageViewer(const std::string &dir):
+    button(dir),
+    width_(0), height_(0)
+  {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }
   void run() {
@@ -75,9 +78,11 @@ public:
 };
 
 int main(int argc, char *argv[]) {
-  Logger::Setup("imageview.log");
+  std::string execdir = sys::get_executable_directory(argc, argv);
+  Logger::Setup();
+  Logger::SetLogOutput(sys::Path(execdir) / sys::Path("imageview.log"));
   Logger::MirrorLog(stderr);
-  ImageViewer imview;
+  ImageViewer imview(execdir);
   imview.run();
   Logger::Close();
 }

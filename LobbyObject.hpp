@@ -17,7 +17,11 @@ struct LobbyObject {
   ui::Button<infobarR_texture, btn_font> infobarR;
   ui::Button<infobarB_texture, btn_font> infobarB;
 
-  LobbyObject()
+  LobbyObject(const std::string &dir):
+    exit_button(dir),
+    start_button(dir),
+    infobarR(dir),
+    infobarB(dir)
   {}
 
   bool is_active() {

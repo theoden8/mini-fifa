@@ -10,14 +10,17 @@ struct ClientObject {
   ui::CursorObject cursor;
   Client &client;
 
+  std::string dir;
+
   GameObject *gObject = nullptr;
   LobbyObject lObject;
   MetaServerObject mObject;
 
-  ClientObject(Client &client):
-    client(client),
-    mObject(client.mclient),
-    lObject()
+  ClientObject(Client &client, const std::string &dir):
+    cursor(dir),
+    client(client), dir(dir),
+    mObject(client.mclient, dir),
+    lObject(dir)
   {}
 
   void init() {
@@ -86,7 +89,7 @@ struct ClientObject {
     lObject.lobbyActor = client.l_actor;
     // set gObject
     if(gObject == nullptr && client.is_active_game()) {
-      gObject = new GameObject(*client.soccer, *client.intelligence, cursor);
+      gObject = new GameObject(*client.soccer, *client.intelligence, cursor, dir);
       gObject->init();
     } else if(gObject != nullptr && !client.is_active_game()) {
       gObject->clear();

@@ -10,6 +10,7 @@
 
 namespace ui {
 struct CursorObject {
+  std::string dir;
   Transformation transform;
 
   enum class State {
@@ -35,11 +36,15 @@ struct CursorObject {
 
   State state = State::POINTER;
 
-  CursorObject():
+  CursorObject(const std::string &dir):
+    dir(dir),
     uTransform("transform"),
     pointerTx("cursorTx"),
     selectorTx("cursorTx"),
-    program({"shaders/cursor.vert", "shaders/cursor.frag"}),
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("cursor.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("cursor.frag"s)
+    }),
     attrVertex("vertex", buf),
     vao(attrVertex)
   {
@@ -60,8 +65,8 @@ struct CursorObject {
     vao.set_access(attrVertex, 0, 0);
 
     ShaderProgram::init(program, vao);
-    pointerTx.init("assets/pointer.png");
-    selectorTx.init("assets/selector.png");
+    pointerTx.init(sys::Path(dir) / sys::Path("assets"s) / sys::Path("pointer.png"s));
+    selectorTx.init(sys::Path(dir) / sys::Path("assets"s) / sys::Path("selector.png"s));
     pointerTx.uSampler.set_id(program.id());
     selectorTx.uSampler.set_id(program.id());
     uTransform.set_id(program.id());

@@ -24,9 +24,9 @@ struct Font {
     {}
   };
   std::map<GLchar, Character> alphabet;
-  const char *filename;
+  std::string filename;
 
-  Font(const char *filename):
+  Font(const std::string &filename):
     filename(filename)
   {}
 
@@ -38,7 +38,7 @@ struct Font {
 
   void init() {
     ASSERT(initialized);
-    int rc = FT_New_Face(ft, filename, 0, &face);
+    int rc = FT_New_Face(ft, filename.c_str(), 0, &face);
     ASSERT(!rc);
     FT_Set_Pixel_Sizes(face, 0, 48);
 
@@ -54,7 +54,7 @@ struct Font {
       ASSERT(alphabet.find(c) != std::end(alphabet));
       alphabet.at(c).tex.init(&face->glyph);
     }
-    Logger::Info("Initialized font from file %s\n", filename);
+    Logger::Info("Initialized font from file %s\n", filename.c_str());
   }
 
   void clear() {

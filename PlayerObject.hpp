@@ -11,6 +11,8 @@
 #include "File.hpp"
 
 struct PlayerObject {
+  std::string dir;
+
   glm::mat4 matrix;
   glm::mat4 extra_rotate;
   Transformation transform;
@@ -28,11 +30,16 @@ struct PlayerObject {
 
   using ShaderProgram = decltype(program);
 
-  PlayerObject():
+  PlayerObject(const std::string &dir):
+    dir(dir),
     uTransform("transform"),
-    playerModelRed(Sprite<Model, RedPlayer>::create("assets/ninja/ninja.3ds"s)),
-    playerModelBlue(Sprite<Model, BluePlayer>::create("assets/ninja/ninja.3ds"s)),
-    program({"shaders/player.vert"s, "shaders/player.frag"s})
+    playerModelRed(Sprite<Model, RedPlayer>::create(sys::Path(dir) / sys::Path("assets"s) / sys::Path("ninja"s) / sys::Path("ninja.3ds"s))),
+    playerModelBlue(Sprite<Model, BluePlayer>::create(sys::Path(dir) / sys::Path("assets"s) / sys::Path("ninja"s) / sys::Path("ninja.3ds"s))),
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("player.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("player.frag"s)
+    }),
+    shadow(dir)
   {
     transform.SetScale(.01, .006, .01);
     transform.SetPosition(0, 0, 0);
@@ -46,11 +53,17 @@ struct PlayerObject {
   void init() {
     program.compile_program();
     if(!playerModelRed->initialized) {
-      sys::HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
+      sys::HACK::swap_files(
+        sys::Path(dir) / sys::Path("assets"s) / sys::Path("ninja"s) / sys::Path("nskinbl.jpg"s),
+        sys::Path(dir) / sys::Path("assets"s) / sys::Path("ninja"s) / sys::Path("nskinrd.jpg"s)
+      );
     }
     playerModelRed->init();
     if(!playerModelBlue->initialized) {
-      sys::HACK::swap_files("assets/ninja/nskinbl.jpg"s, "assets/ninja/nskinrd.jpg"s);
+      sys::HACK::swap_files(
+        sys::Path(dir) / sys::Path("assets"s) / sys::Path("ninja"s) / sys::Path("nskinbl.jpg"s),
+        sys::Path(dir) / sys::Path("assets"s) / sys::Path("ninja"s) / sys::Path("nskinrd.jpg"s)
+      );
     }
     playerModelBlue->init();
     uTransform.set_id(program.id());

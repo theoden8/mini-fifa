@@ -9,7 +9,9 @@ struct PostObject {
   glm::mat4 extra_rotate;
   Transformation transform;
 
-  Model postModel;
+  class PostModel;
+  Sprite<Model, PostModel> *postModelSprite;
+  Model &postModel;
   gl::Uniform<gl::UniformType::MAT4> uTransform;
   gl::ShaderProgram<
     gl::VertexShader,
@@ -19,11 +21,15 @@ struct PostObject {
   using ShaderProgram = decltype(program);
 
   bool team;
-  PostObject(bool team):
+  PostObject(bool team, const std::string &dir):
     team(team),
     uTransform("transform"),
-    postModel("assets/woodswing/woodswing.obj"),
-    program({"shaders/post.vert", "shaders/post.frag"})
+    postModelSprite(Sprite<Model, PostModel>::create(sys::Path(dir) / sys::Path("assets"s) / sys::Path("woodswing/woodswing.obj"s))),
+    postModel(postModelSprite->object),
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("post.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("post.frag"s)
+    })
   {
     transform.SetScale(.033);
     transform.SetPosition(team ? -1.82 : 1.82, .0, 0);
@@ -35,7 +41,7 @@ struct PostObject {
 
   void init() {
     ShaderProgram::compile_program(program);
-    postModel.init();
+    postModelSprite->init();
     uTransform.set_id(program.id());
   }
 
@@ -55,7 +61,7 @@ struct PostObject {
   }
 
   void clear() {
-    postModel.clear();
+    postModelSprite->clear();
     program.clear();
   }
 };

@@ -20,8 +20,11 @@ struct MetaServerObject {
   C_STRING(texture_name, "assets/button.png");
   ui::Button<texture_name, font_name> button;
 
-  MetaServerObject(MetaServerClient &mclient):
-    mclient(mclient)
+  MetaServerObject(MetaServerClient &mclient, const std::string &dir):
+    mclient(mclient),
+    host_button(dir),
+    exit_button(dir),
+    button(dir)
   {}
 
   bool is_active() {

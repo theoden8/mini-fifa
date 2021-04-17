@@ -23,9 +23,12 @@ struct BackgroundObject {
   using ShaderAttrib = decltype(attrVertex);
   using VertexArray = decltype(vao);
 
-  BackgroundObject():
-    program({"shaders/bg.vert", "shaders/bg.frag"}),
-    attrVertex("vertex", buf),
+  BackgroundObject(const std::string &dir):
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("bg.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("bg.frag"s)
+    }),
+    attrVertex("vertex"s, buf),
     vao(attrVertex)
   {}
 

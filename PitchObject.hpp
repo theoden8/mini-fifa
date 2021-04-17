@@ -12,6 +12,7 @@
 #include "Texture.hpp"
 
 struct PitchObject {
+  std::string dir;
   Transformation transform;
   glm::mat4 matrix;
 
@@ -30,8 +31,12 @@ struct PitchObject {
   using VertexArray = decltype(vao);
   using ShaderProgram = decltype(program);
 
-  PitchObject():
-    program({"shaders/pitch.vert", "shaders/pitch.frag"}),
+  PitchObject(const std::string &dir):
+    dir(dir),
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("pitch.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("pitch.frag"s)
+    }),
     uTransform("transform"),
     attrVertex("vertex", buf),
     vao(attrVertex),
@@ -55,7 +60,7 @@ struct PitchObject {
     vao.set_access(attrVertex, 0, 0);
     ShaderProgram::init(program, vao);
 
-    grassTx.init("assets/grass.png");
+    grassTx.init(sys::Path(dir) / sys::Path("assets"s) / sys::Path("grass.png"s));
     grassTx.uSampler.set_id(program.id());
     uTransform.set_id(program.id());
   }

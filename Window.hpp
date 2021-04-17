@@ -39,6 +39,7 @@ protected:
   };
   glm::vec2 cursor_pos{0, 0};
   ClientObject cObject;
+  std::string dir;
 
   void start() {
     init_glfw();
@@ -83,9 +84,9 @@ protected:
   const GLFWvidmode *vidmode = nullptr;
 public:
   GLFWwindow *window = nullptr;
-  Window(Client &client):
+  Window(Client &client, const std::string &dir):
     width_(0), height_(0),
-    cObject(client)
+    cObject(client, dir)
   {}
   size_t width() const { return width_; }
   size_t height() const { return height_; }

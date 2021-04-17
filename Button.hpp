@@ -18,9 +18,13 @@
 namespace ui {
 template <typename BUTTON_FILENAME, typename FONT_FILENAME>
 struct Button {
+  std::string dir;
+
   // workaround for "error: cannot compile this scalar expression yet" from clang
-  const std::string btnquadf = "shaders/btn_quad.frag";
-  const std::string btntextf = "shaders/btn_text.frag";
+  const std::string btnquadv = sys::Path("shaders"s) / sys::Path("btn_quad.vert"s);
+  const std::string btntextv = sys::Path("shaders"s) / sys::Path("btn_text.vert"s);
+  const std::string btnquadf = sys::Path("shaders"s) / sys::Path("btn_quad.frag"s);
+  const std::string btntextf = sys::Path("shaders"s) / sys::Path("btn_text.frag"s);
 
   using self_t = Button<BUTTON_FILENAME, FONT_FILENAME>;
   Sprite<ui::Font, self_t> *font;
@@ -51,13 +55,20 @@ struct Button {
   using ShaderProgramText = decltype(textProgram);
   using VertexArray = decltype(vao);
 
-  Button(Region region=Region(glm::vec2(-1,1), glm::vec2(-1,1))):
-    font(Sprite<ui::Font, self_t>::create(FONT_FILENAME::c_str)),
+  Button(const std::string &dir, Region region=Region(glm::vec2(-1,1), glm::vec2(-1,1))):
+    dir(dir),
+    font(Sprite<ui::Font, self_t>::create(sys::Path(dir) / sys::Path(FONT_FILENAME::c_str))),
     label(font->object),
     btnTx("btn"),
     uState("state"),
-    quadProgram({"shaders/btn_quad.vert"s, btnquadf}),
-    textProgram({"shaders/btn_text.vert"s, btntextf}),
+    quadProgram({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("btn_quad.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("btn_quad.frag"s),
+    }),
+    textProgram({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("btn_text.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("btn_text.frag"s),
+    }),
     attrVertex("vertex", buf),
     vao(attrVertex),
     region(region)
@@ -79,7 +90,7 @@ struct Button {
 
     font->init();
     label.init(textProgram);
-    btnTx.init(BUTTON_FILENAME::c_str);
+    btnTx.init(sys::Path(dir) / sys::Path(BUTTON_FILENAME::c_str));
     btnTx.uSampler.set_id(quadProgram.id());
     uState.set_id(quadProgram.id());
   }

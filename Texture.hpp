@@ -50,7 +50,7 @@ struct Texture {
     delete [] image;
   }
 
-  void init(std::string filename) {
+  void init(const std::string &filename) {
     /* init(); return; */
     /* long c=clock(); */
     Logger::Info("Loading texture '%s'\n", filename.c_str());

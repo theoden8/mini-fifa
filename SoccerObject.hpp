@@ -19,26 +19,32 @@ struct SoccerObject {
   Soccer &soccer;
   Intelligence<IntelligenceType::ABSTRACT> &intelligence;
 
-  std::vector<PlayerObject> playerObjs;
+  std::vector<PlayerObject *> playerObjs;
   PitchObject pitchObj;
   PostObject postObjRed, postObjBlue;
   BallObject ballObj;
 
-  SoccerObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence):
+  SoccerObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, const std::string &dir):
     soccer(soccer),
     intelligence(intelligence),
-    playerObjs(soccer.team1.size() + soccer.team2.size()),
-    postObjRed(Soccer::Team::RED_TEAM),
-    postObjBlue(Soccer::Team::BLUE_TEAM)
-  {}
+    playerObjs(soccer.team1.size() + soccer.team2.size(), nullptr),
+    pitchObj(dir),
+    postObjRed(Soccer::Team::RED_TEAM, dir),
+    postObjBlue(Soccer::Team::BLUE_TEAM, dir),
+    ballObj(dir)
+  {
+    for(size_t i = 0; i < playerObjs.size(); ++i) {
+      playerObjs[i] = new PlayerObject(dir);
+    }
+  }
 
   void init() {
     pitchObj.init();
     postObjRed.init();
     postObjBlue.init();
     ballObj.init();
-    for(auto &p : playerObjs) {
-      p.init();
+    for(PlayerObject *p : playerObjs) {
+      p->init();
     }
   }
 
@@ -151,13 +157,14 @@ struct SoccerObject {
       }
     }
     for(auto &ind: indices) {
-      playerObjs[ind].display(soccer.get_player(ind), cam);
+      playerObjs[ind]->display(soccer.get_player(ind), cam);
     }
   }
 
   void clear() {
-    for(auto &p: playerObjs) {
-      p.clear();
+    for(PlayerObject *p : playerObjs) {
+      p->clear();
+      delete p;
     }
     ballObj.clear();
     postObjRed.clear();

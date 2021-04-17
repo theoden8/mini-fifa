@@ -29,11 +29,11 @@ struct Attrib <gl::Buffer<BufferT, ElementT>> {
   ShaderBuffer *buf = nullptr;
 
   Attrib(){}
-  Attrib(std::string loc):
+  Attrib(const std::string &loc):
     location(loc)
   {}
 
-  Attrib(std::string loc, ShaderBuffer &shaderbuffer):
+  Attrib(const std::string &loc, ShaderBuffer &shaderbuffer):
     location(loc)
   {
     select_buffer(shaderbuffer);

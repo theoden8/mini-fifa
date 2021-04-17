@@ -10,6 +10,8 @@
 #include "Shadow.hpp"
 
 struct BallObject {
+  std::string dir;
+
   static constexpr size_t DIM = 10; // number of steps per dimension to perform for tessellation
   static constexpr size_t SIZE = DIM*DIM*4; // number of triangles used in tessellation
   float deg = 0;
@@ -38,14 +40,19 @@ struct BallObject {
   using VertexArray = decltype(vao);
   using ShaderProgram = decltype(program);
 
-  BallObject():
+  BallObject(const std::string &dir):
+    dir(dir),
     uTransform("transform"),
     uColor("color"),
-    program({"shaders/ball.vert"s, "shaders/ball.frag"s}),
-    ballTx("ballTx"),
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("ball.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("ball.frag"s)
+    }),
     attrVertex("vpos", bufVertex),
     attrTexcoord("vtex", bufTexcoord),
-    vao(attrVertex, attrTexcoord)
+    vao(attrVertex, attrTexcoord),
+    ballTx("ballTx"),
+    shadow(dir)
   {
     transform.SetScale(.01, .01, .01);
     transform.SetPosition(0, 0, 0);
@@ -135,7 +142,7 @@ struct BallObject {
     vao.set_divisor(attrTexcoord, 0);
 
     ShaderProgram::init(program, vao);
-    ballTx.init("assets/ball.png");
+    ballTx.init(sys::Path(dir) / sys::Path("assets"s) / sys::Path("ball.png"s));
 
     ballTx.uSampler.set_id(program.id());
     uTransform.set_id(program.id());

@@ -26,13 +26,17 @@ struct Shadow {
   using ShaderProgram = decltype(program);
   using VertexArray = decltype(vao);
 
-  Shadow():
+  Shadow(const std::string &dir):
     transform(),
-    program({"shaders/shadow.vert", "shaders/shadow.frag"}),
+    program({
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("shadow.vert"s),
+      sys::Path(dir) / sys::Path("shaders"s) / sys::Path("shadow.frag"s)
+    }),
     uTransform("transform"),
-    attrVertex("vertex", buf),
+    attrVertex("vertex"s, buf),
     vao(attrVertex)
-  {}
+  {
+  }
 
   void init() {
     ShaderBuffer::init(buf);
@@ -44,6 +48,7 @@ struct Shadow {
     VertexArray::init(vao);
     vao.enable(attrVertex);
     vao.set_access(attrVertex, 0);
+
     ShaderProgram::init(program, vao);
     uTransform.set_id(program.id());
   }

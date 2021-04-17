@@ -19,9 +19,9 @@ struct GameObject {
 
   Timer::time_t current_time = 0.;
 
-  GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, ui::CursorObject &cursor):
-    backgrObj(),
-    soccerObject(soccer, intelligence),
+  GameObject(Soccer &soccer, Intelligence<IntelligenceType::ABSTRACT> &intelligence, ui::CursorObject &cursor, const std::string &dir):
+    backgrObj(dir),
+    soccerObject(soccer, intelligence, dir),
     cursor(cursor)
   {}
 
