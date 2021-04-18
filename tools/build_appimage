@@ -1,0 +1,30 @@
+#!/bin/bash
+
+[ -z "$APPIMAGETOOL" ] && {
+  >&2 echo "error: APPIMAGETOOL is not defined"
+  exit 1
+}
+
+[ -d build_appimage ] && {
+  rm -rvf build_appimage
+}
+mkdir build_appimage
+cd build_appimage || {
+  >&2 echo "error: failed to change directory"
+  exit 1
+}
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/usr || {
+  >&2 echo "error running cmake"
+}
+make -j4
+
+# manually create appdir
+mkdir -p AppDir/usr/bin
+cp -v resources/mini-football.desktop AppDir/mini-football.desktop
+cp -v resources/mini-football.png AppDir/mini-football.png
+cp -v minififa AppDir/usr/bin/
+cp -rv assets AppDir/usr/bin/assets
+cp -rv shaders AppDir/usr/bin/shaders
+wget https://github.com/AppImage/AppImageKit/releases/download/12/AppRun-$(arch) -O AppDir/AppRun
+chmod +x AppDir/AppRun
+$APPIMAGETOOL ./AppDir
