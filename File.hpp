@@ -34,21 +34,6 @@ std::string get_current_dir() {
   return s;
 }
 
-namespace HACK {
-  void rename_file(const char *a, const char *b) {
-    int err = rename(a, b);
-    if(err)perror( "Error renaming file");
-  }
-
-  static void swap_files(std::string a, std::string b) {
-    assert(a != b);
-    const char *TMP = "dahfsjkgdhjsfgshjkgfdhjgfwfghjfhdgjsvfh";
-    rename_file(a.c_str(), TMP);
-    rename_file(b.c_str(), a.c_str());
-    rename_file(TMP, b.c_str());
-  }
-} // namespace HACK
-
 struct Path {
   const std::string p;
   inline explicit Path(const std::string &&p):
@@ -81,7 +66,31 @@ struct Path {
     }
     return Path(s + separator + ss);
   }
+
+  inline std::string dirname() const noexcept {
+    size_t last_sep = str().rfind(separator);
+    return str().substr(0, last_sep);
+  }
+
+  Path directory() const noexcept {
+    return Path(dirname());
+  }
 };
+
+namespace HACK {
+  void rename_file(const char *a, const char *b) {
+    int err = rename(a, b);
+    if(err)perror( "Error renaming file");
+  }
+
+  static void swap_files(std::string a, std::string b) {
+    assert(a != b);
+    const std::string TMP = sys::Path(a).directory() / sys::Path("dahfsjkgdhjsfgshjkgfdhjgfwfghjfhdgjsvfh"s);
+    rename_file(a.c_str(), TMP.c_str());
+    rename_file(b.c_str(), a.c_str());
+    rename_file(TMP.c_str(), b.c_str());
+  }
+} // namespace HACK
 
 std::string get_executable_directory(int argc, char *argv[]) {
 #ifdef __linux__

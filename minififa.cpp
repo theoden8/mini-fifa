@@ -7,6 +7,9 @@ int main(int argc, char *argv[]) {
   Logger::SetLogOutput(sys::Path(execdir) / sys::Path("minififa.log"));
   Logger::MirrorLog(stdout);
   Logger::Info("dir '%s'\n", execdir.c_str());
+  const std::string curdir = sys::get_current_dir();
+  Logger::Info("curdir '%s'\n", curdir.c_str());
+  Logger::Info("execdir '%s'\n", execdir.c_str());
   net::port_t port = (argc == 2) ? atoi(argv[1]) : 5679;
   std::set<net::Addr> metaservers;
   /* metaservers.insert(net::Addr(net::ipv4_from_ints(127, 0, 0, 1), net::port_t(5677))); */

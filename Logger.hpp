@@ -27,7 +27,11 @@ class Logger {
     #ifndef NDEBUG
       sys::File::truncate(filename);
       FILE *fp = fopen(filename, "w");
-      AddOutputFile(fp);
+      if(fp != nullptr) {
+        AddOutputFile(fp);
+      } else {
+        fprintf(stderr, "error: unable to open log file '%s'\n", filename);
+      }
     #endif
   }
 
