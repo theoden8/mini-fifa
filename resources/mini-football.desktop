@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=mini-football
+Type=Application
+Terminal=false
+Exec=minififa
+Icon=mini-football
+Categories=Game;
